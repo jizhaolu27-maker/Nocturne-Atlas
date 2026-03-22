@@ -207,6 +207,25 @@ function summarizeText(text, maxLength = 180) {
   return `${head.trim()}...`;
 }
 
+function tryParseJsonObject(value) {
+  if (!value || typeof value !== "string") {
+    return null;
+  }
+  try {
+    return JSON.parse(value);
+  } catch {
+    const match = value.match(/\{[\s\S]*\}/);
+    if (!match) {
+      return null;
+    }
+    try {
+      return JSON.parse(match[0]);
+    } catch {
+      return null;
+    }
+  }
+}
+
 function parseBody(req) {
   return new Promise((resolve, reject) => {
     let raw = "";

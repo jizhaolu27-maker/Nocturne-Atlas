@@ -4,6 +4,7 @@
   "private": true,
   "description": "Local AI story generator with memory workspace and OpenAI-compatible provider support.",
   "scripts": {
-    "start": "node server.js"
+    "start": "node server.js",
+    "test": "node test/smoke.js"
   }
 }

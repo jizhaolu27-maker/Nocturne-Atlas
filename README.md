@@ -45,12 +45,21 @@ With **Nocturne Atlas**, you can:
 ## Project Structure
 
 ```text
-server.js                         API routes, provider calls, storage, memory/proposal pipeline
-public/index.html                Main browser UI
-public/styles.css                Styling and layout
-public/app.js                    Frontend state, rendering, and actions
-data/library/*                   Source library assets
-data/stories/<storyId>/*         Per-story local workspace, messages, memory, proposals, snapshots
+server.js                         API routes, provider calls, and high-level orchestration
+lib/providers.js                  Provider encryption, connection tests, and OpenAI-compatible request helpers
+lib/story-store.js                Story/library/config storage helpers and JSON/JSONL file access
+lib/workspace.js                  Story workspace copy, sync, and active workspace loading helpers
+lib/context.js                    Context block assembly, pressure classification, default context status helpers
+lib/chat.js                       Chat context building, chat turn finalization, streaming, and revise-last helpers
+lib/memory.js                     Memory orchestration, summary triggers, fallback summaries, forgetfulness checks
+lib/memory-engine.js              Memory retrieval scoring and prompt formatting helpers
+lib/memory-consolidation.js       Long-term memory consolidation helpers
+lib/proposals.js                  Proposal triggers, proposal generation, pipeline state, application helpers
+public/index.html                 Main browser UI
+public/styles.css                 Styling and layout
+public/app.js                     Frontend state, rendering, and actions
+data/library/*                    Source library assets
+data/stories/<storyId>/*          Per-story local workspace, messages, memory, proposals, snapshots
 ```
 
 ## Data Model
@@ -87,6 +96,30 @@ Open:
 ```text
 http://localhost:3000
 ```
+
+### Test
+
+Run the local smoke tests:
+
+```bash
+node test/smoke.js
+```
+
+Or use the package script:
+
+```bash
+npm test
+```
+
+The smoke script stays zero-dependency and covers the refactored story-store, workspace, context, memory, and proposal flows.
+
+Current smoke coverage:
+
+- `story-store`: story creation plus initial workspace sync for enabled library assets
+- `workspace`: active workspace loading after story-local copies are created
+- `context`: system/workspace/memory/history block assembly
+- `memory`: summary schedule calculation and transcript-free fallback summary generation
+- `proposals`: accepting a create-character proposal into workspace data and story enablement
 
 ## Provider Support
 
@@ -137,6 +170,20 @@ The current memory flow is:
 7. Older long-term records of the same kind can be superseded so retrieval stays cleaner over time.
 
 This means **Nocturne Atlas** keeps memory explicit, inspectable, and local-first instead of hiding continuity inside opaque prompts.
+
+The runtime memory flow is now centralized in `lib/memory.js`, while retrieval scoring and consolidation live beside it in `lib/memory-engine.js` and `lib/memory-consolidation.js`.
+
+Proposal orchestration now lives in `lib/proposals.js`, so `server.js` mainly coordinates routes and high-level chat flow.
+
+Storage and path helpers now live in `lib/story-store.js`, which keeps JSON and JSONL access details out of the route layer.
+
+Provider encryption, connection tests, and chat-completion transport now live in `lib/providers.js`, which keeps provider-specific details out of `server.js`.
+
+Workspace copy/sync/loading now lives in `lib/workspace.js`, which keeps story-local workspace handling out of the route layer.
+
+Context block assembly and pressure/default-status helpers now live in `lib/context.js`, which keeps prompt-context shaping out of `server.js`.
+
+Chat context construction, turn finalization, streaming chat flow, and revise-last handling now live in `lib/chat.js`, which keeps story-chat runtime logic out of `server.js`.
 
 ## Notes
 

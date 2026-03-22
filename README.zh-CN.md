@@ -45,12 +45,21 @@
 ## 项目结构
 
 ```text
-server.js                         API、Provider 调用、存储、记忆/提案流水线
-public/index.html                主界面结构
-public/styles.css                样式与布局
-public/app.js                    前端状态、渲染与交互
-data/library/*                   源资料库
-data/stories/<storyId>/*         故事本地工作区、消息、记忆、提案、快照
+server.js                         API 路由、Provider 调用与高层编排
+lib/providers.js                  Provider 加密、连通性测试与 OpenAI-compatible 请求辅助
+lib/story-store.js                故事/资料库/配置存储辅助，以及 JSON/JSONL 文件读写
+lib/workspace.js                  故事工作区 copy、sync 与 active workspace 加载辅助
+lib/context.js                    context block 组装、pressure 分级与默认 context 状态辅助
+lib/chat.js                       聊天 context 构建、回合收尾、streaming 与 revise-last 辅助
+lib/memory.js                     记忆编排、摘要触发、fallback 摘要与 forgetfulness 检查
+lib/memory-engine.js              记忆召回评分与 prompt 格式化辅助
+lib/memory-consolidation.js       长期记忆合并辅助
+lib/proposals.js                  proposal 触发、生成、pipeline 状态与应用辅助
+public/index.html                 主界面结构
+public/styles.css                 样式与布局
+public/app.js                     前端状态、渲染与交互
+data/library/*                    源资料库资源
+data/stories/<storyId>/*          每个故事的本地工作区、消息、记忆、提案与快照
 ```
 
 ## 数据结构
@@ -87,6 +96,30 @@ node server.js
 ```text
 http://localhost:3000
 ```
+
+### 测试
+
+运行本地 smoke tests：
+
+```bash
+node test/smoke.js
+```
+
+也可以直接使用脚本：
+
+```bash
+npm test
+```
+
+这组 smoke tests 保持零依赖，主要覆盖拆分后的 story-store、workspace、context、memory 和 proposal 关键流程。
+
+当前 smoke tests 主要覆盖：
+
+- `story-store`：创建故事，以及已启用资料首次同步到 workspace
+- `workspace`：故事本地副本生成后的 active workspace 加载
+- `context`：system / workspace / memory / history block 组装
+- `memory`：摘要计划计算，以及不回退成原始 transcript 的 fallback 摘要生成
+- `proposals`：接受创建角色提案后，正确写入 workspace 并更新故事启用列表
 
 ## Provider 支持
 
@@ -137,6 +170,10 @@ Provider key 会保存在本地，并进行静态加密存储。
 7. 同类型的旧长期记忆还会被新的长期记忆 supersede，避免检索越来越脏。
 
 这套设计的重点是：让 **Nocturne Atlas** 的记忆是显式的、可检查的、保存在本地的，而不是藏在不可见的 prompt 拼接里。
+
+运行时的记忆主流程现在集中在 `lib/memory.js`，而召回评分与合并逻辑则继续放在 `lib/memory-engine.js` 和 `lib/memory-consolidation.js` 这样的 helper 模块里。
+
+聊天 context 构建、回合收尾、streaming 聊天流程，以及 revise-last 处理现在集中在 `lib/chat.js`，这样 `server.js` 就更偏向入口层的启动、装配和 route 编排。
 
 ## 说明
 

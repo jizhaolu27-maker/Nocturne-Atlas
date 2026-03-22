@@ -32,6 +32,8 @@ const CHARACTER_RELATIONSHIP_CHAR_LIMIT = 80;
 const CHARACTER_ARC_CHAR_LIMIT = 140;
 const CHARACTER_NOTES_CHAR_LIMIT = 120;
 const DEFAULT_MAX_COMPLETION_TOKENS = 120000;
+const DEFAULT_GLOBAL_SYSTEM_PROMPT =
+  "You are a collaborative fiction engine. Continue the story with consistency, emotional continuity, and scene-level specificity.";
 
 let workspaceTools = null;
 
@@ -276,6 +278,10 @@ function jsonResponse(status, data) {
   return { status, data };
 }
 
+function normalizeTheme(theme) {
+  return theme === "light" ? "light" : "dark";
+}
+
 function decodePathSegment(value) {
   try {
     return decodeURIComponent(String(value || ""));
@@ -289,6 +295,14 @@ function getProviderContextWindow(story) {
   return provider?.contextWindow || 32000;
 }
 
+function normalizeAppConfig(config = {}) {
+  return {
+    theme: normalizeTheme(config.theme),
+    lastOpenedStoryId: String(config.lastOpenedStoryId || ""),
+    globalSystemPrompt: String(config.globalSystemPrompt || DEFAULT_GLOBAL_SYSTEM_PROMPT),
+  };
+}
+
 const {
   handleChat,
   handleChatStream,
@@ -299,6 +313,7 @@ const {
   summarizeText,
   jsonResponse,
   sendJson,
+  getAppConfig: () => normalizeAppConfig(readJson(getAppConfigFile(), {})),
   getStory,
   saveStory,
   getProviderForStory,
@@ -335,7 +350,18 @@ function initializeData() {
   ensureDir(path.join(LIBRARY_DIR, "styles"));
 
   ensureFile(getProvidersFile(), "[]");
-  ensureFile(getAppConfigFile(), JSON.stringify({ theme: "dark", lastOpenedStoryId: "" }, null, 2));
+  ensureFile(
+    getAppConfigFile(),
+    JSON.stringify(
+      {
+        theme: "dark",
+        lastOpenedStoryId: "",
+        globalSystemPrompt: DEFAULT_GLOBAL_SYSTEM_PROMPT,
+      },
+      null,
+      2
+    )
+  );
   ensureFile(getStoriesIndexFile(), "[]");
 
   const seedCharacter = path.join(LIBRARY_DIR, "characters", "hero_lyra.json");
@@ -440,7 +466,7 @@ async function routeApi(req, res) {
         styles: listJsonFiles(getLibraryTypeDir("styles")),
       };
       return sendJson(res, 200, {
-        appConfig: readJson(getAppConfigFile(), {}),
+        appConfig: normalizeAppConfig(readJson(getAppConfigFile(), {})),
         providers,
         stories,
         libraries,
@@ -449,12 +475,11 @@ async function routeApi(req, res) {
 
     if (req.method === "POST" && segments[1] === "app-config") {
       const body = await parseBody(req);
-      const current = readJson(getAppConfigFile(), {});
-      const next = {
+      const current = normalizeAppConfig(readJson(getAppConfigFile(), {}));
+      const next = normalizeAppConfig({
         ...current,
         ...body,
-        theme: normalizeTheme(body.theme ?? current.theme),
-      };
+      });
       writeJson(getAppConfigFile(), next);
       return sendJson(res, 200, next);
     }
@@ -569,10 +594,15 @@ async function routeApi(req, res) {
           if (!story) {
             return notFound(res);
           }
+          const nextPromptConfig = {
+            ...story.promptConfig,
+            ...((body.promptConfig || {})),
+          };
+          delete nextPromptConfig.globalSystemPrompt;
           const next = {
             ...story,
             ...body,
-            promptConfig: { ...story.promptConfig, ...(body.promptConfig || {}) },
+            promptConfig: nextPromptConfig,
             settings: { ...story.settings, ...(body.settings || {}) },
             enabled: { ...story.enabled, ...(body.enabled || {}) },
             updatedAt: new Date().toISOString(),

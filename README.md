@@ -185,6 +185,8 @@ Context block assembly and pressure/default-status helpers now live in `lib/cont
 
 Chat context construction, turn finalization, streaming chat flow, and revise-last handling now live in `lib/chat.js`, which keeps story-chat runtime logic out of `server.js`.
 
+The global system prompt now lives in app config and is shared across stories, while each story keeps only its story-specific and user-template prompts.
+
 ## Notes
 
 - The forgetfulness indicator is a heuristic risk signal, not proof of actual model memory failure.

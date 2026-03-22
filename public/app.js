@@ -408,11 +408,11 @@ function renderEmptyState() {
   els.storyConfigTitle.value = "";
   els.storyConfigSummary.value = "";
   els.storyConfigModel.value = "";
-  els.storyConfigContextBlocks.value = 30;
-  els.storyConfigSummaryInterval.value = 8;
-  els.storyConfigTemperature.value = 0.85;
-  els.storyConfigMaxCompletion.value = 900;
-  els.promptGlobal.value = "";
+  els.storyConfigContextBlocks.value = 20;
+  els.storyConfigSummaryInterval.value = 20;
+  els.storyConfigTemperature.value = 1;
+  els.storyConfigMaxCompletion.value = 120000;
+  els.promptGlobal.value = state.appConfig?.globalSystemPrompt || "";
   els.promptStory.value = "";
   els.promptUser.value = "";
   els.providerSelect.value = "";
@@ -464,7 +464,7 @@ function renderStory() {
   els.storyConfigSummaryInterval.value = story.settings?.summaryInterval ?? 20;
   els.storyConfigTemperature.value = story.settings?.temperature ?? 1;
   els.storyConfigMaxCompletion.value = story.settings?.maxCompletionTokens ?? 120000;
-  els.promptGlobal.value = story.promptConfig?.globalSystemPrompt || "";
+  els.promptGlobal.value = state.appConfig?.globalSystemPrompt || story.promptConfig?.globalSystemPrompt || "";
   els.promptStory.value = story.promptConfig?.storySystemPrompt || "";
   els.promptUser.value = story.promptConfig?.userPromptTemplate || "";
   els.providerSelect.value = story.providerId || "";
@@ -906,7 +906,6 @@ function collectStoryPayload() {
       maxCompletionTokens: parseNumberInput(els.storyConfigMaxCompletion.value, 120000),
     },
     promptConfig: {
-      globalSystemPrompt: els.promptGlobal.value,
       storySystemPrompt: els.promptStory.value,
       userPromptTemplate: els.promptUser.value,
     },
@@ -924,6 +923,14 @@ async function saveStoryConfig() {
   }
   showStorySaveStatus("\u6b63\u5728\u4fdd\u5b58\u914d\u7f6e\u5e76\u5237\u65b0\u4e0a\u4e0b\u6587\u9884\u89c8...");
   try {
+    const nextGlobalSystemPrompt = els.promptGlobal.value.trim();
+    const currentGlobalSystemPrompt = state.appConfig?.globalSystemPrompt || "";
+    if (nextGlobalSystemPrompt !== currentGlobalSystemPrompt) {
+      state.appConfig = await api("/api/app-config", {
+        method: "POST",
+        body: JSON.stringify({ globalSystemPrompt: nextGlobalSystemPrompt }),
+      });
+    }
     await api(`/api/stories/${state.activeStoryId}/config`, {
       method: "POST",
       body: JSON.stringify(collectStoryPayload()),

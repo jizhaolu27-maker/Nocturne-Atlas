@@ -1119,6 +1119,13 @@ textarea {
   margin-bottom: 4px;
 }
 
+.memory-trigger {
+  margin-top: 6px;
+  font-size: 11px;
+  color: var(--muted);
+  line-height: 1.5;
+}
+
 /* ── Markdown in chat ───────────────────────────── */
 .markdown-body {
   font-size: 15px;

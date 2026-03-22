@@ -640,8 +640,18 @@ function renderMemory(records) {
         .map(
           (item) => `
             <article class="memory-item">
-              <div class="memory-meta">${escapeHtml(item.type)} / ${escapeHtml(item.importance || "")}</div>
+              <div class="memory-meta">${escapeHtml(item.type)} / ${escapeHtml(formatMemoryTier(item.tier))} / ${escapeHtml(formatMemoryKind(item.kind))} / ${escapeHtml(item.importance || "")}</div>
               <div>${escapeHtml(item.summary)}</div>
+              ${
+                item.triggeredBy?.length
+                  ? `<div class="memory-trigger">触发原因：${escapeHtml(item.triggeredBy.map(formatSummaryTrigger).join(" / "))}</div>`
+                  : ""
+              }
+              ${
+                item.triggeredAt?.round
+                  ? `<div class="memory-trigger">生成时机：第 ${escapeHtml(String(item.triggeredAt.round))} 轮对话</div>`
+                  : ""
+              }
             </article>
           `
         )
@@ -728,6 +738,27 @@ function formatMemoryKind(kind) {
 
 function formatMemoryTier(tier) {
   return tier === "long_term" ? "长期记忆" : "短期记忆";
+}
+
+function formatSummaryTrigger(trigger) {
+  const value = String(trigger || "");
+  if (value.startsWith("Turn interval reached")) return "已达到设定轮数";
+  if (value === "Context pressure exceeded high threshold") return "上下文压力过高，提前触发";
+  if (value === "Major event keywords detected in recent turns") return "最近剧情出现重大变化，提前触发";
+  if (value === "Memory consolidation threshold reached") return "短期记忆达到整合阈值";
+  return value || "未知触发原因";
+}
+
+function formatSummarySchedule(schedule) {
+  if (!schedule?.configuredRounds) {
+    return "";
+  }
+  const nextRound = Number(schedule.nextRound);
+  const remainingRounds = Number(schedule.remainingRounds);
+  if (!Number.isFinite(nextRound) || !Number.isFinite(remainingRounds)) {
+    return "";
+  }
+  return `设定每 ${schedule.configuredRounds} 轮摘要一次；若无提前触发，下一次在第 ${nextRound} 轮，还差 ${remainingRounds} 轮。`;
 }
 
 function renderProposalDiff(item) {
@@ -850,6 +881,19 @@ function renderSelectorList(root, items, enabledIds) {
 }
 
 function collectStoryPayload() {
+  const collectEnabledIds = (type, selectorRoot) => {
+    const selectedIds = new Set(
+      Array.from(selectorRoot.querySelectorAll("input:checked")).map((node) => node.value)
+    );
+    const libraryIds = new Set((state.libraries[type] || []).map((item) => item.id));
+    for (const id of state.activeStoryData?.story?.enabled?.[type] || []) {
+      if (!libraryIds.has(id)) {
+        selectedIds.add(id);
+      }
+    }
+    return Array.from(selectedIds);
+  };
+
   return {
     title: els.storyConfigTitle.value.trim(),
     summary: els.storyConfigSummary.value.trim(),
@@ -867,9 +911,9 @@ function collectStoryPayload() {
       userPromptTemplate: els.promptUser.value,
     },
     enabled: {
-      characters: Array.from(els.selectorCharacters.querySelectorAll("input:checked")).map((node) => node.value),
-      worldbooks: Array.from(els.selectorWorldbooks.querySelectorAll("input:checked")).map((node) => node.value),
-      styles: Array.from(els.selectorStyles.querySelectorAll("input:checked")).map((node) => node.value),
+      characters: collectEnabledIds("characters", els.selectorCharacters),
+      worldbooks: collectEnabledIds("worldbooks", els.selectorWorldbooks),
+      styles: collectEnabledIds("styles", els.selectorStyles),
     },
   };
 }
@@ -1255,6 +1299,7 @@ function renderDiagnosticsCurrent(diagnostics) {
   const preview = diagnostics.currentContextPreview || null;
   const blocks = preview?.contextBlocks || snapshot?.contextBlocks || [];
   const promptMessages = preview?.promptMessages || snapshot?.promptMessages || [];
+  const summarySchedule = snapshot?.summarySchedule || diagnostics.summarySchedule || null;
   const triggerRows = [];
 
   if (blocks.length) {
@@ -1286,6 +1331,14 @@ function renderDiagnosticsCurrent(diagnostics) {
       </article>
     `);
   }
+  if (summarySchedule?.configuredRounds) {
+    triggerRows.push(`
+      <article class="diagnostic-item">
+        <strong>摘要计划</strong>
+        <span>${escapeHtml(formatSummarySchedule(summarySchedule))}</span>
+      </article>
+    `);
+  }
   if (preview?.selectedMemoryRecords?.length) {
     triggerRows.push(
       ...preview.selectedMemoryRecords.map(
@@ -1306,7 +1359,7 @@ function renderDiagnosticsCurrent(diagnostics) {
         (item) => `
           <article class="diagnostic-item">
             <strong>\u89e6\u53d1\u5668</strong>
-            <span>${escapeHtml(item)}</span>
+            <span>${escapeHtml(formatSummaryTrigger(item))}</span>
           </article>
         `
       )

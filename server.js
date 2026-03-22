@@ -825,6 +825,25 @@ function getSummaryTriggers(story, messages, contextInfo) {
   return triggers;
 }
 
+function getSummarySchedule(story, messages) {
+  const messageCount = messages.filter((item) => item.role !== "system").length;
+  const configuredRounds = Math.max(1, Number(story.settings.summaryInterval) || DEFAULT_SUMMARY_INTERVAL);
+  const intervalMessages = configuredRounds * 2;
+  const remainder = messageCount % intervalMessages;
+  const remainingMessages = messageCount === 0 ? intervalMessages : remainder === 0 ? intervalMessages : intervalMessages - remainder;
+  const nextMessageCount = messageCount + remainingMessages;
+  return {
+    configuredRounds,
+    intervalMessages,
+    currentMessageCount: messageCount,
+    currentRounds: Math.floor(messageCount / 2),
+    remainingMessages,
+    remainingRounds: remainingMessages / 2,
+    nextMessageCount,
+    nextRound: nextMessageCount / 2,
+  };
+}
+
 function getHeuristicProposalTriggers(messages, assistantText = "") {
   const recentText = [...messages.slice(-4).map((item) => item.content), assistantText].join("\n").toLowerCase();
   const triggers = [];
@@ -957,6 +976,14 @@ function inferMemoryKindFromSummary(summary, entities = []) {
     return "character_update";
   }
   return "plot_checkpoint";
+}
+
+function normalizeMemoryImportance(value) {
+  const normalized = String(value || "").trim().toLowerCase();
+  if (["low", "medium", "high"].includes(normalized)) {
+    return normalized;
+  }
+  return "medium";
 }
 
 function trimText(value, maxLength) {
@@ -1224,7 +1251,7 @@ async function tryModelSummary(story, messages) {
       summary: summarizeText(parsed.summary, MEMORY_SUMMARY_CHAR_LIMIT),
       entities: Array.isArray(parsed.entities) ? parsed.entities.slice(0, 4).map((item) => trimText(item, 24)).filter(Boolean) : [],
       keywords: extractKeywords(parsed.summary).slice(0, 12),
-      importance: parsed.importance || "medium",
+      importance: normalizeMemoryImportance(parsed.importance),
       sourceMessageRange: [Math.max(1, messages.length - 7), messages.length],
       createdAt: new Date().toISOString(),
     };
@@ -1403,16 +1430,35 @@ function createWorkspaceItem(storyId, targetType, targetId, patch, reason) {
     throw new Error("Only character creation proposals are supported");
   }
   const payload = normalizeCreatedCharacter(targetId, patch);
-  payload.changeLog.push({
+  const nextChange = {
     at: new Date().toISOString(),
     reason,
     patch,
     action: "create",
-  });
+  };
   const filePath = path.join(getStoryWorkspaceDir(storyId, "characters"), `${payload.id}.json`);
   if (fs.existsSync(filePath)) {
-    throw new Error("Workspace item already exists");
+    const current = readJson(filePath);
+    const updated = {
+      ...current,
+      ...payload,
+      workspaceUpdatedAt: new Date().toISOString(),
+      changeLog: [...(current?.changeLog || []), nextChange],
+    };
+    writeJson(filePath, updated);
+    const enabledCharacters = new Set(story.enabled?.characters || []);
+    enabledCharacters.add(payload.id);
+    saveStory({
+      ...story,
+      enabled: {
+        ...story.enabled,
+        characters: Array.from(enabledCharacters),
+      },
+      updatedAt: new Date().toISOString(),
+    });
+    return updated;
   }
+  payload.changeLog.push(nextChange);
   writeJson(filePath, payload);
   const enabledCharacters = new Set(story.enabled?.characters || []);
   enabledCharacters.add(payload.id);
@@ -1714,6 +1760,7 @@ async function finalizeChatTurn({
   const summaryRecords = [];
   const proposalRecords = [];
   const proposalTriggers = await tryModelProposalTriggers(story, fullMessages, workspace, assistantText);
+  const summarySchedule = getSummarySchedule(story, fullMessages);
   let proposalPipeline = proposalTriggers.length
     ? buildProposalPipelineStatus({
         stage: "triggered",
@@ -1730,6 +1777,15 @@ async function finalizeChatTurn({
   const supersededLongTermIds = [];
   if (summaryTriggers.length > 0) {
     const summary = (await tryModelSummary(story, fullMessages)) || makeFallbackSummary(fullMessages);
+    summary.triggeredBy = summaryTriggers.slice();
+    summary.triggeredAt = {
+      messageCount: summarySchedule.currentMessageCount,
+      round: summarySchedule.currentRounds,
+    };
+    summary.schedule = {
+      configuredRounds: summarySchedule.configuredRounds,
+      intervalMessages: summarySchedule.intervalMessages,
+    };
     summaryRecords.push(summary);
 
     const consolidation = consolidateMemoryRecords([...memoryRecords, ...summaryRecords], {
@@ -1738,6 +1794,17 @@ async function finalizeChatTurn({
       shortTermThreshold: 8,
     });
     if (consolidation.addedRecords.length > 0) {
+      for (const item of consolidation.addedRecords) {
+        item.triggeredBy = ["Memory consolidation threshold reached"];
+        item.triggeredAt = {
+          messageCount: summarySchedule.currentMessageCount,
+          round: summarySchedule.currentRounds,
+        };
+        item.schedule = {
+          configuredRounds: summarySchedule.configuredRounds,
+          intervalMessages: summarySchedule.intervalMessages,
+        };
+      }
       consolidatedMemoryRecords.push(...consolidation.addedRecords);
       for (const item of consolidation.records) {
         if (item.mergedInto && consolidation.addedRecords.some((added) => added.id === item.mergedInto)) {
@@ -1819,6 +1886,7 @@ async function finalizeChatTurn({
     },
     contextStatus: updatedStory.contextStatus,
     summaryTriggers,
+    summarySchedule,
     proposalTriggers,
     proposalPipeline,
     usedLabels: contextInfo.blocks.map((block) => block.label),
@@ -1847,6 +1915,7 @@ async function finalizeChatTurn({
       snapshotCount: readJsonLines(getStorySnapshotFile(storyId)).length,
       requestMeta: snapshot.requestMeta,
       summaryTriggers,
+      summarySchedule,
       proposalTriggers,
       proposalPipeline,
       usedLabels: snapshot.usedLabels,

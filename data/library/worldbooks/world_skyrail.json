@@ -1,0 +1,16 @@
+{
+  "id": "world_skyrail",
+  "title": "Skyrail Commonwealth",
+  "category": "setting",
+  "rules": [
+    "Memory can be distilled into amber",
+    "Never cross an unlicensed sky-bridge during red storm alerts"
+  ],
+  "content": "A chain of market-cities hanging from ancient rails above a drowned continent.",
+  "revealedFacts": [
+    "The drowned continent still sends up radio signals at night."
+  ],
+  "storyState": "Peace is brittle after the Archive Fire.",
+  "createdAt": "2026-03-21T11:00:55.148Z",
+  "updatedAt": "2026-03-21T11:00:55.148Z"
+}

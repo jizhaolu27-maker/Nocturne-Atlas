@@ -1,0 +1,14 @@
+.claude/
+node_modules/
+server.log
+
+data/config/app-secret.json
+data/config/providers.json
+data/config/app.json
+data/stories/
+
+.DS_Store
+Thumbs.db
+
+AGENTS.md
+DEVLOG.md

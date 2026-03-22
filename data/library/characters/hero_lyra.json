@@ -1,0 +1,25 @@
+{
+  "id": "hero_lyra",
+  "name": "Lyra Wen",
+  "version": 1,
+  "core": {
+    "role": "Protagonist courier mage",
+    "age": 19,
+    "background": "Raised in the rain markets under the Skyrail."
+  },
+  "traits": [
+    "curious",
+    "reckless",
+    "soft-hearted"
+  ],
+  "relationships": {
+    "Master Qiao": "mentor",
+    "Jun Ash": "rival-ally"
+  },
+  "arcState": {
+    "current": "Still doubts whether she deserves the map-key inheritance."
+  },
+  "notes": "A silver compass warms when lost memories surface.",
+  "createdAt": "2026-03-21T11:00:55.140Z",
+  "updatedAt": "2026-03-21T11:28:18.364Z"
+}

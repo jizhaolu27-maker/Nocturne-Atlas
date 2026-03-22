@@ -1,0 +1,9 @@
+{
+  "name": "aichat-story-generator",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Local AI story generator with memory workspace and OpenAI-compatible provider support.",
+  "scripts": {
+    "start": "node server.js"
+  }
+}

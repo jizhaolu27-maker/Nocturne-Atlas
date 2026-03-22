@@ -299,6 +299,92 @@ async function main() {
     }
   });
 
+  await runTest("proposal generation dedupes duplicate create-character proposals in one turn", async () => {
+    const proposalTools = createProposalTools({
+      PROPOSAL_REASON_CHAR_LIMIT: 90,
+      CHARACTER_ROLE_CHAR_LIMIT: 40,
+      CHARACTER_TRAIT_CHAR_LIMIT: 24,
+      CHARACTER_RELATIONSHIP_CHAR_LIMIT: 80,
+      CHARACTER_ARC_CHAR_LIMIT: 140,
+      CHARACTER_NOTES_CHAR_LIMIT: 120,
+      safeId,
+      slugify,
+      summarizeText,
+      getProviderForStory: () => ({
+        id: "provider_1",
+        baseUrl: "http://example.test",
+        model: "test-model",
+        encryptedApiKey: { mock: true },
+      }),
+      decryptSecret: () => "test-key",
+      callOpenAICompatible: async ({ messages }) => {
+        const systemPrompt = String(messages?.[0]?.content || "");
+        if (systemPrompt.includes("shouldGenerateProposal")) {
+          return {
+            content: JSON.stringify({
+              shouldGenerateProposal: true,
+              triggers: ["Recurring character introduced"],
+            }),
+          };
+        }
+        return {
+          content: JSON.stringify({
+            proposals: [
+              {
+                action: "create",
+                targetType: "character",
+                targetId: "char_shade",
+                reason: "Introduce Shade as a recurring figure.",
+                patch: {
+                  name: "Shade",
+                  core: { role: "dream guide" },
+                },
+              },
+              {
+                action: "create",
+                targetType: "character",
+                targetId: "char_shade",
+                reason: "Introduce Shade as a recurring figure.",
+                patch: {
+                  name: "Shade",
+                  core: { role: "dream guide" },
+                },
+              },
+            ],
+          }),
+        };
+      },
+      tryParseJsonObject: (value) => {
+        try {
+          return JSON.parse(value);
+        } catch {
+          return null;
+        }
+      },
+      readJson: () => null,
+      writeJson: () => {},
+      readJsonLines: () => [],
+      writeJsonLines: () => {},
+      getStory: () => null,
+      saveStory: () => {},
+      getStoryProposalFile: () => "",
+      getStoryWorkspaceDir: () => "",
+    });
+
+    const update = await proposalTools.generateProposalUpdate({
+      story: { providerId: "provider_1", model: "test-model" },
+      fullMessages: [
+        { id: "msg_1", role: "user", content: "Create the dream girl as a real recurring character." },
+        { id: "msg_2", role: "assistant", content: "Shade steps fully into the story." },
+      ],
+      workspace: { characters: [], worldbooks: [], styles: [] },
+      assistantText: "Shade steps fully into the story as a recurring dream guide.",
+    });
+
+    assert.equal(update.proposalRecords.length, 1);
+    assert.equal(update.proposalRecords[0].targetId, "char_shade");
+  });
+
   if (!process.exitCode) {
     console.log("Smoke tests completed successfully.");
   }

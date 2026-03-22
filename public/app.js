@@ -460,10 +460,10 @@ function renderStory() {
   els.storyConfigTitle.value = story.title || "";
   els.storyConfigSummary.value = story.summary || "";
   els.storyConfigModel.value = story.model || "";
-  els.storyConfigContextBlocks.value = story.settings?.contextBlocks ?? 30;
-  els.storyConfigSummaryInterval.value = story.settings?.summaryInterval ?? 8;
-  els.storyConfigTemperature.value = story.settings?.temperature ?? 0.85;
-  els.storyConfigMaxCompletion.value = story.settings?.maxCompletionTokens ?? 900;
+  els.storyConfigContextBlocks.value = story.settings?.contextBlocks ?? 20;
+  els.storyConfigSummaryInterval.value = story.settings?.summaryInterval ?? 20;
+  els.storyConfigTemperature.value = story.settings?.temperature ?? 1;
+  els.storyConfigMaxCompletion.value = story.settings?.maxCompletionTokens ?? 120000;
   els.promptGlobal.value = story.promptConfig?.globalSystemPrompt || "";
   els.promptStory.value = story.promptConfig?.storySystemPrompt || "";
   els.promptUser.value = story.promptConfig?.userPromptTemplate || "";
@@ -900,10 +900,10 @@ function collectStoryPayload() {
     providerId: els.providerSelect.value,
     model: els.storyConfigModel.value.trim(),
     settings: {
-      contextBlocks: parseNumberInput(els.storyConfigContextBlocks.value, 30),
-      summaryInterval: parseNumberInput(els.storyConfigSummaryInterval.value, 8),
-      temperature: parseNumberInput(els.storyConfigTemperature.value, 0.85),
-      maxCompletionTokens: parseNumberInput(els.storyConfigMaxCompletion.value, 900),
+      contextBlocks: parseNumberInput(els.storyConfigContextBlocks.value, 20),
+      summaryInterval: parseNumberInput(els.storyConfigSummaryInterval.value, 20),
+      temperature: parseNumberInput(els.storyConfigTemperature.value, 1),
+      maxCompletionTokens: parseNumberInput(els.storyConfigMaxCompletion.value, 120000),
     },
     promptConfig: {
       globalSystemPrompt: els.promptGlobal.value,

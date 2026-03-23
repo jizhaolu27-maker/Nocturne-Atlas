@@ -6,13 +6,27 @@ window.createProviderTools = function createProviderTools({
   parseNumberInput,
   refreshAll,
 }) {
+  function resolveStoryProviderSelection() {
+    const activeStoryProviderId = state.activeStoryData?.story?.providerId || "";
+    if (activeStoryProviderId && state.providers.some((item) => item.id === activeStoryProviderId)) {
+      return activeStoryProviderId;
+    }
+    const currentValue = els.providerSelect?.value || "";
+    if (currentValue && state.providers.some((item) => item.id === currentValue)) {
+      return currentValue;
+    }
+    return "";
+  }
+
   function renderProviders() {
     const providerOptions = state.providers
       .map((item) => `<option value="${item.id}">${escapeHtml(item.name)}</option>`)
       .join("");
+    const selectedStoryProviderId = resolveStoryProviderSelection();
     els.providerSelect.innerHTML =
       `<option value="">${state.providers.length ? "Select Provider" : "No Providers"}</option>` + providerOptions;
     els.providerEditorSelect.innerHTML = providerOptions + `<option value="__new__">New Provider</option>`;
+    els.providerSelect.value = selectedStoryProviderId;
     if (!state.selectedProviderId && state.providers[0]?.id) {
       state.selectedProviderId = state.providers[0].id;
     }

@@ -342,6 +342,16 @@ function renderStories() {
   }
 }
 
+function renderNoStorySelectorState(root) {
+  root.innerHTML = `<article class="selector-empty">Select a story to manage enabled assets.</article>`;
+}
+
+function clearStorySelectors() {
+  renderNoStorySelectorState(els.selectorCharacters);
+  renderNoStorySelectorState(els.selectorWorldbooks);
+  renderNoStorySelectorState(els.selectorStyles);
+}
+
 function renderEmptyState() {
   state.pendingProposalPipeline = null;
   state.currentProposalTriggers = [];
@@ -368,6 +378,7 @@ function renderEmptyState() {
   els.promptStory.value = "";
   els.promptUser.value = "";
   els.providerSelect.value = "";
+  clearStorySelectors();
   els.workspaceView.innerHTML =
     `<article class="workspace-card">There is no workspace content to display.</article>`;
   els.memoryList.innerHTML =

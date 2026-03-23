@@ -166,6 +166,7 @@ const {
   detectForgetfulness,
   getSummaryTriggers,
   getSummarySchedule,
+  buildTransientMemoryCandidate,
   generateMemoryUpdate,
 } = createMemoryTools({
   DEFAULT_SUMMARY_INTERVAL,
@@ -481,6 +482,7 @@ const {
   classifyPressure,
   getSummaryTriggers,
   getSummarySchedule,
+  buildTransientMemoryCandidate,
   generateMemoryUpdate,
   generateProposalUpdate,
   detectForgetfulness,

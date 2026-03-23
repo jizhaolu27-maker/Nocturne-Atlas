@@ -417,6 +417,29 @@ window.createReviewTools = function createReviewTools({
         </article>
       `);
     }
+    const transientMemoryCandidate =
+      snapshot?.transientMemoryCandidate || diagnostics.transientMemoryCandidate || null;
+    if ((snapshot?.generatedSummaryCount || diagnostics.generatedSummaryCount || 0) > 0) {
+      triggerRows.push(`
+        <article class="diagnostic-item">
+          <strong>记忆写入</strong>
+          ${renderDiagnosticBadges([{ label: "written to memory", tone: "hybrid" }])}
+          <span>${escapeHtml(`本轮已写入 ${snapshot?.generatedSummaryCount || diagnostics.generatedSummaryCount || 0} 条正式记忆记录`)}</span>
+        </article>
+      `);
+    } else if (transientMemoryCandidate?.summary) {
+      triggerRows.push(`
+        <article class="diagnostic-item">
+          <strong>记忆写入</strong>
+          ${renderDiagnosticBadges([
+            { label: "diagnostic-only candidate", tone: "neutral" },
+            { label: formatMemoryScope(transientMemoryCandidate.scope), tone: "neutral" },
+          ])}
+          <span>${escapeHtml("本轮没有正式写入记忆，这条临时摘要只用于 forgetfulness 诊断。")}</span>
+          <div>${escapeHtml(transientMemoryCandidate.summary)}</div>
+        </article>
+      `);
+    }
     if (retrievalMeta) {
       const retrievalBadges = [
         { label: `configured: ${retrievalMeta.mode || "lexical"}`, tone: "neutral" },

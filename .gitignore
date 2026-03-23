@@ -1,6 +1,10 @@
 .claude/
 node_modules/
 server.log
+.cache/
+.cache/huggingface/
+.cache/transformers/
+.huggingface/
 
 data/config/app-secret.json
 data/config/providers.json

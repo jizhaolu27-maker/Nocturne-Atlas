@@ -7,6 +7,11 @@ const { createStoryStore } = require("../lib/story-store");
 const { createWorkspaceTools } = require("../lib/workspace");
 const { createContextTools } = require("../lib/context");
 const { createMemoryTools } = require("../lib/memory");
+const { createEmbeddingTools } = require("../lib/embeddings");
+const { createKnowledgeRetrievalTools } = require("../lib/knowledge-retrieval");
+const { selectRelevantMemoryRecords, formatMemoryContext } = require("../lib/memory-engine");
+const { createMemoryRetrievalTools } = require("../lib/memory-retrieval");
+const { createLocalVectorSearchRecords } = require("../lib/memory-vector");
 const { createProposalTools } = require("../lib/proposals");
 
 const DEFAULT_CONTEXT_BLOCKS = 6;
@@ -150,7 +155,12 @@ async function main() {
     }
   });
 
-  await runTest("context tools assemble system, workspace, memory, and history blocks", () => {
+  await runTest("context tools assemble system, workspace, memory, and history blocks", async () => {
+    const { embedText, buildQueryEmbeddingText } = createEmbeddingTools();
+    const { retrieveKnowledgeChunks, formatKnowledgeContext } = createKnowledgeRetrievalTools({
+      embedText,
+      extractKeywords: require("../lib/memory-engine").extractKeywords,
+    });
     const contextTools = createContextTools({
       DEFAULT_CONTEXT_BLOCKS,
       estimateTokens: (value) => Math.max(1, Math.ceil(String(value || "").length / 4)),
@@ -160,6 +170,10 @@ async function main() {
       }),
       formatMemoryContext: (records) => records.map((item) => item.summary).join("\n"),
       getProviderContextWindow: () => 2000,
+      buildQueryEmbedding: ({ userMessage, messages, workspace, embeddingOptions }) =>
+        embedText(buildQueryEmbeddingText({ userMessage, messages, workspace }), embeddingOptions),
+      retrieveKnowledgeChunks,
+      formatKnowledgeContext,
     });
 
     const story = {
@@ -180,7 +194,7 @@ async function main() {
     ];
     const memoryRecords = [{ id: "mem_1", summary: "Hero learned Mira guards the archive." }];
 
-    const result = contextTools.buildContextBlocks(story, messages, memoryRecords, workspace);
+    const result = await contextTools.buildContextBlocks(story, messages, memoryRecords, workspace);
     const labels = result.blocks.map((item) => item.label);
 
     assert.ok(labels.includes("system:global"));
@@ -188,9 +202,19 @@ async function main() {
     assert.ok(labels.includes("characters"));
     assert.ok(labels.includes("worldbook"));
     assert.ok(labels.includes("style"));
-    assert.ok(labels.includes("memory"));
+    assert.ok(labels.includes("knowledge:retrieved"));
+    assert.ok(labels.includes("memory:critical") || labels.includes("memory:recent") || labels.includes("memory:long_term"));
     assert.ok(labels.some((label) => label.startsWith("history_turn:")));
     assert.equal(result.selectedMemoryRecords[0].id, "mem_1");
+    assert.ok(result.selectedKnowledgeChunks.length > 0);
+    assert.ok(result.selectedKnowledgeChunks.some((item) => item.chunkType));
+    assert.ok(Number.isFinite(result.knowledgeRetrievalMeta.vectorCandidateCount || 0));
+    const characterBlock = result.blocks.find((item) => item.label === "characters");
+    const worldbookBlock = result.blocks.find((item) => item.label === "worldbook");
+    assert.ok(characterBlock?.content.includes("Character: Hero"));
+    assert.ok(!characterBlock?.content.includes("Relationships:"));
+    assert.ok(worldbookBlock?.content.includes("World: Nocturne City"));
+    assert.ok(!worldbookBlock?.content.includes("Content: A rain-soaked city."));
   });
 
   await runTest("memory tools compute schedules and create a non-transcript fallback summary", async () => {
@@ -224,6 +248,64 @@ async function main() {
     assert.ok(!update.summaryRecords[0].summary.includes("user:"));
     assert.ok(!update.summaryRecords[0].summary.includes("assistant:"));
     assert.deepEqual(update.summaryRecords[0].triggeredBy, ["Manual smoke trigger"]);
+  });
+
+  await runTest("hybrid retrieval stays lexical by default and can admit vector matches when enabled", () => {
+    const retrievalTools = createMemoryRetrievalTools({
+      selectRelevantMemoryRecords,
+      formatMemoryContext,
+      vectorSearchRecords: createLocalVectorSearchRecords({ minScore: 0.1, maxCandidates: 4 }),
+      isVectorSearchEnabled: (options = {}) => Array.isArray(options.queryEmbedding) && options.queryEmbedding.length > 0,
+    });
+
+    const records = [
+      {
+        id: "mem_a",
+        tier: "short_term",
+        kind: "plot_checkpoint",
+        summary: "Hero opens the archive gate.",
+        entities: ["Hero", "archive"],
+        keywords: ["hero", "archive", "gate"],
+        importance: "medium",
+        embedding: [1, 0],
+        embeddingModel: "test-local",
+        createdAt: "2026-03-23T00:00:00.000Z",
+      },
+      {
+        id: "mem_b",
+        tier: "long_term",
+        kind: "world_state",
+        scope: "world",
+        summary: "The drowned signal answers only to amber memory.",
+        entities: ["signal", "amber"],
+        keywords: ["signal", "amber", "memory"],
+        importance: "high",
+        embedding: [0, 1],
+        embeddingModel: "test-local",
+        createdAt: "2026-03-23T00:01:00.000Z",
+      },
+    ];
+
+    const lexicalOnly = retrievalTools.selectRelevantMemoryRecords(records, {
+      userMessage: "Open the archive gate.",
+      messages: [],
+      workspace: { characters: [], worldbooks: [], styles: [] },
+      maxItems: 2,
+    });
+    assert.equal(lexicalOnly.retrievalMeta.mode, "lexical");
+    assert.equal(lexicalOnly.retrievalMeta.vectorEnabled, false);
+
+    const hybrid = retrievalTools.selectRelevantMemoryRecords(records, {
+      retrievalMode: "hybrid",
+      userMessage: "What does the signal reveal?",
+      messages: [],
+      workspace: { characters: [], worldbooks: [], styles: [] },
+      queryEmbedding: [0, 1],
+      maxItems: 2,
+    });
+    assert.equal(hybrid.retrievalMeta.mode, "hybrid");
+    assert.equal(hybrid.retrievalMeta.vectorEnabled, true);
+    assert.ok(hybrid.selectedRecords.some((item) => item.id === "mem_b"));
   });
 
   await runTest("proposal review accepts a create proposal into workspace and story enablement", () => {

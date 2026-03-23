@@ -1112,11 +1112,56 @@ textarea {
   font-size: 12px;
 }
 
+.diagnostic-item > strong {
+  display: block;
+  margin-bottom: 6px;
+}
+
 .memory-meta,
 .diagnostic-meta {
   font-size: 11px;
   color: var(--muted);
   margin-bottom: 4px;
+}
+
+.diagnostic-badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 6px 0 8px;
+}
+
+.diagnostic-badge {
+  display: inline-flex;
+  align-items: center;
+  min-height: 22px;
+  padding: 0 9px;
+  border-radius: 999px;
+  border: 1px solid var(--line);
+  background: var(--paper);
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 1;
+  letter-spacing: 0.01em;
+}
+
+.diagnostic-badge-neutral,
+.diagnostic-badge-lexical {
+  border-color: rgba(132, 140, 178, 0.28);
+  background: rgba(132, 140, 178, 0.08);
+  color: var(--text-secondary);
+}
+
+.diagnostic-badge-vector {
+  border-color: rgba(86, 181, 160, 0.32);
+  background: rgba(86, 181, 160, 0.1);
+  color: #8ee3cf;
+}
+
+.diagnostic-badge-hybrid {
+  border-color: rgba(114, 92, 255, 0.32);
+  background: rgba(114, 92, 255, 0.12);
+  color: #beb3ff;
 }
 
 .memory-trigger {

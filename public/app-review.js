@@ -78,6 +78,16 @@ window.createReviewTools = function createReviewTools({
     return tier === "long_term" ? "长期记忆" : "短期记忆";
   }
 
+  function formatMemoryScope(scope) {
+    const labels = {
+      character: "角色",
+      relationship: "关系",
+      world: "世界",
+      plot: "剧情",
+    };
+    return labels[scope] || scope || "未分类";
+  }
+
   function formatSummaryTrigger(trigger) {
     const value = String(trigger || "");
     if (value.startsWith("Turn interval reached")) return "已达到设定轮数";
@@ -99,6 +109,29 @@ window.createReviewTools = function createReviewTools({
     return `设定每 ${schedule.configuredRounds} 轮摘要一次；若无提前触发，下一次在第 ${nextRound} 轮，还差 ${remainingRounds} 轮。`;
   }
 
+  function getRetrievalSourceMeta(reasons) {
+    const rows = Array.isArray(reasons) ? reasons.filter(Boolean) : [];
+    const hasVector = rows.some((item) => /vector|向量/i.test(String(item)));
+    const hasLexical = rows.some((item) => /keyword|entity|关键词|实体/i.test(String(item)));
+    if (hasVector && hasLexical) {
+      return { label: "lexical + embedding", tone: "hybrid" };
+    }
+    if (hasVector) {
+      return { label: "embedding", tone: "vector" };
+    }
+    return { label: "lexical", tone: "lexical" };
+  }
+
+  function renderDiagnosticBadges(items) {
+    const rows = Array.isArray(items) ? items.filter(Boolean) : [];
+    if (!rows.length) {
+      return "";
+    }
+    return `<div class="diagnostic-badges">${rows
+      .map((item) => `<span class="diagnostic-badge ${item.tone ? `diagnostic-badge-${item.tone}` : ""}">${escapeHtml(item.label || item)}</span>`)
+      .join("")}</div>`;
+  }
+
   function renderMemory(records) {
     els.memoryList.innerHTML = records.length
       ? records
@@ -109,6 +142,11 @@ window.createReviewTools = function createReviewTools({
               <article class="memory-item">
                 <div class="memory-meta">${escapeHtml(item.type)} / ${escapeHtml(formatMemoryTier(item.tier))} / ${escapeHtml(formatMemoryKind(item.kind))} / ${escapeHtml(item.importance || "")}</div>
                 <div>${escapeHtml(item.summary)}</div>
+                ${
+                  item.scope || item.subjectIds?.length || item.tags?.length
+                    ? `<div class="memory-trigger">范围：${escapeHtml(formatMemoryScope(item.scope))}${item.subjectIds?.length ? ` / 主体：${escapeHtml(item.subjectIds.join("、"))}` : ""}${item.tags?.length ? ` / 标签：${escapeHtml(item.tags.join("、"))}` : ""}</div>`
+                    : ""
+                }
                 ${
                   item.triggeredBy?.length
                     ? `<div class="memory-trigger">触发原因：${escapeHtml(item.triggeredBy.map(formatSummaryTrigger).join(" / "))}</div>`
@@ -299,9 +337,20 @@ window.createReviewTools = function createReviewTools({
     const stateValue = contextStatus.forgetfulnessState || "normal";
     els.statusForgetfulness.textContent = stateValue;
     els.statusForgetfulness.className = `state-${stateValue}`;
+    const signals = contextStatus.forgetfulnessSignals || {};
     const reasons = contextStatus.forgetfulnessReasons || [];
+    const groupedRows = [];
+    if ((signals.pressure || []).length) {
+      groupedRows.push(...signals.pressure.map((reason) => `<li><strong>系统压力</strong>：${escapeHtml(reason)}</li>`));
+    }
+    if ((signals.omission || []).length) {
+      groupedRows.push(...signals.omission.map((reason) => `<li><strong>遗漏风险</strong>：${escapeHtml(reason)}</li>`));
+    }
+    if ((signals.conflict || []).length) {
+      groupedRows.push(...signals.conflict.map((reason) => `<li><strong>冲突风险</strong>：${escapeHtml(reason)}</li>`));
+    }
     els.statusReasons.innerHTML = reasons.length
-      ? reasons.map((reason) => `<li>${escapeHtml(reason)}</li>`).join("")
+      ? (groupedRows.length ? groupedRows : reasons.map((reason) => `<li>${escapeHtml(reason)}</li>`)).join("")
       : "<li>当前没有明显的记忆风险。</li>";
   }
 
@@ -309,6 +358,9 @@ window.createReviewTools = function createReviewTools({
     const snapshot = diagnostics.latestSnapshot || null;
     const requestMeta = snapshot?.requestMeta || diagnostics.requestMeta || null;
     const preview = diagnostics.currentContextPreview || null;
+    const retrievalMeta = preview?.memoryRetrievalMeta || diagnostics.memoryRetrievalMeta || snapshot?.memoryRetrievalMeta || null;
+    const knowledgeRetrievalMeta =
+      preview?.knowledgeRetrievalMeta || diagnostics.knowledgeRetrievalMeta || snapshot?.knowledgeRetrievalMeta || null;
     const blocks = preview?.contextBlocks || snapshot?.contextBlocks || [];
     const promptMessages = preview?.promptMessages || snapshot?.promptMessages || [];
     const summarySchedule = snapshot?.summarySchedule || diagnostics.summarySchedule || null;
@@ -340,6 +392,20 @@ window.createReviewTools = function createReviewTools({
           <strong>当前预览</strong>
           <span>${escapeHtml(`${preview.contextStatus.usedBlocks || 0}/${preview.contextStatus.maxBlocks || 0} 轮上下文`)}</span>
           <div>${escapeHtml(`${preview.contextStatus.usedTokens || 0}/${preview.contextStatus.maxTokens || 0} 估算 tokens`)}</div>
+          <div>${escapeHtml(`风险状态：${preview.contextStatus.forgetfulnessState || "normal"}`)}</div>
+        </article>
+      `);
+    }
+    const activeSignals = preview?.contextStatus?.forgetfulnessSignals || snapshot?.contextStatus?.forgetfulnessSignals || null;
+    if (activeSignals && ((activeSignals.pressure || []).length || (activeSignals.omission || []).length || (activeSignals.conflict || []).length)) {
+      const rows = [];
+      rows.push(...(activeSignals.pressure || []).map((item) => `系统压力：${item}`));
+      rows.push(...(activeSignals.omission || []).map((item) => `遗漏风险：${item}`));
+      rows.push(...(activeSignals.conflict || []).map((item) => `冲突风险：${item}`));
+      triggerRows.push(`
+        <article class="diagnostic-item">
+          <strong>记忆风险细分</strong>
+          <span>${escapeHtml(rows.join(" / "))}</span>
         </article>
       `);
     }
@@ -351,13 +417,68 @@ window.createReviewTools = function createReviewTools({
         </article>
       `);
     }
+    if (retrievalMeta) {
+      const retrievalBadges = [
+        { label: `configured: ${retrievalMeta.mode || "lexical"}`, tone: "neutral" },
+        { label: `active: ${retrievalMeta.activeMode || "lexical"}`, tone: retrievalMeta.activeMode === "hybrid" ? "hybrid" : "lexical" },
+        { label: retrievalMeta.vectorEnabled ? "vector on" : "vector off", tone: retrievalMeta.vectorEnabled ? "vector" : "neutral" },
+      ];
+      triggerRows.push(`
+        <article class="diagnostic-item">
+          <strong>记忆检索</strong>
+          ${renderDiagnosticBadges(retrievalBadges)}
+          <span>${escapeHtml(`向量候选 ${retrievalMeta.vectorCandidateCount || 0} / 向量入选 ${retrievalMeta.vectorSelectedCount || 0}`)}</span>
+          ${retrievalMeta.fallbackReason ? `<div>${escapeHtml(`回退说明：${retrievalMeta.fallbackReason}`)}</div>` : ""}
+        </article>
+      `);
+    }
+    if (knowledgeRetrievalMeta) {
+      const knowledgeBadges = [
+        { label: `active: ${knowledgeRetrievalMeta.activeMode || "lexical"}`, tone: knowledgeRetrievalMeta.activeMode === "hybrid" ? "hybrid" : "lexical" },
+      ];
+      if (typeof knowledgeRetrievalMeta.cachedVectorCount === "number") {
+        knowledgeBadges.push({
+          label: `vector cache ${knowledgeRetrievalMeta.cachedVectorCount}`,
+          tone: knowledgeRetrievalMeta.cachedVectorCount ? "vector" : "neutral",
+        });
+      }
+      triggerRows.push(`
+        <article class="diagnostic-item">
+          <strong>知识检索</strong>
+          ${renderDiagnosticBadges(knowledgeBadges)}
+          <span>${escapeHtml(`候选块 ${knowledgeRetrievalMeta.chunkCount || 0} / 向量候选 ${knowledgeRetrievalMeta.vectorCandidateCount || 0}`)}</span>
+        </article>
+      `);
+    }
+    if (preview?.selectedKnowledgeChunks?.length) {
+      triggerRows.push(
+        ...preview.selectedKnowledgeChunks.map(
+          (item) => `
+            <article class="diagnostic-item">
+              <strong>召回知识 / ${escapeHtml(item.sourceType || "unknown")} / ${escapeHtml(item.title || item.sourceId || "")}</strong>
+              ${renderDiagnosticBadges([
+                item.chunkType ? { label: item.chunkType.replaceAll("_", " "), tone: "neutral" } : null,
+                getRetrievalSourceMeta(item.reasons || []),
+              ])}
+              <span>${escapeHtml(String(item.text || "").slice(0, 220))}</span>
+              <div>${escapeHtml((item.reasons || []).join(" / ") || "本轮被选中")}</div>
+            </article>
+          `
+        )
+      );
+    }
     if (preview?.selectedMemoryRecords?.length) {
       triggerRows.push(
         ...preview.selectedMemoryRecords.map(
           (item) => `
             <article class="diagnostic-item">
               <strong>召回记忆 / ${escapeHtml(formatMemoryTier(item.tier))} / ${escapeHtml(formatMemoryKind(item.kind))} / ${escapeHtml(item.importance || "medium")}</strong>
+              ${renderDiagnosticBadges([
+                { label: formatMemoryScope(item.scope), tone: "neutral" },
+                getRetrievalSourceMeta(item.reasons || []),
+              ])}
               <span>${escapeHtml(item.summary || "")}</span>
+              <div>${escapeHtml(`范围：${formatMemoryScope(item.scope)}${item.subjectIds?.length ? ` / 主体：${item.subjectIds.join("、")}` : ""}${item.tags?.length ? ` / 标签：${item.tags.join("、")}` : ""}`)}</div>
               <div>${escapeHtml((item.reasons || []).join(" / ") || "本轮被选中")}</div>
             </article>
           `

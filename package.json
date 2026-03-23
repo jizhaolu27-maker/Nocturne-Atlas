@@ -3,6 +3,9 @@
   "version": "0.1.0",
   "private": true,
   "description": "Local AI story generator with memory workspace and OpenAI-compatible provider support.",
+  "dependencies": {
+    "@xenova/transformers": "^2.17.2"
+  },
   "scripts": {
     "start": "node server.js",
     "test": "node test/smoke.js"

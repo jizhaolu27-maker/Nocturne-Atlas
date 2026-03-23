@@ -175,6 +175,20 @@
                   <label>Context Turns<input id="story-config-context-blocks" type="number" min="8" max="60" /></label>
                   <label>Summary Interval<input id="story-config-summary-interval" type="number" min="2"
                       max="30" /></label>
+                  <label>Story Memory Retrieval
+                    <select id="story-config-memory-retrieval-mode">
+                      <option value="inherit">Use Global Default</option>
+                      <option value="lexical">Lexical Only</option>
+                      <option value="hybrid">Hybrid (Vector Ready)</option>
+                    </select>
+                  </label>
+                  <label>Story Local Embeddings
+                    <select id="story-config-local-embedding-mode">
+                      <option value="inherit">Use Global Default</option>
+                      <option value="off">Off</option>
+                      <option value="on">On</option>
+                    </select>
+                  </label>
                   <label>Temperature<input id="story-config-temperature" type="number" min="0" max="2"
                       step="0.05" /></label>
                   <label>Max Tokens<input id="story-config-max-completion" type="number" min="64" max="200000"
@@ -223,8 +237,28 @@
           </section>
 
           <section class="rp-section">
-            <h3 class="rp-title">API Provider</h3>
-            <p class="rp-subtitle">Connection endpoints.</p>
+            <h3 class="rp-title">Providers & Retrieval</h3>
+            <p class="rp-subtitle">Provider endpoints, global retrieval defaults, and local model status.</p>
+            <details class="fold-section" open>
+              <summary>Global Retrieval Defaults</summary>
+              <div class="fold-body stack-fields">
+                <label>Global Memory Retrieval
+                  <select id="app-memory-retrieval-mode">
+                    <option value="lexical">Lexical Default</option>
+                    <option value="hybrid">Hybrid Default</option>
+                  </select>
+                </label>
+                <label>Global Local Embeddings
+                  <select id="app-local-embedding-mode">
+                    <option value="off">Off</option>
+                    <option value="on">On</option>
+                  </select>
+                </label>
+                <button id="prewarm-local-embedding-btn" class="ghost" type="button">Prewarm Local Embedding Model</button>
+                <div id="local-embedding-status" class="provider-test-result"></div>
+                <div id="local-embedding-result" class="provider-test-result"></div>
+              </div>
+            </details>
             <details class="fold-section">
               <summary>Provider Setup</summary>
               <div class="fold-body stack-fields">

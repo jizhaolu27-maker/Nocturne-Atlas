@@ -9,10 +9,15 @@ const { createWorkspaceTools } = require("./lib/workspace");
 const { createContextTools } = require("./lib/context");
 const { createMemoryTools } = require("./lib/memory");
 const { createChatTools } = require("./lib/chat");
+const { createEmbeddingTools, normalizeEmbeddingConfig, normalizeEmbeddingMode } = require("./lib/embeddings");
+const { createKnowledgeRetrievalTools } = require("./lib/knowledge-retrieval");
 const {
+  extractKeywords,
   selectRelevantMemoryRecords,
   formatMemoryContext,
 } = require("./lib/memory-engine");
+const { createMemoryRetrievalTools } = require("./lib/memory-retrieval");
+const { createLocalVectorSearchRecords } = require("./lib/memory-vector");
 const { createProposalTools } = require("./lib/proposals");
 
 const ROOT = __dirname;
@@ -36,6 +41,11 @@ const DEFAULT_GLOBAL_SYSTEM_PROMPT =
   "You are a collaborative fiction engine. Continue the story with consistency, emotional continuity, and scene-level specificity.";
 
 let workspaceTools = null;
+const {
+  embedText,
+  buildMemoryEmbeddingText,
+  buildQueryEmbeddingText,
+} = createEmbeddingTools();
 
 const {
   ensureDir,
@@ -54,6 +64,7 @@ const {
   getStoryMessagesFile,
   getStoryWorkspaceDir,
   getStoryMemoryFile,
+  getStoryKnowledgeEmbeddingFile,
   getStoryProposalFile,
   getStorySnapshotFile,
   listJsonFiles,
@@ -80,6 +91,16 @@ const {
   getSyncStoryWorkspace: () => workspaceTools,
 });
 
+const {
+  retrieveKnowledgeChunks,
+  formatKnowledgeContext,
+} = createKnowledgeRetrievalTools({
+  embedText,
+  extractKeywords,
+  loadKnowledgeEmbeddingCache: (storyId) => readJson(getStoryKnowledgeEmbeddingFile(storyId), {}),
+  saveKnowledgeEmbeddingCache: (storyId, value) => writeJson(getStoryKnowledgeEmbeddingFile(storyId), value),
+});
+
 workspaceTools = createWorkspaceTools({
   getLibraryTypeDir,
   getStoryWorkspaceDir,
@@ -95,15 +116,33 @@ const {
 } = workspaceTools;
 
 const {
+  formatMemoryContext: formatRetrievedMemoryContext,
+  selectRelevantMemoryRecords: selectMemoryRecords,
+} = createMemoryRetrievalTools({
+  selectRelevantMemoryRecords,
+  formatMemoryContext,
+  vectorSearchRecords: createLocalVectorSearchRecords(),
+  isVectorSearchEnabled: (options = {}) =>
+    options.retrievalMode === "hybrid" &&
+    options.embeddingOptions?.mode === "on" &&
+    Array.isArray(options.queryEmbedding) &&
+    options.queryEmbedding.length > 0,
+});
+
+const {
   buildContextBlocks,
   classifyPressure,
   getDefaultContextStatus,
 } = createContextTools({
   DEFAULT_CONTEXT_BLOCKS,
   estimateTokens,
-  selectRelevantMemoryRecords,
-  formatMemoryContext,
+  selectRelevantMemoryRecords: selectMemoryRecords,
+  formatMemoryContext: formatRetrievedMemoryContext,
   getProviderContextWindow,
+  buildQueryEmbedding: ({ userMessage, messages, workspace, embeddingOptions }) =>
+    embedText(buildQueryEmbeddingText({ userMessage, messages, workspace }), embeddingOptions),
+  retrieveKnowledgeChunks,
+  formatKnowledgeContext,
 });
 
 const {
@@ -138,6 +177,9 @@ const {
   decryptSecret,
   callOpenAICompatible,
   tryParseJsonObject,
+  embedText,
+  buildMemoryEmbeddingText,
+  resolveEmbeddingOptions: resolveStoryEmbeddingConfig,
 });
 
 const {
@@ -297,11 +339,117 @@ function getProviderContextWindow(story) {
 }
 
 function normalizeAppConfig(config = {}) {
+  const memoryRetrievalMode = config.memoryRetrievalMode === "hybrid" ? "hybrid" : "lexical";
+  const localEmbedding = normalizeEmbeddingConfig(config.localEmbedding || {});
   return {
     theme: normalizeTheme(config.theme),
     lastOpenedStoryId: String(config.lastOpenedStoryId || ""),
     globalSystemPrompt: String(config.globalSystemPrompt || DEFAULT_GLOBAL_SYSTEM_PROMPT),
+    memoryRetrievalMode,
+    localEmbedding,
   };
+}
+
+function collectDirStats(dirPath) {
+  if (!dirPath || !fs.existsSync(dirPath)) {
+    return { exists: false, fileCount: 0, totalBytes: 0 };
+  }
+  let fileCount = 0;
+  let totalBytes = 0;
+  const stack = [dirPath];
+  while (stack.length) {
+    const current = stack.pop();
+    const entries = fs.readdirSync(current, { withFileTypes: true });
+    for (const entry of entries) {
+      const fullPath = path.join(current, entry.name);
+      if (entry.isDirectory()) {
+        stack.push(fullPath);
+      } else if (entry.isFile()) {
+        fileCount += 1;
+        totalBytes += fs.statSync(fullPath).size;
+      }
+    }
+  }
+  return { exists: true, fileCount, totalBytes };
+}
+
+function getLocalEmbeddingRuntimeStatus(config = {}) {
+  const normalized = normalizeEmbeddingConfig(config.localEmbedding || config || {});
+  let dependencyInstalled = false;
+  try {
+    require.resolve("@xenova/transformers");
+    dependencyInstalled = true;
+  } catch {
+    dependencyInstalled = false;
+  }
+  const cacheStats = collectDirStats(normalized.cacheDir);
+  return {
+    dependencyInstalled,
+    cacheDir: normalized.cacheDir,
+    cacheExists: cacheStats.exists,
+    cacheFileCount: cacheStats.fileCount,
+    cacheSizeMB: Number((cacheStats.totalBytes / (1024 * 1024)).toFixed(2)),
+    note:
+      normalized.mode === "on" && !dependencyInstalled
+        ? "Local embedding is enabled but the transformers package is unavailable."
+        : normalized.mode === "on" && !cacheStats.exists
+          ? "Local embedding is enabled. The model cache will populate on first neural embedding run."
+          : normalized.mode === "off"
+            ? "Local embedding is currently disabled."
+            : "",
+  };
+}
+
+async function prewarmLocalEmbeddingModel(config = {}) {
+  const normalized = normalizeEmbeddingConfig(config.localEmbedding || config || {});
+  const runtimeBefore = getLocalEmbeddingRuntimeStatus(normalized);
+  if (!runtimeBefore.dependencyInstalled) {
+    return {
+      ok: false,
+      warmed: false,
+      message: "The local transformers dependency is not installed.",
+      runtime: runtimeBefore,
+    };
+  }
+  if (normalized.provider === "hash_v1") {
+    return {
+      ok: true,
+      warmed: false,
+      message: "The current local embedding provider is hash_v1, so there is no neural model cache to prewarm.",
+      runtime: runtimeBefore,
+    };
+  }
+
+  try {
+    await embedText("Local embedding warmup for Nocturne Atlas.", {
+      ...normalized,
+      mode: "on",
+      allowFallback: false,
+    });
+    return {
+      ok: true,
+      warmed: true,
+      message: "Local embedding model prewarmed. The cache should now be ready for hybrid retrieval and local RAG.",
+      runtime: getLocalEmbeddingRuntimeStatus(normalized),
+    };
+  } catch (error) {
+    return {
+      ok: false,
+      warmed: false,
+      message: error?.message || "Failed to prewarm the local embedding model.",
+      runtime: getLocalEmbeddingRuntimeStatus(normalized),
+    };
+  }
+}
+
+function resolveStoryEmbeddingConfig(story) {
+  const appConfig = normalizeAppConfig(readJson(getAppConfigFile(), {}));
+  const storyMode = normalizeEmbeddingMode(story?.settings?.localEmbeddingMode || "inherit", "inherit");
+  const appMode = normalizeEmbeddingMode(appConfig.localEmbedding?.mode || "off", "off");
+  return normalizeEmbeddingConfig({
+    ...(appConfig.localEmbedding || {}),
+    mode: storyMode === "inherit" ? appMode : storyMode,
+  });
 }
 
 const {
@@ -358,6 +506,13 @@ function initializeData() {
         theme: "dark",
         lastOpenedStoryId: "",
         globalSystemPrompt: DEFAULT_GLOBAL_SYSTEM_PROMPT,
+        memoryRetrievalMode: "lexical",
+        localEmbedding: {
+          mode: "off",
+          provider: "transformers_local",
+          model: "Xenova/all-MiniLM-L6-v2",
+          dimensions: 384,
+        },
       },
       null,
       2
@@ -467,7 +622,10 @@ async function routeApi(req, res) {
         styles: listJsonFiles(getLibraryTypeDir("styles")),
       };
       return sendJson(res, 200, {
-        appConfig: normalizeAppConfig(readJson(getAppConfigFile(), {})),
+        appConfig: {
+          ...normalizeAppConfig(readJson(getAppConfigFile(), {})),
+          localEmbeddingRuntime: getLocalEmbeddingRuntimeStatus(readJson(getAppConfigFile(), {})),
+        },
         providers,
         stories,
         libraries,
@@ -482,7 +640,16 @@ async function routeApi(req, res) {
         ...body,
       });
       writeJson(getAppConfigFile(), next);
-      return sendJson(res, 200, next);
+      return sendJson(res, 200, {
+        ...next,
+        localEmbeddingRuntime: getLocalEmbeddingRuntimeStatus(next),
+      });
+    }
+
+    if (req.method === "POST" && segments[1] === "local-embedding" && segments[2] === "prewarm") {
+      const appConfig = normalizeAppConfig(readJson(getAppConfigFile(), {}));
+      const result = await prewarmLocalEmbeddingModel(appConfig);
+      return sendJson(res, result.ok ? 200 : 500, result);
     }
 
     if (segments[1] === "providers") {
@@ -581,7 +748,7 @@ async function routeApi(req, res) {
         }
         if (req.method === "GET" && segments.length === 3) {
           try {
-            return sendJson(res, 200, buildStoryPreview(storyId));
+            return sendJson(res, 200, await buildStoryPreview(storyId));
           } catch (error) {
             if (error.message === "Story not found") {
               return notFound(res);

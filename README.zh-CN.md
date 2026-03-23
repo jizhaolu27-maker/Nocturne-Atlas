@@ -2,97 +2,37 @@
 
 [English README](./README.md)
 
-**Nocturne Atlas** 是一个本地运行、零构建的 AI 互动小说工作台，专门为长线故事创作设计。
+**Nocturne Atlas** 是一个本地运行、零构建的 AI 小说工作台，适合维护长篇故事、持续世界观和多角色设定。
 
-它不是单纯的聊天壳，而是把“故事记忆”“设定工作区”“提案审核”“上下文诊断”都做成了一等功能，让你能持续维护一个会成长、会分支、可审查的故事宇宙。
+它不是单纯的聊天框，而是把“故事工作区、记忆、提案、诊断”都做成了一等功能。每个故事都有自己的独立 canon、独立工作副本、独立对话记录和独立记忆轨迹。
 
-## 为什么是 Nocturne Atlas
+## 项目亮点
 
-**Nocturne Atlas** 的核心思路很简单：
-
-长篇 AI 故事写作，不能只靠一次次聊天堆上下文，更需要一个可维护的故事工作台。
-
-**Nocturne Atlas** 的特色在于：
-
-- 每个故事都有独立工作区，角色卡、世界书、文风副本彼此隔离
-- 源资料库保持不变，真正会演化的是每个故事自己的工作副本
-- 记忆摘要以本地 JSONL 形式保存，便于追踪和检查
-- 设定更新通过提案流进入工作区，而不是悄悄覆盖
-- Diagnostics 可查看上下文占用、Prompt 预览、提案触发器、遗忘风险
-- 支持 OpenAI-compatible Provider，本地保存并加密 API Key
-- 静态前端，无需额外构建流程
-
-## 它能做什么
-
-用 **Nocturne Atlas**，你可以：
-
-- 创建多个故事，并保持它们的设定彼此隔离
-- 在本地浏览器 UI 中与 OpenAI-compatible 模型对话
-- 为每个故事启用专属角色卡、世界书和文风
-- 自动生成剧情记忆，支撑更长线的连续创作
-- 审核角色、关系、世界状态等提案，再决定是否写入故事 canon
-- 检查上下文压力和启发式“遗忘风险”
-- 流式显示回复，并在中途停止生成
-
-## 核心工作流
-
-1. 在 **Nocturne Atlas** 中创建或打开一个故事。
-2. 选择这个故事要启用的角色卡、世界书和文风。
-3. 与模型对话推进剧情。
-4. 让 **Nocturne Atlas** 保存简洁记忆，并产出可审核的设定提案。
-5. 只接受那些真正应该进入该故事工作 canon 的更新。
-
-## 项目结构
-
-```text
-server.js                         API 路由、Provider 调用与高层编排
-lib/providers.js                  Provider 加密、连通性测试与 OpenAI-compatible 请求辅助
-lib/story-store.js                故事/资料库/配置存储辅助，以及 JSON/JSONL 文件读写
-lib/workspace.js                  故事工作区 copy、sync 与 active workspace 加载辅助
-lib/context.js                    context block 组装、pressure 分级与默认 context 状态辅助
-lib/chat.js                       聊天 context 构建、回合收尾、streaming 与 revise-last 辅助
-lib/memory.js                     记忆编排、摘要触发、fallback 摘要与 forgetfulness 检查
-lib/memory-engine.js              记忆召回评分与 prompt 格式化辅助
-lib/memory-consolidation.js       长期记忆合并辅助
-lib/proposals.js                  proposal 触发、生成、pipeline 状态与应用辅助
-public/index.html                 主界面结构
-public/styles.css                 样式与布局
-public/app-chat.js                聊天发送、流式生成、停止与 revise-last 辅助
-public/app-library.js             资料库编辑选择、模板、保存与删除辅助
-public/app-workspace.js           工作区卡片、详情与选择渲染辅助
-public/app-review.js              提案、记忆、状态与诊断渲染辅助
-public/app.js                     前端状态、初始化、故事/Provider 流程与共享交互
-data/library/*                    源资料库资源
-data/stories/<storyId>/*          每个故事的本地工作区、消息、记忆、提案与快照
-```
-
-## 数据结构
-
-**Nocturne Atlas** 尽量让故事数据保持本地化、可读、可检查。
-
-- `data/library/characters`, `data/library/worldbooks`, `data/library/styles`
-  源资料库
-- `data/stories/<storyId>/workspace/*`
-  故事工作副本
-- `data/stories/<storyId>/messages.jsonl`
-  聊天记录
-- `data/stories/<storyId>/memory/records.jsonl`
-  剧情记忆
-- `data/stories/<storyId>/proposals/records.jsonl`
-  提案队列与审核历史
-- `data/stories/<storyId>/snapshots/context.jsonl`
-  Diagnostics 快照
+- 每个故事都有独立的角色卡、世界书、文风配置和工作区
+- 源素材库保持不变，故事只修改自己的本地副本
+- 记忆以可读的 JSONL 落盘，方便检查和调试
+- 设定更新通过提案机制进入故事 canon，而不是静默覆盖
+- Diagnostics 可以查看上下文压力、检索结果、提示词来源和失忆风险
+- 支持 OpenAI-compatible Provider，并在本地加密保存 API Key
+- 支持可选的本地混合检索与本地 RAG 基础能力
+- 前端是静态页面，不需要额外构建
 
 ## 快速开始
 
 ### 环境要求
 
-- 推荐 Node.js 18+
+- Node.js 18 或更高版本
 
-### 运行
+### 安装
 
 ```bash
-node server.js
+npm install
+```
+
+### 启动
+
+```bash
+npm start
 ```
 
 打开：
@@ -103,109 +43,156 @@ http://localhost:3000
 
 ### 测试
 
-运行本地 smoke tests：
-
-```bash
-node test/smoke.js
-```
-
-也可以直接使用脚本：
-
 ```bash
 npm test
 ```
 
-这组 smoke tests 保持零依赖，主要覆盖拆分后的 story-store、workspace、context、memory 和 proposal 关键流程。
+## 这个项目能做什么
 
-当前 smoke tests 主要覆盖：
+你可以用 **Nocturne Atlas**：
 
-- `story-store`：创建故事，以及已启用资料首次同步到 workspace
-- `workspace`：故事本地副本生成后的 active workspace 加载
-- `context`：system / workspace / memory / history block 组装
-- `memory`：摘要计划计算，以及不回退成原始 transcript 的 fallback 摘要生成
-- `proposals`：接受创建角色提案后，正确写入 workspace 并更新故事启用列表
+- 创建多个故事，并保持它们的 canon 完全隔离
+- 为某个故事启用专属角色卡、世界书和文风配置
+- 在本地浏览器 UI 里和模型持续对话
+- 为长剧情自动生成记忆 checkpoint
+- 审核角色、关系、世界状态相关的提案更新
+- 查看上下文诊断、记忆检索和遗忘风险
+- 流式输出回复，并在中途停止生成
+
+## 核心工作流
+
+1. 创建或打开一个故事
+2. 为这个故事启用角色卡、世界书和文风配置
+3. 配置 Provider 并开始对话
+4. 让系统自动记录紧凑记忆，并生成可审阅的 canon 提案
+5. 只接受你希望进入该故事工作 canon 的更新
+
+## 本地 RAG 与 Embedding
+
+**Nocturne Atlas** 可以在不依赖远程 embedding API 的情况下，走完整的本地 embedding 路径。
+
+当前默认配置：
+
+- 默认检索模式：`lexical`
+- 默认本地 embedding：`off`
+- 本地神经网络 embedding 后端：`@xenova/transformers`
+- 默认本地 embedding 模型：`Xenova/all-MiniLM-L6-v2`
+- 回退方案：当本地神经网络不可用时，使用确定性的本地哈希向量
+
+如果你想在克隆后启用本地 RAG 风格检索：
+
+1. 运行 `npm install`
+2. 运行 `npm start`
+3. 在界面中把 `Global Default: Memory Retrieval` 设为 `Hybrid`
+4. 把 `Global Default: Local Embeddings` 设为 `On`
+5. 点击一次 `Prewarm Local Embedding Model`
+
+这个预热按钮的作用是：
+
+- 主动触发一次真正的本地 embedding 调用
+- 如果本地模型还没有缓存，这一步会开始下载模型并写入缓存目录
+- 这样第一次正式聊天时，就不会把冷启动成本全部堆到第一轮对话里
+
+## 配置层级
+
+检索相关设置分成两层：
+
+- 全局默认值
+  作用于所有故事，除非某个故事单独覆盖
+- 故事级覆盖
+  只对当前故事生效
+
+常见组合：
+
+- `Lexical Only` + `Off`
+  最稳、最轻量，不启用向量增强
+- `Hybrid` + `On`
+  启用本地向量增强检索
+- `Inherit App Default`
+  跟随当前全局默认值
+
+## 数据目录
+
+项目尽量把数据保存在本地、并保持可读。
+
+```text
+data/library/characters/                 源角色素材
+data/library/worldbooks/                 源世界书素材
+data/library/styles/                     源文风素材
+data/stories/<storyId>/workspace/        故事工作副本
+data/stories/<storyId>/messages.jsonl    对话记录
+data/stories/<storyId>/memory/records.jsonl
+data/stories/<storyId>/proposals/records.jsonl
+data/stories/<storyId>/snapshots/context.jsonl
+```
+
+补充说明：
+
+- 当前仓库配置里，`data/stories/` 默认被 `.gitignore` 忽略
+- 本地模型缓存目录也被 `.gitignore` 忽略
+- 这意味着别人拉取仓库后，需要在自己的机器上重新生成故事数据和本地模型缓存
+
+## 项目结构
+
+```text
+server.js                         API 路由与高层编排
+lib/providers.js                  Provider 辅助与 OpenAI-compatible 请求封装
+lib/story-store.js                Story、library、config、JSON/JSONL 存储辅助
+lib/workspace.js                  Story workspace 同步与加载
+lib/context.js                    上下文 block 组装与压力判断
+lib/chat.js                       聊天上下文构建、回合收尾与流式输出
+lib/memory.js                     记忆编排与失忆检测
+lib/memory-engine.js              词面记忆检索与格式化
+lib/memory-retrieval.js           混合检索编排
+lib/memory-vector.js              本地向量打分辅助
+lib/embeddings.js                 本地 embedding 生成辅助
+lib/knowledge-retrieval.js        工作区知识 chunk 化与检索
+lib/memory-consolidation.js       长期记忆整合
+lib/proposals.js                  提案生成与审阅
+public/index.html                 主界面
+public/styles.css                 样式与布局
+public/app.js                     前端启动、状态和共享交互
+public/app-chat.js                聊天相关交互
+public/app-library.js             素材编辑相关交互
+public/app-workspace.js           工作区渲染相关交互
+public/app-review.js              Review、memory、diagnostics 渲染
+```
+
+## 记忆系统是怎么工作的
+
+这套记忆系统是显式的、本地优先的。
+
+1. 系统会定期把最近对话压缩成紧凑的记忆记录
+2. 每条记录写入 `data/stories/<storyId>/memory/records.jsonl`
+3. 记录里会包含 `kind`、`importance`、`entities`、`keywords`、`tier` 等字段
+4. 在下一轮生成前，系统会根据词面重叠、结构化字段、新近性、重要性和可选向量相似度进行排序
+5. 最相关的记忆会作为紧凑的 context block 再次注入 prompt
+6. 稳定的短期记忆之后还可以整合成长时记忆
+
+这样做的好处是：故事连续性是可检查、可理解、可调试的，而不是藏在一个黑盒 prompt 里。
 
 ## Provider 支持
 
-**Nocturne Atlas** 当前面向 OpenAI-compatible 的 Chat Completions 接口。
+项目当前面向 OpenAI-compatible chat completion API。
 
-可以配置：
+你可以配置：
 
 - base URL
-- model 名称
+- model name
 - context window
 - API key
 
-Provider key 会保存在本地，并进行静态加密存储。
-
-## 当前亮点
-
-- 流式聊天与停止生成
-- 每故事独立工作区
-- 提案式 canon 更新
-- 简洁记忆生成与合并
-- 上下文诊断与 Prompt 预览
-- 面向长线故事的遗忘风险提示
-- 零构建本地 UI
-
-## 当前记忆机制
-
-**Nocturne Atlas** 目前采用的是分层、本地化的记忆机制，而不是向量数据库。
-
-当前流程大致是：
-
-1. 在特定轮次后，系统会根据最近对话生成一条简洁记忆。
-2. 记忆会保存到 `data/stories/<storyId>/memory/records.jsonl`。
-3. 每条记忆会带上这些结构化信息：
-   - `kind`，例如 `relationship_update`、`world_state`、`character_update`、`plot_checkpoint`
-   - `importance`
-   - `entities`
-   - `keywords`
-   - `tier`，即 `short_term` 或 `long_term`
-4. 下一轮构建上下文时，**Nocturne Atlas** 会按以下因素给记忆打分：
-   - 关键词命中
-   - 实体命中
-   - 与当前工作区术语的重合
-   - 新近程度
-   - 重要度
-   - 记忆层级
-5. 得分最高的几条记忆会被重新注入 prompt，作为可见的上下文块参与生成。
-6. 当短期记忆累积到一定数量后，稳定类型的记忆会被合并成长期记忆。
-7. 同类型的旧长期记忆还会被新的长期记忆 supersede，避免检索越来越脏。
-
-这套设计的重点是：让 **Nocturne Atlas** 的记忆是显式的、可检查的、保存在本地的，而不是藏在不可见的 prompt 拼接里。
-
-运行时的记忆主流程现在集中在 `lib/memory.js`，而召回评分与合并逻辑则继续放在 `lib/memory-engine.js` 和 `lib/memory-consolidation.js` 这样的 helper 模块里。
-
-聊天 context 构建、回合收尾、streaming 聊天流程，以及 revise-last 处理现在集中在 `lib/chat.js`，这样 `server.js` 就更偏向入口层的启动、装配和 route 编排。
-
-前端里偏 review 的渲染逻辑现在集中在 `public/app-review.js`，把提案、记忆、状态与 diagnostics 的 UI 辅助从主脚本里拆了出来。
-
-聊天发送、streaming、停止生成与 revise-last 逻辑现在集中在 `public/app-chat.js`，让主脚本更偏向状态装配、配置流程和非聊天交互。
-
-资料库编辑的选择、模板、保存与删除逻辑现在集中在 `public/app-library.js`，把 JSON 编辑流程从主脚本里拆了出来。
-
-工作区卡片、详情与选择渲染现在集中在 `public/app-workspace.js`，把故事工作区的 UI 组装从主脚本里拆了出来。
-
-现在的全局系统提示词保存在 app config 里，所有故事共用；每个故事只保留自己的故事提示词和用户模板提示词。
+Provider key 会保存在本地，并加密存储。
 
 ## 说明
 
-- “遗忘风险”是启发式信号，不代表模型真的发生了记忆故障。
-- 提案机制的目标是让 canon 更新可审核，而不是自动覆盖。
-- 这个项目目前是明显的 local-first、single-user 取向。
-
-## 后续方向
-
-- 故事复制与归档
-- 更好的故事 / 资料搜索与筛选
-- 更丰富的提案 diff 展示
-- 更强的记忆检索评分
+- Forgetfulness 指标是启发式风险提示，不代表模型一定真的“失忆”
+- Proposal review 的目标是让 canon 更新可审阅，而不是自动合并
+- 这个仓库是本地优先、单用户优先的设计
+- 当前本地 RAG 路径主要由记忆检索和工作区知识检索组成
 
 ## License
 
-**Nocturne Atlas** 当前采用 `MIT` License。
+**Nocturne Atlas** 使用 `MIT` License。
 
-这意味着别人通常可以使用、修改、分发、甚至商用这个项目，只要保留原始版权声明与许可证文本即可。
-
-详见 [LICENSE](./LICENSE)。
+见 [LICENSE](./LICENSE)。

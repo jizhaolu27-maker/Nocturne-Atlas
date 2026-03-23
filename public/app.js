@@ -14,6 +14,8 @@
   pendingProposalPipeline: null,
   currentProposalTriggers: [],
   selectedWorkspaceAssetKey: null,
+  isPrewarmingLocalEmbedding: false,
+  activeRightTab: "controls",
 };
 
 const els = {
@@ -47,6 +49,11 @@ const els = {
   statusPressure: document.getElementById("status-pressure"),
   statusForgetfulness: document.getElementById("status-forgetfulness"),
   statusReasons: document.getElementById("status-reasons"),
+  appMemoryRetrievalMode: document.getElementById("app-memory-retrieval-mode"),
+  appLocalEmbeddingMode: document.getElementById("app-local-embedding-mode"),
+  prewarmLocalEmbeddingBtn: document.getElementById("prewarm-local-embedding-btn"),
+  localEmbeddingStatus: document.getElementById("local-embedding-status"),
+  localEmbeddingResult: document.getElementById("local-embedding-result"),
   providerName: document.getElementById("provider-name"),
   providerEditorSelect: document.getElementById("provider-editor-select"),
   providerBaseUrl: document.getElementById("provider-base-url"),
@@ -62,6 +69,8 @@ const els = {
   storyConfigModel: document.getElementById("story-config-model"),
   storyConfigContextBlocks: document.getElementById("story-config-context-blocks"),
   storyConfigSummaryInterval: document.getElementById("story-config-summary-interval"),
+  storyConfigMemoryRetrievalMode: document.getElementById("story-config-memory-retrieval-mode"),
+  storyConfigLocalEmbeddingMode: document.getElementById("story-config-local-embedding-mode"),
   storyConfigTemperature: document.getElementById("story-config-temperature"),
   storyConfigMaxCompletion: document.getElementById("story-config-max-completion"),
   promptGlobal: document.getElementById("prompt-global"),
@@ -234,10 +243,14 @@ function formatContextLabel(label) {
   const value = String(label || "");
   if (value === "system:global") return "全局系统提示";
   if (value === "system:story") return "故事系统提示";
+  if (value === "knowledge:retrieved") return "检索知识块";
   if (value === "style") return "启用文风";
   if (value === "characters") return "启用角色卡";
   if (value === "worldbook") return "启用世界书";
   if (value === "memory") return "剧情记忆摘要";
+  if (value === "memory:long_term") return "长期记忆";
+  if (value === "memory:critical") return "关键记忆";
+  if (value === "memory:recent") return "近期记忆";
   const historyTurn = value.match(/^history_turn:(\d+)$/);
   if (historyTurn) {
     return `最近第 ${Number(historyTurn[1]) + 1} 轮对话`;
@@ -250,10 +263,14 @@ function summarizeContextSources(blocks) {
   const basicSources = [];
   if (labels.includes("system:global")) basicSources.push("全局系统提示");
   if (labels.includes("system:story")) basicSources.push("故事系统提示");
+  if (labels.includes("knowledge:retrieved")) basicSources.push("检索知识");
   if (labels.includes("characters")) basicSources.push("角色卡");
   if (labels.includes("worldbook")) basicSources.push("世界书");
   if (labels.includes("style")) basicSources.push("文风");
   if (labels.includes("memory")) basicSources.push("剧情记忆");
+  if (labels.includes("memory:long_term")) basicSources.push("长期记忆");
+  if (labels.includes("memory:critical")) basicSources.push("关键记忆");
+  if (labels.includes("memory:recent")) basicSources.push("近期记忆");
   const historyTurns = labels.filter((item) => item.startsWith("history_turn:")).length;
   if (!basicSources.length && historyTurns === 0) {
     return "这次还没有可展示的上下文来源。";
@@ -276,6 +293,44 @@ function showStorySaveStatus(message, tone = "") {
     els.storySaveStatus.className = "story-save-status";
     state.storySaveStatusTimer = null;
   }, 2600);
+}
+
+function renderActiveRightPanel() {
+  const payload = state.activeStoryData;
+  const story = payload?.story || null;
+  if (!story) {
+    return;
+  }
+  if (state.activeRightTab === "knowledge") {
+    try {
+      renderSelectors(story.enabled || {});
+      renderWorkspace(payload.workspace || {});
+      renderMemory(payload.memoryRecords || []);
+      renderLibraryEditor();
+    } catch (error) {
+      console.error("Failed to render knowledge tab", error);
+    }
+    return;
+  }
+  if (state.activeRightTab === "review") {
+    try {
+      renderProposals(payload.proposals || []);
+    } catch (error) {
+      console.error("Failed to render review tab", error);
+      els.proposalList.innerHTML = `<article class="proposal-item">提案面板暂时无法显示，请刷新后重试。</article>`;
+    }
+    return;
+  }
+  if (state.activeRightTab === "diagnostics") {
+    try {
+      renderDiagnosticsCurrent(payload.diagnostics || {});
+    } catch (error) {
+      console.error("Failed to render diagnostics tab", error);
+      els.diagnosticTriggers.innerHTML = `<article class="diagnostic-item"><strong>Diagnostics</strong><span>诊断面板暂时无法显示，请刷新后重试。</span></article>`;
+      els.diagnosticContextBlocks.innerHTML = "";
+      els.diagnosticPromptPreview.innerHTML = "";
+    }
+  }
 }
 
 async function bootstrap() {
@@ -362,6 +417,89 @@ function renderProviders() {
   }
   els.providerEditorSelect.value = state.selectedProviderId || "__new__";
   renderProviderStatus();
+  renderLocalEmbeddingStatus();
+}
+
+function renderLocalEmbeddingStatus() {
+  const runtime = state.appConfig?.localEmbeddingRuntime || null;
+  const config = state.appConfig?.localEmbedding || {};
+  if (!els.localEmbeddingStatus) {
+    return;
+  }
+  const mode = config.mode || "off";
+  const dependencyReady = Boolean(runtime?.dependencyInstalled);
+  const cacheReady = Boolean(runtime?.cacheExists);
+  let summary = "Local embeddings: Off";
+  if (mode === "on" && dependencyReady && cacheReady) {
+    summary = "Local embeddings: Enabled. Cache: ready.";
+  } else if (mode === "on" && dependencyReady) {
+    summary = "Local embeddings: Enabled. Cache: not detected yet.";
+  } else if (mode === "on") {
+    summary = "Local embeddings: Enabled. Dependency: missing.";
+  } else if (dependencyReady) {
+    summary = "Local embeddings: Off. Dependency: ready.";
+  }
+  const tone = mode === "on" && !dependencyReady ? "error" : cacheReady ? "ok" : "";
+  els.localEmbeddingStatus.className = `provider-test-result ${tone}`.trim();
+  els.localEmbeddingStatus.textContent = summary;
+  if (els.prewarmLocalEmbeddingBtn) {
+    const canPrewarm = (config.provider || "transformers_local") !== "hash_v1";
+    els.prewarmLocalEmbeddingBtn.disabled = state.isPrewarmingLocalEmbedding || !canPrewarm;
+    els.prewarmLocalEmbeddingBtn.textContent = state.isPrewarmingLocalEmbedding
+      ? "Prewarming Local Embedding Model..."
+      : "Prewarm Local Embedding Model";
+    els.prewarmLocalEmbeddingBtn.title = canPrewarm
+      ? "Download and warm the local transformers embedding model before the first chat turn."
+      : "The hash_v1 provider does not use a neural model cache, so prewarming is unnecessary.";
+  }
+}
+
+function renderLocalEmbeddingResult(message = "", tone = "") {
+  if (!els.localEmbeddingResult) {
+    return;
+  }
+  els.localEmbeddingResult.className = `provider-test-result ${tone}`.trim();
+  els.localEmbeddingResult.textContent = message;
+}
+
+async function prewarmLocalEmbeddingModel() {
+  state.isPrewarmingLocalEmbedding = true;
+  renderLocalEmbeddingStatus();
+  renderLocalEmbeddingResult("Prewarming local embedding model...");
+  try {
+    const result = await api("/api/local-embedding/prewarm", {
+      method: "POST",
+      body: JSON.stringify({}),
+    });
+    state.appConfig = {
+      ...(state.appConfig || {}),
+      localEmbeddingRuntime: result.runtime || state.appConfig?.localEmbeddingRuntime || null,
+    };
+    const cacheReady = Boolean(result.runtime?.cacheExists);
+    const dependencyReady = Boolean(result.runtime?.dependencyInstalled);
+    let message = "Last prewarm: completed.";
+    if (result.ok && dependencyReady && cacheReady) {
+      message = "Last prewarm: success. Cache is ready.";
+    } else if (result.ok && dependencyReady) {
+      message = "Last prewarm: success. Model loaded, but cache is not detected yet.";
+    } else if (result.ok) {
+      message = "Last prewarm: completed.";
+    } else {
+      message = result.message || "Last prewarm: failed.";
+    }
+    renderLocalEmbeddingResult(message, result.ok ? "ok" : "error");
+  } catch (error) {
+    try {
+      const bootstrapData = await api("/api/bootstrap");
+      state.appConfig = bootstrapData.appConfig || state.appConfig || {};
+    } catch {
+      // Keep the current runtime snapshot if the refresh call also fails.
+    }
+    renderLocalEmbeddingResult(`Last prewarm: failed. ${error.message}`, "error");
+  } finally {
+    state.isPrewarmingLocalEmbedding = false;
+    renderLocalEmbeddingStatus();
+  }
 }
 
 function renderEmptyState() {
@@ -378,9 +516,13 @@ function renderEmptyState() {
   els.storyConfigModel.value = "";
   els.storyConfigContextBlocks.value = 20;
   els.storyConfigSummaryInterval.value = 20;
+  els.storyConfigMemoryRetrievalMode.value = "inherit";
+  els.storyConfigLocalEmbeddingMode.value = "inherit";
   els.storyConfigTemperature.value = 1;
   els.storyConfigMaxCompletion.value = 120000;
   els.promptGlobal.value = state.appConfig?.globalSystemPrompt || "";
+  els.appMemoryRetrievalMode.value = state.appConfig?.memoryRetrievalMode || "lexical";
+  els.appLocalEmbeddingMode.value = state.appConfig?.localEmbedding?.mode || "off";
   els.promptStory.value = "";
   els.promptUser.value = "";
   els.providerSelect.value = "";
@@ -390,10 +532,20 @@ function renderEmptyState() {
     `<article class="memory-item">当前还没有可展示的剧情记忆。</article>`;
   els.proposalList.innerHTML =
     `<article class="proposal-item">当前还没有可处理的提案。</article>`;
-  renderSelectors({ characters: [], worldbooks: [], styles: [] });
   renderStatusCurrent({});
-  renderDiagnosticsCurrent({});
   renderChatStatus();
+  renderLocalEmbeddingStatus();
+  renderLocalEmbeddingResult();
+  els.workspaceView.innerHTML =
+    `<article class="workspace-card">当前没有可展示的工作区内容。</article>`;
+  els.memoryList.innerHTML =
+    `<article class="memory-item">当前还没有可展示的剧情记忆。</article>`;
+  els.proposalList.innerHTML =
+    `<article class="proposal-item">当前还没有可处理的提案。</article>`;
+  els.diagnosticTriggers.innerHTML =
+    `<article class="diagnostic-item"><strong>Diagnostics</strong><span>还没有可展示的诊断信息。</span></article>`;
+  els.diagnosticContextBlocks.innerHTML = "";
+  els.diagnosticPromptPreview.innerHTML = "";
 }
 
 async function loadStory(storyId, options = {}) {
@@ -430,22 +582,26 @@ function renderStory() {
   els.storyConfigModel.value = story.model || "";
   els.storyConfigContextBlocks.value = story.settings?.contextBlocks ?? 20;
   els.storyConfigSummaryInterval.value = story.settings?.summaryInterval ?? 20;
+  els.storyConfigMemoryRetrievalMode.value = story.settings?.memoryRetrievalMode || "inherit";
+  els.storyConfigLocalEmbeddingMode.value = story.settings?.localEmbeddingMode || "inherit";
   els.storyConfigTemperature.value = story.settings?.temperature ?? 1;
   els.storyConfigMaxCompletion.value = story.settings?.maxCompletionTokens ?? 120000;
   els.promptGlobal.value = state.appConfig?.globalSystemPrompt || story.promptConfig?.globalSystemPrompt || "";
+  els.appMemoryRetrievalMode.value = state.appConfig?.memoryRetrievalMode || "lexical";
+  els.appLocalEmbeddingMode.value = state.appConfig?.localEmbedding?.mode || "off";
   els.promptStory.value = story.promptConfig?.storySystemPrompt || "";
   els.promptUser.value = story.promptConfig?.userPromptTemplate || "";
   els.providerSelect.value = story.providerId || "";
   renderMessages(payload.messages || []);
   decorateLatestEditableMessage(payload.messages || []);
-  renderWorkspace(payload.workspace || {});
-  renderMemory(payload.memoryRecords || []);
-  renderProposals(payload.proposals || []);
-  renderSelectors(story.enabled || {});
-  renderStatusCurrent(payload.diagnostics?.currentContextPreview?.contextStatus || story.contextStatus || {});
-  renderDiagnosticsCurrent(payload.diagnostics || {});
+  try {
+    renderStatusCurrent(payload.diagnostics?.currentContextPreview?.contextStatus || story.contextStatus || {});
+  } catch (error) {
+    console.error("Failed to render context status", error);
+  }
   renderChatStatus();
-  renderLibraryEditor();
+  renderLocalEmbeddingStatus();
+  renderActiveRightPanel();
 }
 
 function decorateLatestEditableMessage(messages) {
@@ -530,6 +686,8 @@ function collectStoryPayload() {
     settings: {
       contextBlocks: parseNumberInput(els.storyConfigContextBlocks.value, 20),
       summaryInterval: parseNumberInput(els.storyConfigSummaryInterval.value, 20),
+      memoryRetrievalMode: els.storyConfigMemoryRetrievalMode.value || "inherit",
+      localEmbeddingMode: els.storyConfigLocalEmbeddingMode.value || "inherit",
       temperature: parseNumberInput(els.storyConfigTemperature.value, 1),
       maxCompletionTokens: parseNumberInput(els.storyConfigMaxCompletion.value, 120000),
     },
@@ -553,10 +711,25 @@ async function saveStoryConfig() {
   try {
     const nextGlobalSystemPrompt = els.promptGlobal.value.trim();
     const currentGlobalSystemPrompt = state.appConfig?.globalSystemPrompt || "";
-    if (nextGlobalSystemPrompt !== currentGlobalSystemPrompt) {
+    const nextAppMemoryRetrievalMode = els.appMemoryRetrievalMode.value === "hybrid" ? "hybrid" : "lexical";
+    const currentAppMemoryRetrievalMode = state.appConfig?.memoryRetrievalMode || "lexical";
+    const nextAppLocalEmbeddingMode = els.appLocalEmbeddingMode.value === "on" ? "on" : "off";
+    const currentAppLocalEmbeddingMode = state.appConfig?.localEmbedding?.mode || "off";
+    if (
+      nextGlobalSystemPrompt !== currentGlobalSystemPrompt ||
+      nextAppMemoryRetrievalMode !== currentAppMemoryRetrievalMode ||
+      nextAppLocalEmbeddingMode !== currentAppLocalEmbeddingMode
+    ) {
       state.appConfig = await api("/api/app-config", {
         method: "POST",
-        body: JSON.stringify({ globalSystemPrompt: nextGlobalSystemPrompt }),
+        body: JSON.stringify({
+          globalSystemPrompt: nextGlobalSystemPrompt,
+          memoryRetrievalMode: nextAppMemoryRetrievalMode,
+          localEmbedding: {
+            ...(state.appConfig?.localEmbedding || {}),
+            mode: nextAppLocalEmbeddingMode,
+          },
+        }),
       });
     }
     await api(`/api/stories/${state.activeStoryId}/config`, {
@@ -581,7 +754,14 @@ async function refreshAll() {
   renderProviders();
   renderStories();
   syncProviderForm();
-  renderLibraryEditor();
+  renderLocalEmbeddingStatus();
+  if (state.activeRightTab === "knowledge") {
+    try {
+      renderLibraryEditor();
+    } catch (error) {
+      console.error("Failed to refresh library editor", error);
+    }
+  }
 }
 
 async function createStory() {
@@ -785,6 +965,7 @@ els.newProviderBtn.addEventListener("click", () => {
   els.providerEditorSelect.value = "__new__";
   syncProviderForm();
 });
+els.prewarmLocalEmbeddingBtn?.addEventListener("click", prewarmLocalEmbeddingModel);
 els.providerEditorSelect.addEventListener("change", () => {
   state.selectedProviderId = els.providerEditorSelect.value === "__new__" ? null : els.providerEditorSelect.value;
   syncProviderForm();
@@ -811,6 +992,7 @@ for (const btn of document.querySelectorAll(".tab-btn")) {
   btn.setAttribute("aria-selected", btn.classList.contains("active") ? "true" : "false");
   btn.addEventListener("click", () => {
     const tab = btn.dataset.tab;
+    state.activeRightTab = tab;
     for (const b of document.querySelectorAll(".tab-btn")) {
       b.classList.toggle("active", b.dataset.tab === tab);
       b.setAttribute("aria-selected", b.dataset.tab === tab ? "true" : "false");
@@ -818,6 +1000,7 @@ for (const btn of document.querySelectorAll(".tab-btn")) {
     for (const c of document.querySelectorAll(".tab-content")) {
       c.classList.toggle("active", c.id === `tab-${tab}`);
     }
+    renderActiveRightPanel();
     document.querySelector(".right-panel-body")?.scrollTo({ top: 0, behavior: "smooth" });
   });
 }

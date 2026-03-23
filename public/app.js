@@ -241,19 +241,19 @@ function parseNumberInput(value, fallback) {
 
 function formatContextLabel(label) {
   const value = String(label || "");
-  if (value === "system:global") return "全局系统提示";
-  if (value === "system:story") return "故事系统提示";
-  if (value === "knowledge:retrieved") return "检索知识块";
-  if (value === "style") return "启用文风";
-  if (value === "characters") return "启用角色卡";
-  if (value === "worldbook") return "启用世界书";
-  if (value === "memory") return "剧情记忆摘要";
-  if (value === "memory:long_term") return "长期记忆";
-  if (value === "memory:critical") return "关键记忆";
-  if (value === "memory:recent") return "近期记忆";
+  if (value === "system:global") return "Global system prompt";
+  if (value === "system:story") return "Story system prompt";
+  if (value === "knowledge:retrieved") return "Retrieved knowledge blocks";
+  if (value === "style") return "Enabled style";
+  if (value === "characters") return "Enabled character cards";
+  if (value === "worldbook") return "Enabled worldbooks";
+  if (value === "memory") return "Story memory summary";
+  if (value === "memory:long_term") return "Long-term memory";
+  if (value === "memory:critical") return "Critical memory";
+  if (value === "memory:recent") return "Recent memory";
   const historyTurn = value.match(/^history_turn:(\d+)$/);
   if (historyTurn) {
-    return `最近第 ${Number(historyTurn[1]) + 1} 轮对话`;
+    return `Recent conversation turn ${Number(historyTurn[1]) + 1}`;
   }
   return value;
 }
@@ -261,21 +261,21 @@ function formatContextLabel(label) {
 function summarizeContextSources(blocks) {
   const labels = (blocks || []).map((item) => String(item.label || ""));
   const basicSources = [];
-  if (labels.includes("system:global")) basicSources.push("全局系统提示");
-  if (labels.includes("system:story")) basicSources.push("故事系统提示");
-  if (labels.includes("knowledge:retrieved")) basicSources.push("检索知识");
-  if (labels.includes("characters")) basicSources.push("角色卡");
-  if (labels.includes("worldbook")) basicSources.push("世界书");
-  if (labels.includes("style")) basicSources.push("文风");
-  if (labels.includes("memory")) basicSources.push("剧情记忆");
-  if (labels.includes("memory:long_term")) basicSources.push("长期记忆");
-  if (labels.includes("memory:critical")) basicSources.push("关键记忆");
-  if (labels.includes("memory:recent")) basicSources.push("近期记忆");
+  if (labels.includes("system:global")) basicSources.push("Global system prompt");
+  if (labels.includes("system:story")) basicSources.push("Story system prompt");
+  if (labels.includes("knowledge:retrieved")) basicSources.push("Retrieved knowledge");
+  if (labels.includes("characters")) basicSources.push("Character cards");
+  if (labels.includes("worldbook")) basicSources.push("Worldbooks");
+  if (labels.includes("style")) basicSources.push("Style");
+  if (labels.includes("memory")) basicSources.push("Story memory");
+  if (labels.includes("memory:long_term")) basicSources.push("Long-term memory");
+  if (labels.includes("memory:critical")) basicSources.push("Critical memory");
+  if (labels.includes("memory:recent")) basicSources.push("Recent memory");
   const historyTurns = labels.filter((item) => item.startsWith("history_turn:")).length;
   if (!basicSources.length && historyTurns === 0) {
-    return "这次还没有可展示的上下文来源。";
+    return "There are no context sources to display for this preview yet.";
   }
-  return `本次带入：${basicSources.length ? basicSources.join("、") : "无基础来源"}；历史对话 ${historyTurns} 轮。`;
+  return `Included in this run: ${basicSources.length ? basicSources.join(", ") : "no base sources"}; history turns: ${historyTurns}.`;
 }
 
 function showStorySaveStatus(message, tone = "") {
@@ -317,7 +317,7 @@ function renderActiveRightPanel() {
       renderProposals(payload.proposals || []);
     } catch (error) {
       console.error("Failed to render review tab", error);
-      els.proposalList.innerHTML = `<article class="proposal-item">提案面板暂时无法显示，请刷新后重试。</article>`;
+      els.proposalList.innerHTML = `<article class="proposal-item">The proposals panel is temporarily unavailable. Refresh and try again.</article>`;
     }
     return;
   }
@@ -326,7 +326,7 @@ function renderActiveRightPanel() {
       renderDiagnosticsCurrent(payload.diagnostics || {});
     } catch (error) {
       console.error("Failed to render diagnostics tab", error);
-      els.diagnosticTriggers.innerHTML = `<article class="diagnostic-item"><strong>Diagnostics</strong><span>诊断面板暂时无法显示，请刷新后重试。</span></article>`;
+      els.diagnosticTriggers.innerHTML = `<article class="diagnostic-item"><strong>Diagnostics</strong><span>The diagnostics panel is temporarily unavailable. Refresh and try again.</span></article>`;
       els.diagnosticContextBlocks.innerHTML = "";
       els.diagnosticPromptPreview.innerHTML = "";
     }
@@ -367,8 +367,8 @@ function applyTheme(theme) {
   state.appConfig = { ...(state.appConfig || {}), theme: nextTheme };
   document.body.dataset.theme = nextTheme;
   if (els.themeToggleBtn) {
-    // 【修改点】：改成改 title 而不是 textContent，保护 SVG 图标
-    els.themeToggleBtn.title = nextTheme === "light" ? "切换到夜间主题" : "切换到日间主题";
+    // Update the tooltip instead of textContent so the SVG icon stays intact.
+    els.themeToggleBtn.title = nextTheme === "light" ? "Switch to dark theme" : "Switch to light theme";
   }
 }
 
@@ -385,7 +385,7 @@ async function toggleTheme() {
     applyTheme(state.appConfig.theme || nextTheme);
   } catch (error) {
     applyTheme(currentTheme);
-    alert(`主题切换失败：${error.message}`);
+    alert(`Failed to toggle theme: ${error.message}`);
   }
 }
 
@@ -410,8 +410,8 @@ function renderProviders() {
     .map((item) => `<option value="${item.id}">${escapeHtml(item.name)}</option>`)
     .join("");
   els.providerSelect.innerHTML =
-    `<option value="">${state.providers.length ? "选择 Provider" : "暂无 Provider"}</option>` + providerOptions;
-  els.providerEditorSelect.innerHTML = providerOptions + `<option value="__new__">新建 Provider</option>`;
+    `<option value="">${state.providers.length ? "Select Provider" : "No Providers"}</option>` + providerOptions;
+  els.providerEditorSelect.innerHTML = providerOptions + `<option value="__new__">New Provider</option>`;
   if (!state.selectedProviderId && state.providers[0]?.id) {
     state.selectedProviderId = state.providers[0].id;
   }
@@ -506,10 +506,10 @@ function renderEmptyState() {
   state.pendingProposalPipeline = null;
   state.currentProposalTriggers = [];
   state.selectedWorkspaceAssetKey = null;
-  els.storyTitle.textContent = "\u8fd8\u6ca1\u6709\u6545\u4e8b";
-  els.storySubtitle.textContent = "\u521b\u5efa\u4e00\u4e2a\u6545\u4e8b\u540e\uff0c\u8fd9\u91cc\u4f1a\u663e\u793a\u5b83\u7684\u5de5\u4f5c\u526f\u672c\u3001\u5267\u60c5\u8bb0\u5fc6\u3001\u63d0\u6848\u4e0e\u4e0a\u4e0b\u6587\u9884\u89c8\u3002";
+  els.storyTitle.textContent = "No story yet";
+  els.storySubtitle.textContent = "Create a story and this area will show its workspace copies, memory, proposals, and context preview.";
   els.chatLog.innerHTML =
-    `<div class="message assistant"><div class="meta">system</div>\u521b\u5efa\u6216\u9009\u62e9\u4e00\u4e2a\u6545\u4e8b\u540e\uff0c\u5c31\u53ef\u4ee5\u5f00\u59cb\u5bf9\u8bdd\u3002</div>`;
+    `<div class="message assistant"><div class="meta">system</div>Create or select a story to start chatting.</div>`;
   els.deleteStoryBtn.disabled = true;
   els.storyConfigTitle.value = "";
   els.storyConfigSummary.value = "";
@@ -527,23 +527,23 @@ function renderEmptyState() {
   els.promptUser.value = "";
   els.providerSelect.value = "";
   els.workspaceView.innerHTML =
-    `<article class="workspace-card">当前没有可展示的工作区内容。</article>`;
+    `<article class="workspace-card">There is no workspace content to display.</article>`;
   els.memoryList.innerHTML =
-    `<article class="memory-item">当前还没有可展示的剧情记忆。</article>`;
+    `<article class="memory-item">There is no story memory to display yet.</article>`;
   els.proposalList.innerHTML =
-    `<article class="proposal-item">当前还没有可处理的提案。</article>`;
+    `<article class="proposal-item">There are no proposals to process yet.</article>`;
   renderStatusCurrent({});
   renderChatStatus();
   renderLocalEmbeddingStatus();
   renderLocalEmbeddingResult();
   els.workspaceView.innerHTML =
-    `<article class="workspace-card">当前没有可展示的工作区内容。</article>`;
+    `<article class="workspace-card">There is no workspace content to display.</article>`;
   els.memoryList.innerHTML =
-    `<article class="memory-item">当前还没有可展示的剧情记忆。</article>`;
+    `<article class="memory-item">There is no story memory to display yet.</article>`;
   els.proposalList.innerHTML =
-    `<article class="proposal-item">当前还没有可处理的提案。</article>`;
+    `<article class="proposal-item">There are no proposals to process yet.</article>`;
   els.diagnosticTriggers.innerHTML =
-    `<article class="diagnostic-item"><strong>Diagnostics</strong><span>还没有可展示的诊断信息。</span></article>`;
+    `<article class="diagnostic-item"><strong>Diagnostics</strong><span>There is no diagnostic information to display yet.</span></article>`;
   els.diagnosticContextBlocks.innerHTML = "";
   els.diagnosticPromptPreview.innerHTML = "";
 }
@@ -576,7 +576,7 @@ function renderStory() {
   const story = payload.story;
   els.deleteStoryBtn.disabled = false;
   els.storyTitle.textContent = story.title;
-  els.storySubtitle.textContent = story.summary || "\u8fd9\u4e2a\u6545\u4e8b\u8fd8\u6ca1\u6709\u6458\u8981\u3002";
+  els.storySubtitle.textContent = story.summary || "This story does not have a summary yet.";
   els.storyConfigTitle.value = story.title || "";
   els.storyConfigSummary.value = story.summary || "";
   els.storyConfigModel.value = story.model || "";
@@ -617,10 +617,10 @@ function decorateLatestEditableMessage(messages) {
   }
   const actions = document.createElement("div");
   actions.className = "message-actions";
-  // 【修改点】：给“编辑这条”加上小图标
+  // Add a compact icon to the revise action without disturbing the message layout.
   actions.innerHTML = `<button type="button" class="ghost msg-action-btn" data-edit-last-user="true">
     <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right:4px;"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>
-    \u7f16\u8f91\u8fd9\u6761\u5e76\u91cd\u65b0\u751f\u6210
+    Revise this turn and regenerate
   </button>`;
   target.appendChild(actions);
 }
@@ -637,7 +637,7 @@ function renderMessages(messages) {
           `
         )
         .join("")
-    : `<div class="message assistant"><div class="message-role">system</div><div class="message-content">\u5f00\u59cb\u548c\u8fd9\u4e2a\u6545\u4e8b\u5bf9\u8bdd\u5427\u3002</div></div>`;
+    : `<div class="message assistant"><div class="message-role">system</div><div class="message-content">Start chatting with this story.</div></div>`;
   els.chatLog.scrollTop = els.chatLog.scrollHeight;
 }
 
@@ -649,7 +649,7 @@ function renderSelectors(enabled) {
 
 function renderSelectorList(root, items, enabledIds) {
   if (!items.length) {
-    root.innerHTML = `<article class="selector-empty">当前还没有可选条目。</article>`;
+    root.innerHTML = `<article class="selector-empty">There are no selectable entries yet.</article>`;
     return;
   }
   root.innerHTML = items
@@ -707,7 +707,7 @@ async function saveStoryConfig() {
   if (!state.activeStoryId) {
     return;
   }
-  showStorySaveStatus("\u6b63\u5728\u4fdd\u5b58\u914d\u7f6e\u5e76\u5237\u65b0\u4e0a\u4e0b\u6587\u9884\u89c8...");
+  showStorySaveStatus("Saving configuration and refreshing the context preview...");
   try {
     const nextGlobalSystemPrompt = els.promptGlobal.value.trim();
     const currentGlobalSystemPrompt = state.appConfig?.globalSystemPrompt || "";
@@ -738,9 +738,9 @@ async function saveStoryConfig() {
     });
     await refreshAll();
     await loadStory(state.activeStoryId);
-    showStorySaveStatus("\u5df2\u4fdd\u5b58\uff0cDiagnostics \u5df2\u5237\u65b0\u4e3a\u5f53\u524d\u914d\u7f6e\u9884\u89c8\u3002", "ok");
+    showStorySaveStatus("Saved. Diagnostics has been refreshed for the current configuration preview.", "ok");
   } catch (error) {
-    showStorySaveStatus(`\u4fdd\u5b58\u5931\u8d25\uff1a${error.message}`, "error");
+    showStorySaveStatus(`Save failed: ${error.message}`, "error");
     throw error;
   }
 }
@@ -765,7 +765,7 @@ async function refreshAll() {
 }
 
 async function createStory() {
-  const title = prompt("\u8f93\u5165\u65b0\u6545\u4e8b\u6807\u9898", `Story ${state.stories.length + 1}`);
+  const title = prompt("Enter a title for the new story", `Story ${state.stories.length + 1}`);
   if (!title) {
     return;
   }
@@ -791,7 +791,7 @@ async function deleteActiveStory() {
   if (!state.activeStoryId || !state.activeStoryData?.story) {
     return;
   }
-  const confirmed = confirm(`\u786e\u8ba4\u5220\u9664\u6545\u4e8b\u201c${state.activeStoryData.story.title}\u201d\uff1f\u6b64\u64cd\u4f5c\u4f1a\u5220\u9664\u8be5\u6545\u4e8b\u4e0b\u7684\u804a\u5929\u3001\u8bb0\u5fc6\u3001\u63d0\u6848\u548c\u5de5\u4f5c\u533a\u526f\u672c\u3002`);
+  const confirmed = confirm(`Delete story "${state.activeStoryData.story.title}"? This will remove the story's chat, memory, proposals, and workspace copies.`);
   if (!confirmed) {
     return;
   }
@@ -826,11 +826,11 @@ async function saveProvider() {
 
 async function testProvider() {
   if (!state.selectedProviderId) {
-    renderProviderStatus("\u8bf7\u5148\u4fdd\u5b58\u6216\u9009\u62e9\u4e00\u4e2a Provider\u3002");
+    renderProviderStatus("Please save or select a provider first.");
     return;
   }
   els.providerTestResult.className = "provider-test-result";
-  els.providerTestResult.textContent = "\u6b63\u5728\u6d4b\u8bd5 Provider...";
+  els.providerTestResult.textContent = "Testing provider...";
   try {
     const result = await api("/api/providers/test", {
       method: "POST",
@@ -840,10 +840,10 @@ async function testProvider() {
       }),
     });
     els.providerTestResult.className = "provider-test-result ok";
-    els.providerTestResult.textContent = `\u6d4b\u8bd5\u6210\u529f / ${result.latencyMs || "n/a"} ms / ${result.endpoint || ""} / ${result.replyPreview || "provider reachable"}`;
+    els.providerTestResult.textContent = `Test passed / ${result.latencyMs || "n/a"} ms / ${result.endpoint || ""} / ${result.replyPreview || "provider reachable"}`;
   } catch (error) {
     els.providerTestResult.className = "provider-test-result error";
-    els.providerTestResult.textContent = `\u6d4b\u8bd5\u5931\u8d25\uff1a${error.message}`;
+    els.providerTestResult.textContent = `Test failed: ${error.message}`;
   }
 }
 
@@ -866,15 +866,15 @@ function renderProviderStatus(message = "") {
   }
   if (!provider) {
     els.providerTestResult.className = "provider-test-result";
-    els.providerTestResult.textContent = "\u65b0\u5efa\u6216\u9009\u62e9\u4e00\u4e2a Provider\u3002";
+    els.providerTestResult.textContent = "Create or select a provider.";
     return;
   }
   const decryptable = provider.encryptedApiKey?.decryptable;
   els.providerTestResult.className = `provider-test-result ${decryptable === false ? "error" : ""}`;
   els.providerTestResult.textContent =
     decryptable === false
-      ? "\u5f53\u524d\u4fdd\u5b58\u7684 API Key \u65e0\u6cd5\u5728\u6b64\u73af\u5883\u89e3\u5bc6\uff0c\u8bf7\u91cd\u65b0\u8f93\u5165\u540e\u518d\u6d4b\u8bd5\u3002"
-      : "\u53ef\u4ee5\u76f4\u63a5\u70b9\u51fb\u201c\u6d4b\u8bd5 Provider\u201d\u68c0\u67e5\u8fde\u901a\u6027\u3002";
+      ? "The saved API key cannot be decrypted in this environment. Re-enter the key and test again."
+      : "Click Test Provider to check connectivity.";
 }
 
 function getSidebarCollapsedPreference() {

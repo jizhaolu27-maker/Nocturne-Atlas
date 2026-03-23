@@ -5,11 +5,11 @@ window.createWorkspaceTools = function createWorkspaceTools({
 }) {
   function formatWorkspaceAssetType(type) {
     const labels = {
-      character: "角色卡",
-      worldbook: "世界书",
-      style: "文风",
+      character: "Character Card",
+      worldbook: "Worldbook",
+      style: "Style",
     };
-    return labels[type] || type || "工作区资产";
+    return labels[type] || type || "Workspace Asset";
   }
 
   function getWorkspaceAssetTitle(type, item) {
@@ -21,10 +21,10 @@ window.createWorkspaceTools = function createWorkspaceTools({
 
   function formatWorkspaceDetailValue(value) {
     if (value == null) {
-      return "未设置";
+      return "Not set";
     }
     if (typeof value === "string") {
-      return value || "空字符串";
+      return value || "Empty string";
     }
     return JSON.stringify(value, null, 2);
   }
@@ -77,7 +77,7 @@ window.createWorkspaceTools = function createWorkspaceTools({
           <span>ID: ${escapeHtml(card.id)}</span>
         </div>
         <div class="workspace-detail-grid">
-          ${fields || '<article class="workspace-detail-row"><strong>内容</strong><pre>当前没有可展示的字段。</pre></article>'}
+          ${fields || '<article class="workspace-detail-row"><strong>Content</strong><pre>There are no fields to display.</pre></article>'}
         </div>
       </section>
     `;
@@ -87,7 +87,7 @@ window.createWorkspaceTools = function createWorkspaceTools({
     const cards = buildWorkspaceCards(workspace);
     if (!cards.length) {
       state.selectedWorkspaceAssetKey = null;
-      els.workspaceView.innerHTML = `<article class="workspace-card">当前故事还没有启用任何工作区资产副本。</article>`;
+      els.workspaceView.innerHTML = `<article class="workspace-card">This story does not have any active workspace asset copies yet.</article>`;
       return;
     }
     const selectedKey = cards.some((item) => item.key === state.selectedWorkspaceAssetKey)
@@ -102,7 +102,7 @@ window.createWorkspaceTools = function createWorkspaceTools({
             (item) => `
               <article class="workspace-card ${item.key === selectedKey ? "active" : ""}" data-workspace-key="${escapeHtml(item.key)}">
                 <strong>${escapeHtml(formatWorkspaceAssetType(item.type))} / ${escapeHtml(item.title)}</strong>
-                <div>${escapeHtml(item.body || "点击查看完整字段")}</div>
+                <div>${escapeHtml(item.body || "Click to inspect all fields")}</div>
               </article>
             `
           )

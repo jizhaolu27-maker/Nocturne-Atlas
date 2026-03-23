@@ -16,7 +16,7 @@ window.createChatTools = function createChatTools({
       state.currentProposalTriggers = [];
     }
     els.chatStatus.className = `chat-status ${isPending ? "busy" : ""}`.trim();
-    els.chatStatus.textContent = isPending ? "AI 已收到请求，正在整理上下文并准备回答。" : "";
+    els.chatStatus.textContent = isPending ? "AI received the request and is preparing the reply." : "";
 
     const existing = els.chatLog.querySelector(".message.assistant.pending");
     if (!isPending) {
@@ -30,8 +30,8 @@ window.createChatTools = function createChatTools({
     pending.className = "message assistant pending";
     pending.innerHTML = `
       <div class="meta">assistant</div>
-      AI 已收到请求${submittedText ? `：${escapeHtml(submittedText)}` : ""}
-正在准备回答...
+      AI received the request${submittedText ? `: ${escapeHtml(submittedText)}` : ""}
+Preparing the reply...
     `;
     els.chatLog.appendChild(pending);
     els.chatLog.scrollTop = els.chatLog.scrollHeight;
@@ -42,7 +42,7 @@ window.createChatTools = function createChatTools({
     if (!pending) {
       return;
     }
-    pending.innerHTML = `<div class="meta">assistant</div>${escapeHtml(text || "正在生成回复...")}`;
+    pending.innerHTML = `<div class="meta">assistant</div>${escapeHtml(text || "Generating reply...")}`;
     els.chatLog.scrollTop = els.chatLog.scrollHeight;
   }
 
@@ -100,7 +100,7 @@ window.createChatTools = function createChatTools({
   async function sendChat(event) {
     event.preventDefault();
     if (!state.activeStoryId) {
-      alert("请先选择一个故事。");
+      alert("Please select a story first.");
       return;
     }
     const message = els.chatInput.value.trim();
@@ -136,22 +136,22 @@ window.createChatTools = function createChatTools({
   async function reviseLastUserMessage() {
     const messages = state.activeStoryData?.messages || [];
     if (messages.length < 2) {
-      alert("当前没有可重写的最近一轮对话。");
+      alert("There is no recent exchange available to revise.");
       return;
     }
     const previousMessage = messages[messages.length - 2];
     const lastMessage = messages[messages.length - 1];
     if (previousMessage?.role !== "user" || lastMessage?.role !== "assistant") {
-      alert("只有最近一轮“用户输入 + AI 回复”可以被重写。");
+      alert("Only the latest user input and AI reply can be revised.");
       return;
     }
-    const replacement = prompt("修改上一条用户输入，并重新生成 AI 回复", previousMessage.content || "");
+    const replacement = prompt("Edit the previous user input and regenerate the AI reply", previousMessage.content || "");
     if (replacement === null) {
       return;
     }
     const nextMessage = replacement.trim();
     if (!nextMessage) {
-      alert("输入内容不能为空。");
+      alert("Input cannot be empty.");
       return;
     }
     setChatPending(true, nextMessage);

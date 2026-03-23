@@ -41,7 +41,7 @@ window.createLibraryTools = function createLibraryTools({
     const items = getSelectedLibraryItems();
     els.libraryItemSelect.innerHTML =
       items.map((item) => `<option value="${item.id}">${escapeHtml(item.name || item.title || item.id)}</option>`).join("") +
-      `<option value="__new__">新建条目</option>`;
+      `<option value="__new__">New entry</option>`;
     if (!state.selectedLibraryItemId && items[0]?.id) {
       state.selectedLibraryItemId = items[0].id;
     }
@@ -55,8 +55,8 @@ window.createLibraryTools = function createLibraryTools({
       : JSON.stringify(getNewLibraryTemplate(state.selectedLibraryType), null, 2);
     els.deleteLibraryBtn.disabled = !current;
     els.libraryJsonEditor.placeholder = items.length
-      ? "编辑当前条目的 JSON，或切换到“新建条目”。"
-      : "当前类型还没有条目，可以直接编辑模板并保存为新条目。";
+      ? "Edit the current entry JSON, or switch to New entry."
+      : "There are no entries for this type yet. Edit the template and save it as a new entry.";
   }
 
   async function saveLibraryItem() {
@@ -64,7 +64,7 @@ window.createLibraryTools = function createLibraryTools({
     try {
       payload = JSON.parse(els.libraryJsonEditor.value);
     } catch (error) {
-      alert(`JSON 解析失败：${error.message}`);
+      alert(`JSON parse failed: ${error.message}`);
       return;
     }
     const saved = await api(`/api/library/${state.selectedLibraryType}`, {
@@ -82,11 +82,11 @@ window.createLibraryTools = function createLibraryTools({
     const items = getSelectedLibraryItems();
     const current = items.find((item) => item.id === state.selectedLibraryItemId);
     if (!current) {
-      alert("当前没有可删除的资料项。");
+      alert("There is no library item to delete.");
       return;
     }
     const label = current.name || current.title || current.id;
-    const confirmed = confirm(`确认删除资料项“${label}”？这不会删除已存在于故事工作区里的副本。`);
+    const confirmed = confirm(`Delete library item "${label}"? This will not remove copies that already exist in story workspaces.`);
     if (!confirmed) {
       return;
     }

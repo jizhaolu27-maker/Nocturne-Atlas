@@ -240,7 +240,7 @@ function summarizeText(text, maxLength = 180) {
   }
   const softLimit = maxLength - 3;
   const head = cleaned.slice(0, softLimit);
-  const punctuationIndexes = ["。", "！", "？", "；", ".", "!", "?", ";", "，", ",", "、", "：", ":"]
+  const punctuationIndexes = ["\u3002", "\uff01", "\uff1f", "\uff1b", ".", "!", "?", ";", "\uff0c", ",", "\u3001", "\uff1a", ":"]
     .map((mark) => head.lastIndexOf(mark))
     .filter((index) => index >= 0);
   const bestPunctuationIndex = punctuationIndexes.length ? Math.max(...punctuationIndexes) : -1;
@@ -472,11 +472,13 @@ const {
   loadActiveWorkspaceItems,
   readJsonLines,
   appendJsonLine,
+  writeJson,
   writeJsonLines,
   getStoryMessagesFile,
   getStoryMemoryFile,
   getStoryProposalFile,
   getStorySnapshotFile,
+  getStoryWorkspaceDir,
   getDefaultContextStatus,
   buildContextBlocks,
   classifyPressure,

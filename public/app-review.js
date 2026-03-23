@@ -9,15 +9,15 @@ window.createReviewTools = function createReviewTools({
 }) {
   function formatProposalPipelineStage(stage) {
     const labels = {
-      idle: "等待中",
-      not_triggered: "本轮未触发提案",
-      triggered: "已命中提案触发器",
-      generating: "正在生成提案",
-      queued: "提案已推送到接受区",
-      empty: "已触发，但没有生成可入队提案",
-      failed: "提案生成失败",
+      idle: "Idle",
+      not_triggered: "No proposal trigger this turn",
+      triggered: "Proposal trigger matched",
+      generating: "Generating proposals",
+      queued: "Proposals queued for review",
+      empty: "Triggered, but nothing was queued",
+      failed: "Proposal generation failed",
     };
-    return labels[stage] || stage || "未知状态";
+    return labels[stage] || stage || "Unknown status";
   }
 
   function buildProposalPipelineMessage(pipeline) {
@@ -26,16 +26,16 @@ window.createReviewTools = function createReviewTools({
     }
     const triggerCount = Number(pipeline.triggerCount || 0);
     const generatedCount = Number(pipeline.generatedCount || 0);
-    const triggerText = triggerCount > 0 ? `，命中 ${triggerCount} 条触发器` : "";
-    const generatedText = generatedCount > 0 ? `，已入队 ${generatedCount} 条提案` : "";
-    const errorText = pipeline.error ? `：${pipeline.error}` : "";
-    return `提案状态：${formatProposalPipelineStage(pipeline.stage)}${triggerText}${generatedText}${errorText}`;
+    const triggerText = triggerCount > 0 ? `, matched ${triggerCount} trigger(s)` : "";
+    const generatedText = generatedCount > 0 ? `, queued ${generatedCount} proposal(s)` : "";
+    const errorText = pipeline.error ? `: ${pipeline.error}` : "";
+    return `Proposal pipeline: ${formatProposalPipelineStage(pipeline.stage)}${triggerText}${generatedText}${errorText}`;
   }
 
   function renderChatStatus() {
     if (state.isStreamingChat) {
       els.chatStatus.className = "chat-status busy";
-      els.chatStatus.textContent = "AI 已收到请求，正在整理上下文并准备回答。";
+      els.chatStatus.textContent = "AI received the request and is preparing the reply.";
       return;
     }
     const message = buildProposalPipelineMessage(state.pendingProposalPipeline);
@@ -53,48 +53,48 @@ window.createReviewTools = function createReviewTools({
 
   function formatProposalTargetType(targetType) {
     const labels = {
-      character: "角色卡",
-      worldbook: "世界书",
-      style: "文风",
+      character: "Character Card",
+      worldbook: "Worldbook",
+      style: "Style",
     };
-    return labels[targetType] || targetType || "未知类型";
+    return labels[targetType] || targetType || "Unknown type";
   }
 
   function formatProposalAction(action) {
-    return action === "create" ? "新建" : "更新";
+    return action === "create" ? "Create" : "Update";
   }
 
   function formatMemoryKind(kind) {
     const labels = {
-      relationship_update: "关系变化",
-      world_state: "世界状态",
-      character_update: "角色变化",
-      plot_checkpoint: "剧情节点",
+      relationship_update: "Relationship change",
+      world_state: "World state",
+      character_update: "Character change",
+      plot_checkpoint: "Plot checkpoint",
     };
-    return labels[kind] || kind || "未分类";
+    return labels[kind] || kind || "Uncategorized";
   }
 
   function formatMemoryTier(tier) {
-    return tier === "long_term" ? "长期记忆" : "短期记忆";
+    return tier === "long_term" ? "Long-term Memory" : "Short-term Memory";
   }
 
   function formatMemoryScope(scope) {
     const labels = {
-      character: "角色",
-      relationship: "关系",
-      world: "世界",
-      plot: "剧情",
+      character: "Character",
+      relationship: "Relationship",
+      world: "World",
+      plot: "Plot",
     };
-    return labels[scope] || scope || "未分类";
+    return labels[scope] || scope || "Uncategorized";
   }
 
   function formatSummaryTrigger(trigger) {
     const value = String(trigger || "");
-    if (value.startsWith("Turn interval reached")) return "已达到设定轮数";
-    if (value === "Context pressure exceeded high threshold") return "上下文压力过高，提前触发";
-    if (value === "Major event keywords detected in recent turns") return "最近剧情出现重大变化，提前触发";
-    if (value === "Memory consolidation threshold reached") return "短期记忆达到整合阈值";
-    return value || "未知触发原因";
+    if (value.startsWith("Turn interval reached")) return "Configured turn interval reached";
+    if (value === "Context pressure exceeded high threshold") return "Context pressure exceeded the high threshold";
+    if (value === "Major event keywords detected in recent turns") return "Major event keywords were detected in recent turns";
+    if (value === "Memory consolidation threshold reached") return "Short-term memory reached the consolidation threshold";
+    return value || "Unknown trigger reason";
   }
 
   function formatSummarySchedule(schedule) {
@@ -106,13 +106,13 @@ window.createReviewTools = function createReviewTools({
     if (!Number.isFinite(nextRound) || !Number.isFinite(remainingRounds)) {
       return "";
     }
-    return `设定每 ${schedule.configuredRounds} 轮摘要一次；若无提前触发，下一次在第 ${nextRound} 轮，还差 ${remainingRounds} 轮。`;
+    return `Configured to summarize every ${schedule.configuredRounds} turns. If nothing triggers early, the next summary is on turn ${nextRound}, in ${remainingRounds} more turns.`;
   }
 
   function getRetrievalSourceMeta(reasons) {
     const rows = Array.isArray(reasons) ? reasons.filter(Boolean) : [];
-    const hasVector = rows.some((item) => /vector|向量/i.test(String(item)));
-    const hasLexical = rows.some((item) => /keyword|entity|关键词|实体/i.test(String(item)));
+    const hasVector = rows.some((item) => /vector|\u5411\u91cf/i.test(String(item)));
+    const hasLexical = rows.some((item) => /keyword|entity|\u5173\u952e\u8bcd|\u5b9e\u4f53/i.test(String(item)));
     if (hasVector && hasLexical) {
       return { label: "lexical + embedding", tone: "hybrid" };
     }
@@ -144,24 +144,24 @@ window.createReviewTools = function createReviewTools({
                 <div>${escapeHtml(item.summary)}</div>
                 ${
                   item.scope || item.subjectIds?.length || item.tags?.length
-                    ? `<div class="memory-trigger">范围：${escapeHtml(formatMemoryScope(item.scope))}${item.subjectIds?.length ? ` / 主体：${escapeHtml(item.subjectIds.join("、"))}` : ""}${item.tags?.length ? ` / 标签：${escapeHtml(item.tags.join("、"))}` : ""}</div>`
+                    ? `<div class="memory-trigger">Scope: ${escapeHtml(formatMemoryScope(item.scope))}${item.subjectIds?.length ? ` / Subjects: ${escapeHtml(item.subjectIds.join(", "))}` : ""}${item.tags?.length ? ` / Tags: ${escapeHtml(item.tags.join(", "))}` : ""}</div>`
                     : ""
                 }
                 ${
                   item.triggeredBy?.length
-                    ? `<div class="memory-trigger">触发原因：${escapeHtml(item.triggeredBy.map(formatSummaryTrigger).join(" / "))}</div>`
+                    ? `<div class="memory-trigger">Triggered by: ${escapeHtml(item.triggeredBy.map(formatSummaryTrigger).join(" / "))}</div>`
                     : ""
                 }
                 ${
                   item.triggeredAt?.round
-                    ? `<div class="memory-trigger">生成时机：第 ${escapeHtml(String(item.triggeredAt.round))} 轮对话</div>`
+                    ? `<div class="memory-trigger">Created on conversation turn ${escapeHtml(String(item.triggeredAt.round))}</div>`
                     : ""
                 }
               </article>
             `
           )
           .join("")
-      : `<article class="memory-item">还没有生成记忆摘要。</article>`;
+      : `<article class="memory-item">No memory summaries have been generated yet.</article>`;
   }
 
   function getProposalWorkspaceItem(targetType, targetId) {
@@ -204,13 +204,13 @@ window.createReviewTools = function createReviewTools({
 
   function formatDiffValue(value) {
     if (value === undefined) {
-      return "未设置";
+      return "Not set";
     }
     if (value === null) {
       return "null";
     }
     if (typeof value === "string") {
-      return value || "空字符串";
+      return value || "Empty string";
     }
     if (typeof value === "number" || typeof value === "boolean") {
       return String(value);
@@ -222,7 +222,7 @@ window.createReviewTools = function createReviewTools({
     if (item.action === "create") {
       const changes = flattenProposalPatch(item.diff);
       if (!changes.length) {
-        return `<article class="proposal-diff-empty">这个新建提案没有可展示的字段内容。</article>`;
+        return `<article class="proposal-diff-empty">This create proposal has no fields to display.</article>`;
       }
       return changes
         .map(
@@ -231,7 +231,7 @@ window.createReviewTools = function createReviewTools({
               <strong>${escapeHtml(change.path)}</strong>
               <div class="proposal-diff-values proposal-diff-values-create">
                 <div class="proposal-diff-after">
-                  <span>新建值</span>
+                  <span>Created value</span>
                   <code>${escapeHtml(formatDiffValue(change.nextValue))}</code>
                 </div>
               </div>
@@ -243,7 +243,7 @@ window.createReviewTools = function createReviewTools({
     const target = getProposalWorkspaceItem(item.targetType, item.targetId);
     const changes = flattenProposalPatch(item.diff);
     if (!changes.length) {
-      return `<article class="proposal-diff-empty">这个提案没有可展示的字段变更。</article>`;
+      return `<article class="proposal-diff-empty">This proposal has no field changes to display.</article>`;
     }
     return changes
       .map((change) => {
@@ -253,12 +253,12 @@ window.createReviewTools = function createReviewTools({
             <strong>${escapeHtml(change.path)}</strong>
             <div class="proposal-diff-values">
               <div class="proposal-diff-before">
-                <span>旧值</span>
+                <span>Previous value</span>
                 <code>${escapeHtml(formatDiffValue(prevValue))}</code>
               </div>
               <div class="proposal-diff-arrow">→</div>
               <div class="proposal-diff-after">
-                <span>新值</span>
+                <span>New value</span>
                 <code>${escapeHtml(formatDiffValue(change.nextValue))}</code>
               </div>
             </div>
@@ -280,25 +280,25 @@ window.createReviewTools = function createReviewTools({
                 <div class="workspace-detail-head">
                   <strong>${escapeHtml(formatProposalAction(item.action || "update"))}${escapeHtml(formatProposalTargetType(item.targetType))} / ${escapeHtml(item.diff?.name || item.targetId)}</strong>
                 </div>
-                <div class="proposal-meta-line">目标 ID：${escapeHtml(item.targetId)}</div>
-                <div style="margin-top:4px;">${escapeHtml(item.reason || "没有附加说明")}</div>
+                <div class="proposal-meta-line">Target ID: ${escapeHtml(item.targetId)}</div>
+                <div style="margin-top:4px;">${escapeHtml(item.reason || "No additional note")}</div>
                 <div class="proposal-diff-list">${renderProposalDiff(item)}</div>
-                <div style="margin-top:6px; color:var(--muted); font-size:11px;">状态：pending</div>
+                <div style="margin-top:6px; color:var(--muted); font-size:11px;">Status: pending</div>
                 <div class="actions-row">
                   <button data-action="accept">
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
-                    接受
+                    Accept
                   </button>
                   <button data-action="reject" class="ghost danger">
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
-                    拒绝
+                    Reject
                   </button>
                 </div>
               </article>
             `
           )
           .join("")
-      : `<article class="proposal-item workspace-detail" style="text-align:center; color:var(--muted);">还没有可处理的提案。</article>`;
+      : `<article class="proposal-item workspace-detail" style="text-align:center; color:var(--muted);">There are no proposals to review yet.</article>`;
 
     for (const article of els.proposalList.querySelectorAll("[data-proposal-id]")) {
       for (const button of article.querySelectorAll("[data-action]")) {
@@ -310,7 +310,7 @@ window.createReviewTools = function createReviewTools({
             buttons.forEach((node) => {
               node.disabled = true;
             });
-            button.innerHTML = action === "accept" ? "处理中..." : "拒绝中...";
+            button.innerHTML = action === "accept" ? "Processing..." : "Rejecting...";
             await api(`/api/stories/${state.activeStoryId}/proposals/${article.dataset.proposalId}`, {
               method: "POST",
               body: JSON.stringify({ action }),
@@ -318,7 +318,7 @@ window.createReviewTools = function createReviewTools({
             await loadStory(state.activeStoryId);
           } catch (error) {
             await loadStory(state.activeStoryId).catch(() => {});
-            alert(`提案${action === "accept" ? "接受" : "拒绝"}失败：${error.message}`);
+            alert(`Failed to ${action === "accept" ? "accept" : "reject"} proposal: ${error.message}`);
           } finally {
             buttons.forEach((node) => {
               node.disabled = false;
@@ -331,7 +331,7 @@ window.createReviewTools = function createReviewTools({
   }
 
   function renderStatusCurrent(contextStatus) {
-    els.statusBlocks.textContent = `${contextStatus.usedBlocks || 0}/${contextStatus.maxBlocks || 30} 轮`;
+    els.statusBlocks.textContent = `${contextStatus.usedBlocks || 0}/${contextStatus.maxBlocks || 30} turns`;
     els.statusTokens.textContent = `${contextStatus.usedTokens || 0}/${contextStatus.maxTokens || 0}`;
     els.statusPressure.textContent = contextStatus.pressureLevel || "low";
     const stateValue = contextStatus.forgetfulnessState || "normal";
@@ -341,17 +341,17 @@ window.createReviewTools = function createReviewTools({
     const reasons = contextStatus.forgetfulnessReasons || [];
     const groupedRows = [];
     if ((signals.pressure || []).length) {
-      groupedRows.push(...signals.pressure.map((reason) => `<li><strong>系统压力</strong>：${escapeHtml(reason)}</li>`));
+      groupedRows.push(...signals.pressure.map((reason) => `<li><strong>System pressure</strong>: ${escapeHtml(reason)}</li>`));
     }
     if ((signals.omission || []).length) {
-      groupedRows.push(...signals.omission.map((reason) => `<li><strong>遗漏风险</strong>：${escapeHtml(reason)}</li>`));
+      groupedRows.push(...signals.omission.map((reason) => `<li><strong>Omission risk</strong>: ${escapeHtml(reason)}</li>`));
     }
     if ((signals.conflict || []).length) {
-      groupedRows.push(...signals.conflict.map((reason) => `<li><strong>冲突风险</strong>：${escapeHtml(reason)}</li>`));
+      groupedRows.push(...signals.conflict.map((reason) => `<li><strong>Conflict risk</strong>: ${escapeHtml(reason)}</li>`));
     }
     els.statusReasons.innerHTML = reasons.length
       ? (groupedRows.length ? groupedRows : reasons.map((reason) => `<li>${escapeHtml(reason)}</li>`)).join("")
-      : "<li>当前没有明显的记忆风险。</li>";
+      : "<li>There is no obvious memory risk right now.</li>";
   }
 
   function renderDiagnosticsCurrent(diagnostics) {
@@ -369,7 +369,7 @@ window.createReviewTools = function createReviewTools({
     if (blocks.length) {
       triggerRows.push(`
         <article class="diagnostic-item diagnostic-summary">
-          <strong>上下文摘要</strong>
+          <strong>Context Summary</strong>
           <span>${escapeHtml(summarizeContextSources(blocks))}</span>
         </article>
       `);
@@ -377,34 +377,34 @@ window.createReviewTools = function createReviewTools({
     if (requestMeta) {
       triggerRows.push(`
         <article class="diagnostic-item">
-          <strong>请求信息</strong>
+          <strong>Request Info</strong>
           <span>${escapeHtml(requestMeta.endpoint || "")}</span>
-          <div>延迟：${escapeHtml(String(requestMeta.latencyMs || "n/a"))} ms</div>
-          <div>Prompt 条目：${escapeHtml(String(requestMeta.promptMessages || 0))}</div>
-          <div>输出字符：${escapeHtml(String(requestMeta.completionChars || 0))}</div>
-          <div>摘要：${escapeHtml(String(snapshot?.generatedSummaryCount || diagnostics.generatedSummaryCount || 0))} / 提案：${escapeHtml(String(snapshot?.generatedProposalCount || diagnostics.generatedProposalCount || 0))}</div>
+          <div>Latency: ${escapeHtml(String(requestMeta.latencyMs || "n/a"))} ms</div>
+          <div>Prompt messages: ${escapeHtml(String(requestMeta.promptMessages || 0))}</div>
+          <div>Output chars: ${escapeHtml(String(requestMeta.completionChars || 0))}</div>
+          <div>Summaries: ${escapeHtml(String(snapshot?.generatedSummaryCount || diagnostics.generatedSummaryCount || 0))} / Proposals: ${escapeHtml(String(snapshot?.generatedProposalCount || diagnostics.generatedProposalCount || 0))}</div>
         </article>
       `);
     }
     if (preview?.contextStatus) {
       triggerRows.push(`
         <article class="diagnostic-item">
-          <strong>当前预览</strong>
-          <span>${escapeHtml(`${preview.contextStatus.usedBlocks || 0}/${preview.contextStatus.maxBlocks || 0} 轮上下文`)}</span>
-          <div>${escapeHtml(`${preview.contextStatus.usedTokens || 0}/${preview.contextStatus.maxTokens || 0} 估算 tokens`)}</div>
-          <div>${escapeHtml(`风险状态：${preview.contextStatus.forgetfulnessState || "normal"}`)}</div>
+          <strong>Current Preview</strong>
+          <span>${escapeHtml(`${preview.contextStatus.usedBlocks || 0}/${preview.contextStatus.maxBlocks || 0} context turns`)}</span>
+          <div>${escapeHtml(`${preview.contextStatus.usedTokens || 0}/${preview.contextStatus.maxTokens || 0} estimated tokens`)}</div>
+          <div>${escapeHtml(`Risk state: ${preview.contextStatus.forgetfulnessState || "normal"}`)}</div>
         </article>
       `);
     }
     const activeSignals = preview?.contextStatus?.forgetfulnessSignals || snapshot?.contextStatus?.forgetfulnessSignals || null;
     if (activeSignals && ((activeSignals.pressure || []).length || (activeSignals.omission || []).length || (activeSignals.conflict || []).length)) {
       const rows = [];
-      rows.push(...(activeSignals.pressure || []).map((item) => `系统压力：${item}`));
-      rows.push(...(activeSignals.omission || []).map((item) => `遗漏风险：${item}`));
-      rows.push(...(activeSignals.conflict || []).map((item) => `冲突风险：${item}`));
+      rows.push(...(activeSignals.pressure || []).map((item) => `System pressure: ${item}`));
+      rows.push(...(activeSignals.omission || []).map((item) => `Omission risk: ${item}`));
+      rows.push(...(activeSignals.conflict || []).map((item) => `Conflict risk: ${item}`));
       triggerRows.push(`
         <article class="diagnostic-item">
-          <strong>记忆风险细分</strong>
+          <strong>Memory Risk Breakdown</strong>
           <span>${escapeHtml(rows.join(" / "))}</span>
         </article>
       `);
@@ -412,7 +412,7 @@ window.createReviewTools = function createReviewTools({
     if (summarySchedule?.configuredRounds) {
       triggerRows.push(`
         <article class="diagnostic-item">
-          <strong>摘要计划</strong>
+          <strong>Summary Schedule</strong>
           <span>${escapeHtml(formatSummarySchedule(summarySchedule))}</span>
         </article>
       `);
@@ -422,20 +422,20 @@ window.createReviewTools = function createReviewTools({
     if ((snapshot?.generatedSummaryCount || diagnostics.generatedSummaryCount || 0) > 0) {
       triggerRows.push(`
         <article class="diagnostic-item">
-          <strong>记忆写入</strong>
+          <strong>Memory Writes</strong>
           ${renderDiagnosticBadges([{ label: "written to memory", tone: "hybrid" }])}
-          <span>${escapeHtml(`本轮已写入 ${snapshot?.generatedSummaryCount || diagnostics.generatedSummaryCount || 0} 条正式记忆记录`)}</span>
+          <span>${escapeHtml(`${snapshot?.generatedSummaryCount || diagnostics.generatedSummaryCount || 0} formal memory record(s) were written this turn`)}</span>
         </article>
       `);
     } else if (transientMemoryCandidate?.summary) {
       triggerRows.push(`
         <article class="diagnostic-item">
-          <strong>记忆写入</strong>
+          <strong>Memory Writes</strong>
           ${renderDiagnosticBadges([
             { label: "diagnostic-only candidate", tone: "neutral" },
             { label: formatMemoryScope(transientMemoryCandidate.scope), tone: "neutral" },
           ])}
-          <span>${escapeHtml("本轮没有正式写入记忆，这条临时摘要只用于 forgetfulness 诊断。")}</span>
+          <span>${escapeHtml("No formal memory was written this turn. This temporary summary is only used for forgetfulness diagnostics.")}</span>
           <div>${escapeHtml(transientMemoryCandidate.summary)}</div>
         </article>
       `);
@@ -448,10 +448,10 @@ window.createReviewTools = function createReviewTools({
       ];
       triggerRows.push(`
         <article class="diagnostic-item">
-          <strong>记忆检索</strong>
+          <strong>Memory Retrieval</strong>
           ${renderDiagnosticBadges(retrievalBadges)}
-          <span>${escapeHtml(`向量候选 ${retrievalMeta.vectorCandidateCount || 0} / 向量入选 ${retrievalMeta.vectorSelectedCount || 0}`)}</span>
-          ${retrievalMeta.fallbackReason ? `<div>${escapeHtml(`回退说明：${retrievalMeta.fallbackReason}`)}</div>` : ""}
+          <span>${escapeHtml(`Vector candidates ${retrievalMeta.vectorCandidateCount || 0} / selected ${retrievalMeta.vectorSelectedCount || 0}`)}</span>
+          ${retrievalMeta.fallbackReason ? `<div>${escapeHtml(`Fallback: ${retrievalMeta.fallbackReason}`)}</div>` : ""}
         </article>
       `);
     }
@@ -467,9 +467,9 @@ window.createReviewTools = function createReviewTools({
       }
       triggerRows.push(`
         <article class="diagnostic-item">
-          <strong>知识检索</strong>
+          <strong>Knowledge Retrieval</strong>
           ${renderDiagnosticBadges(knowledgeBadges)}
-          <span>${escapeHtml(`候选块 ${knowledgeRetrievalMeta.chunkCount || 0} / 向量候选 ${knowledgeRetrievalMeta.vectorCandidateCount || 0}`)}</span>
+          <span>${escapeHtml(`Candidate chunks ${knowledgeRetrievalMeta.chunkCount || 0} / vector candidates ${knowledgeRetrievalMeta.vectorCandidateCount || 0}`)}</span>
         </article>
       `);
     }
@@ -478,13 +478,13 @@ window.createReviewTools = function createReviewTools({
         ...preview.selectedKnowledgeChunks.map(
           (item) => `
             <article class="diagnostic-item">
-              <strong>召回知识 / ${escapeHtml(item.sourceType || "unknown")} / ${escapeHtml(item.title || item.sourceId || "")}</strong>
+              <strong>Retrieved Knowledge / ${escapeHtml(item.sourceType || "unknown")} / ${escapeHtml(item.title || item.sourceId || "")}</strong>
               ${renderDiagnosticBadges([
                 item.chunkType ? { label: item.chunkType.replaceAll("_", " "), tone: "neutral" } : null,
                 getRetrievalSourceMeta(item.reasons || []),
               ])}
               <span>${escapeHtml(String(item.text || "").slice(0, 220))}</span>
-              <div>${escapeHtml((item.reasons || []).join(" / ") || "本轮被选中")}</div>
+              <div>${escapeHtml((item.reasons || []).join(" / ") || "Selected this turn")}</div>
             </article>
           `
         )
@@ -495,14 +495,14 @@ window.createReviewTools = function createReviewTools({
         ...preview.selectedMemoryRecords.map(
           (item) => `
             <article class="diagnostic-item">
-              <strong>召回记忆 / ${escapeHtml(formatMemoryTier(item.tier))} / ${escapeHtml(formatMemoryKind(item.kind))} / ${escapeHtml(item.importance || "medium")}</strong>
+              <strong>Retrieved Memory / ${escapeHtml(formatMemoryTier(item.tier))} / ${escapeHtml(formatMemoryKind(item.kind))} / ${escapeHtml(item.importance || "medium")}</strong>
               ${renderDiagnosticBadges([
                 { label: formatMemoryScope(item.scope), tone: "neutral" },
                 getRetrievalSourceMeta(item.reasons || []),
               ])}
               <span>${escapeHtml(item.summary || "")}</span>
-              <div>${escapeHtml(`范围：${formatMemoryScope(item.scope)}${item.subjectIds?.length ? ` / 主体：${item.subjectIds.join("、")}` : ""}${item.tags?.length ? ` / 标签：${item.tags.join("、")}` : ""}`)}</div>
-              <div>${escapeHtml((item.reasons || []).join(" / ") || "本轮被选中")}</div>
+              <div>${escapeHtml(`Scope: ${formatMemoryScope(item.scope)}${item.subjectIds?.length ? ` / Subjects: ${item.subjectIds.join(", ")}` : ""}${item.tags?.length ? ` / Tags: ${item.tags.join(", ")}` : ""}`)}</div>
+              <div>${escapeHtml((item.reasons || []).join(" / ") || "Selected this turn")}</div>
             </article>
           `
         )
@@ -514,7 +514,7 @@ window.createReviewTools = function createReviewTools({
         ...triggers.map(
           (item) => `
             <article class="diagnostic-item">
-              <strong>触发器</strong>
+              <strong>Trigger</strong>
               <span>${escapeHtml(formatSummaryTrigger(item))}</span>
             </article>
           `
@@ -527,7 +527,7 @@ window.createReviewTools = function createReviewTools({
         ...proposalTriggers.map(
           (item) => `
             <article class="diagnostic-item">
-              <strong>提案触发器</strong>
+              <strong>Proposal Trigger</strong>
               <span>${escapeHtml(item)}</span>
             </article>
           `
@@ -538,14 +538,14 @@ window.createReviewTools = function createReviewTools({
     if (proposalPipeline) {
       triggerRows.push(`
         <article class="diagnostic-item">
-          <strong>提案流水状态</strong>
+          <strong>Proposal Pipeline</strong>
           <span>${escapeHtml(buildProposalPipelineMessage(proposalPipeline))}</span>
         </article>
       `);
     }
     els.diagnosticTriggers.innerHTML =
       triggerRows.join("") ||
-      `<article class="diagnostic-item"><strong>触发器</strong><span>还没有可展示的诊断触发信息。</span></article>`;
+      `<article class="diagnostic-item"><strong>Trigger</strong><span>There is no diagnostic trigger info to display yet.</span></article>`;
 
     els.diagnosticContextBlocks.innerHTML = blocks.length
       ? blocks
@@ -558,7 +558,7 @@ window.createReviewTools = function createReviewTools({
             `
           )
           .join("")
-      : `<article class="diagnostic-item"><strong>上下文</strong><span>还没有上下文块内容。</span></article>`;
+      : `<article class="diagnostic-item"><strong>Context</strong><span>There are no context blocks to display yet.</span></article>`;
 
     els.diagnosticPromptPreview.innerHTML = promptMessages.length
       ? promptMessages
@@ -571,7 +571,7 @@ window.createReviewTools = function createReviewTools({
             `
           )
           .join("")
-      : `<article class="diagnostic-item"><strong>Prompt</strong><span>还没有可展示的最终 Prompt 预览。</span></article>`;
+      : `<article class="diagnostic-item"><strong>Prompt</strong><span>There is no final prompt preview to display yet.</span></article>`;
   }
 
   return {

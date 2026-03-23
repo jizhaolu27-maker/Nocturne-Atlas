@@ -1,5 +1,5 @@
 :root {
-  /* 高级中性调光色主题 */
+  /* Refined neutral light palette */
   --bg: #F8F9FA;
   --bg-strong: #F1F3F5;
   --paper: #FFFFFF;
@@ -8,32 +8,32 @@
   --ink-soft: #4B5563;
   --muted: #9CA3AF;
 
-  /* 品牌强调色：更克制沉稳的靛蓝色 */
+  /* Brand accent: restrained indigo */
   --accent: #4F46E5;
   --accent-strong: #4338CA;
   --accent-soft: rgba(79, 70, 229, 0.08);
 
-  /* 边框与线条：极其微弱以保持清爽 */
+  /* Borders and lines: very subtle to keep the UI clean */
   --line: rgba(0, 0, 0, 0.06);
   --line-strong: rgba(0, 0, 0, 0.12);
 
-  /* 状态色：降低饱和度，更显专业 */
+  /* Status colors: lower saturation for a calmer feel */
   --ok: #10B981;
   --warn: #F59E0B;
   --risk: #EF4444;
 
-  /* 多层平滑阴影 (Smooth Shadows) */
+  /* Layered smooth shadows */
   --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.04), 0 1px 3px rgba(0, 0, 0, 0.02);
   --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.03);
   --shadow-lg: 0 10px 25px -3px rgba(0, 0, 0, 0.05), 0 4px 10px -2px rgba(0, 0, 0, 0.03);
 
-  /* 圆角：更现代的平滑圆角 */
+  /* Border radius: smoother modern curves */
   --radius-sm: 6px;
   --radius-md: 12px;
   --radius-lg: 16px;
   --radius-xl: 24px;
 
-  /* 布局参数 */
+  /* Layout values */
   --sidebar-w: 260px;
   --sidebar-collapsed-w: 64px;
   --right-w: 360px;
@@ -44,7 +44,7 @@
 }
 
 body[data-theme="dark"] {
-  /* 深色模式：深邃黑，高反差 */
+  /* Dark mode: deep contrast */
   --bg: #09090B;
   --bg-strong: #18181B;
   --paper: #121214;
@@ -65,7 +65,7 @@ body[data-theme="dark"] {
   --shadow-lg: 0 10px 30px rgba(0, 0, 0, 0.6);
 }
 
-/* 全局预设 */
+/* Global defaults */
 * {
   box-sizing: border-box;
   margin: 0;
@@ -115,7 +115,7 @@ body {
   flex-direction: column;
   height: 100vh;
   background: var(--bg-strong);
-  /* 侧边栏使用微灰区分 */
+  /* Use a soft gray to separate the sidebar */
   border-right: 1px solid var(--line);
   overflow: hidden;
   position: relative;
@@ -138,7 +138,7 @@ body {
   flex-shrink: 0;
 }
 
-/* 品牌 Logo 高级感优化 */
+/* Brand mark refinements */
 .brand-mark {
   width: 28px;
   height: 28px;
@@ -314,7 +314,7 @@ body[data-theme="dark"] .brand-mark {
   color: var(--ink);
 }
 
-/* 三道杠菜单变身为精细线条 */
+/* Fine-line hamburger treatment */
 .sidebar-toggle span,
 .sidebar-toggle span::before,
 .sidebar-toggle span::after {
@@ -357,7 +357,7 @@ body[data-theme="dark"] .brand-mark {
   padding: 0 24px;
   height: var(--topbar-h);
   background: rgba(255, 255, 255, 0.7);
-  /* 顶栏毛玻璃效果 */
+  /* Frosted top bar */
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
   border-bottom: 1px solid var(--line);
@@ -405,7 +405,7 @@ body[data-theme="dark"] .chat-topbar {
   flex: 1;
   overflow-y: auto;
   padding: calc(var(--topbar-h) + 24px) 0 120px;
-  /* 留出顶部和底部的空间 */
+  /* Leave breathing room above and below */
   display: flex;
   flex-direction: column;
   scroll-behavior: smooth;
@@ -422,7 +422,7 @@ body[data-theme="dark"] .chat-topbar {
   background: transparent;
 }
 
-/* 取消灰底，保持页面纯净 */
+/* Remove the gray backing for a cleaner page */
 .message-role {
   font-size: 12px;
   font-weight: 600;
@@ -441,7 +441,7 @@ body[data-theme="dark"] .chat-topbar {
   content: "You";
 }
 
-/* 提升排版识别度 */
+/* Improve typographic hierarchy */
 .message-content {
   color: var(--ink);
   font-size: 15px;
@@ -476,7 +476,7 @@ body[data-theme="dark"] .chat-topbar {
   color: var(--ink);
 }
 
-/* 🌟 高级悬浮 Chat Input */
+/* Floating chat input */
 .chat-input-area {
   position: absolute;
   bottom: 0;
@@ -537,14 +537,14 @@ body[data-theme="dark"] .chat-topbar {
   margin-bottom: 2px;
 }
 
-/* 专为发送/停止设计的精致圆形按钮 */
+/* Circular buttons for send and stop */
 .chat-action-btn {
   width: 34px !important;
   height: 34px !important;
   padding: 0 !important;
-  /* 强制覆盖掉全局 button 的 padding */
+  /* Override the global button padding */
   border-radius: 50% !important;
-  /* 完美的正圆 */
+  /* Keep the button perfectly round */
   display: flex;
   align-items: center;
   justify-content: center;
@@ -554,7 +554,7 @@ body[data-theme="dark"] .chat-topbar {
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
 }
 
-/* 发送按钮：极简高对比度 (亮色下黑底白字，暗色下白底黑字) */
+/* Send button: high-contrast inversion */
 .send-btn {
   background: var(--ink);
   color: var(--bg);
@@ -566,7 +566,7 @@ body[data-theme="dark"] .chat-topbar {
   box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
 }
 
-/* 停止按钮：微弱的纸张色，红色 hover 警示 */
+/* Stop button: paper-like base with a red warning hover */
 .stop-btn {
   background: var(--bg-strong);
   color: var(--ink);
@@ -576,11 +576,11 @@ body[data-theme="dark"] .chat-topbar {
 .stop-btn:hover:not(:disabled) {
   background: var(--paper);
   color: var(--risk);
-  /* Hover 时图标变红，暗示停止 */
+  /* Turn the icon red on hover to signal stop */
   border-color: var(--risk);
 }
 
-/* 统一的禁用状态：极其克制的灰色 */
+/* Shared disabled state: restrained gray */
 .chat-action-btn:disabled {
   background: var(--line);
   color: var(--muted);
@@ -591,7 +591,7 @@ body[data-theme="dark"] .chat-topbar {
   border: none;
 }
 
-/* 圆角按钮配圆角卡片 */
+/* Rounded buttons paired with rounded cards */
 .chat-status {
   margin-top: 8px;
   font-size: 12px;
@@ -616,7 +616,7 @@ body[data-theme="dark"] .chat-topbar {
   border-left: none;
 }
 
-/* 高级的分段控制器风格 Tabs */
+/* Segmented-control style tabs */
 .right-panel-tabs {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
@@ -698,7 +698,7 @@ body[data-theme="dark"] .chat-topbar {
   line-height: 1.4;
 }
 
-/* 🌟 折叠面板 - 扁平清爽的高级卡片 */
+/* Folded panels with a flat card treatment */
 .fold-section {
   border: 1px solid var(--line);
   border-radius: var(--radius-md);
@@ -728,7 +728,7 @@ body[data-theme="dark"] .chat-topbar {
   display: none;
 }
 
-/* 纯 CSS 绘制的精致展开箭头 */
+/* CSS-only disclosure arrow */
 .fold-section summary::after {
   content: "";
   position: absolute;
@@ -771,7 +771,7 @@ button {
   cursor: pointer;
   background: var(--ink);
   color: var(--bg);
-  /* 主按钮反色设计，更现代 */
+  /* Inverted primary button for a more modern feel */
   box-shadow: var(--shadow-sm);
   transition: all 0.2s ease;
 }
@@ -821,7 +821,7 @@ label {
   display: flex;
   flex-direction: column;
   gap: 6px;
-  /* 文字和输入框的呼吸间距 */
+  /* Comfortable spacing between labels and fields */
   font-size: 12px;
   color: var(--ink-soft);
   font-weight: 500;
@@ -833,7 +833,7 @@ label select {
   margin-top: 6px;
 }
 
-/* 极简输入框 */
+/* Minimal input field */
 textarea,
 input:not([type="checkbox"]):not([type="radio"]),
 select {
@@ -842,15 +842,15 @@ select {
   border-radius: var(--radius-sm);
   padding: 8px 12px;
   background: var(--bg);
-  /* 完美融入深色/浅色背景 */
+  /* Blend cleanly into both light and dark themes */
   color: var(--ink);
-  /* 文字颜色适配主题 */
+  /* Text color adapts to the active theme */
   font-size: 13px;
   font-family: var(--font-ui);
   transition: all 0.2s;
   outline: none;
   box-sizing: border-box;
-  /* 防止边框把元素撑破 */
+  /* Prevent borders from affecting layout width */
 }
 
 textarea:focus,
@@ -987,7 +987,7 @@ textarea {
   border: 1px solid var(--line);
   border-radius: var(--radius-md);
   padding: 0;
-  /* 移除外层多余的 padding，让头部和列表填满 */
+  /* Remove extra outer padding so the header and list fill the panel */
   background: var(--paper);
   overflow: hidden;
   box-shadow: var(--shadow-sm);
@@ -1008,7 +1008,7 @@ textarea {
   display: flex;
   flex-direction: column;
   gap: 0;
-  /* 取消空隙，用底边框替代 */
+  /* Replace gaps with a bottom divider */
 }
 
 .workspace-detail-head span,
@@ -1047,16 +1047,16 @@ textarea {
   font-family: var(--font-mono);
   color: var(--ink-soft);
   max-height: 140px;
-  /* 限制最高高度，防止卡片无限拉长 */
+  /* Cap height so cards do not grow endlessly */
   overflow-y: auto;
-  /* 只有超出 140px 时，才会出现纵向滚动条 */
+  /* Show a vertical scrollbar only after 140px */
   padding-right: 8px;
-  /* 给滚动条留出一点呼吸空间 */
+  /* Leave a little padding around the scrollbar */
 }
 
 .workspace-detail-row pre::-webkit-scrollbar {
   width: 3px;
-  /* 极其纤细 */
+  /* Keep it very slim */
 }
 
 .workspace-detail-row pre::-webkit-scrollbar-track {

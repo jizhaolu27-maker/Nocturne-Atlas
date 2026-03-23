@@ -13,6 +13,7 @@ const { selectRelevantMemoryRecords, formatMemoryContext } = require("../lib/mem
 const { createMemoryRetrievalTools } = require("../lib/memory-retrieval");
 const { createLocalVectorSearchRecords } = require("../lib/memory-vector");
 const { createProposalTools } = require("../lib/proposals");
+const { createChatTools } = require("../lib/chat");
 
 const DEFAULT_CONTEXT_BLOCKS = 6;
 const DEFAULT_SUMMARY_INTERVAL = 4;
@@ -465,6 +466,184 @@ async function main() {
 
     assert.equal(update.proposalRecords.length, 1);
     assert.equal(update.proposalRecords[0].targetId, "char_shade");
+  });
+
+  await runTest("revising the latest exchange rolls back accepted proposals from that turn", async () => {
+    const rootDir = createTempRoot();
+    try {
+      const harness = createStoreHarness(rootDir);
+      harness.saveLibraryItem("characters", {
+        id: "char_hero",
+        name: "Hero",
+        traits: ["brave"],
+        createdAt: "2026-03-23T00:00:00.000Z",
+        updatedAt: "2026-03-23T00:00:00.000Z",
+      });
+
+      const story = harness.createDefaultStory({
+        title: "Revision Smoke",
+        providerId: "provider_1",
+        model: "test-model",
+        enabled: { characters: ["char_hero"], worldbooks: [], styles: [] },
+      });
+      const workspacePath = path.join(harness.getStoryWorkspaceDir(story.id, "characters"), "char_hero.json");
+      const beforeAccept = harness.readJson(workspacePath);
+
+      const proposalTools = createProposalTools({
+        PROPOSAL_REASON_CHAR_LIMIT: 90,
+        CHARACTER_ROLE_CHAR_LIMIT: 40,
+        CHARACTER_TRAIT_CHAR_LIMIT: 24,
+        CHARACTER_RELATIONSHIP_CHAR_LIMIT: 80,
+        CHARACTER_ARC_CHAR_LIMIT: 140,
+        CHARACTER_NOTES_CHAR_LIMIT: 120,
+        safeId,
+        slugify,
+        summarizeText,
+        getProviderForStory: () => null,
+        decryptSecret: () => "",
+        callOpenAICompatible: async () => {
+          throw new Error("Provider should not be called in smoke tests");
+        },
+        tryParseJsonObject: (value) => {
+          try {
+            return JSON.parse(value);
+          } catch {
+            return null;
+          }
+        },
+        readJson: harness.readJson,
+        writeJson: harness.writeJson,
+        readJsonLines: harness.readJsonLines,
+        writeJsonLines: harness.writeJsonLines,
+        getStory: harness.getStory,
+        saveStory: harness.saveStory,
+        getStoryProposalFile: harness.getStoryProposalFile,
+        getStoryWorkspaceDir: harness.getStoryWorkspaceDir,
+        syncStoryWorkspace: harness.workspaceTools.syncStoryWorkspace,
+      });
+
+      harness.appendJsonLine(harness.getStoryMessagesFile(story.id), {
+        id: "msg_1",
+        role: "user",
+        content: "The hero uncovers the truth.",
+        createdAt: "2026-03-23T00:00:00.000Z",
+      });
+      harness.appendJsonLine(harness.getStoryMessagesFile(story.id), {
+        id: "msg_2",
+        role: "assistant",
+        content: "The hero's origin mystery is resolved.",
+        createdAt: "2026-03-23T00:01:00.000Z",
+      });
+      harness.writeJsonLines(harness.getStoryProposalFile(story.id), [
+        {
+          id: "proposal_turn_1",
+          action: "update",
+          targetType: "character",
+          targetId: "char_hero",
+          reason: "Update the hero after the reveal.",
+          diff: {
+            notes: "Origin mystery resolved.",
+          },
+          status: "pending",
+          createdAt: "2026-03-23T00:01:30.000Z",
+        },
+      ]);
+      harness.appendJsonLine(harness.getStorySnapshotFile(story.id), {
+        at: "2026-03-23T00:02:00.000Z",
+        contextStatus: harness.getStory(story.id).contextStatus,
+        generatedSummaryIds: [],
+        consolidatedMemorySourceIds: [],
+        supersededLongTermIds: [],
+        generatedProposalIds: ["proposal_turn_1"],
+      });
+
+      proposalTools.reviewProposal(story.id, "proposal_turn_1", "accept", "accept for smoke");
+      const afterAccept = harness.readJson(workspacePath);
+      assert.equal(afterAccept.notes, "Origin mystery resolved.");
+
+      const chatTools = createChatTools({
+        safeId,
+        summarizeText,
+        jsonResponse: (status, data) => ({ status, data }),
+        sendJson: () => {},
+        getAppConfig: () => ({ globalSystemPrompt: "Global prompt", localEmbedding: { mode: "off" } }),
+        getStory: harness.getStory,
+        saveStory: harness.saveStory,
+        getProviderForStory: () => ({
+          id: "provider_1",
+          name: "Smoke Provider",
+          baseUrl: "http://example.test",
+          model: "test-model",
+          encryptedApiKey: { mock: true },
+        }),
+        decryptSecret: () => "test-key",
+        syncStoryWorkspace: harness.workspaceTools.syncStoryWorkspace,
+        loadActiveWorkspaceItems: harness.workspaceTools.loadActiveWorkspaceItems,
+        readJsonLines: harness.readJsonLines,
+        appendJsonLine: harness.appendJsonLine,
+        writeJson: harness.writeJson,
+        writeJsonLines: harness.writeJsonLines,
+        getStoryMessagesFile: harness.getStoryMessagesFile,
+        getStoryMemoryFile: harness.getStoryMemoryFile,
+        getStoryProposalFile: harness.getStoryProposalFile,
+        getStorySnapshotFile: harness.getStorySnapshotFile,
+        getStoryWorkspaceDir: harness.getStoryWorkspaceDir,
+        getDefaultContextStatus: (storyValue) => storyValue.contextStatus,
+        buildContextBlocks: async () => ({
+          blocks: [],
+          usedTokens: 10,
+          maxTokens: 100,
+          usedBlocks: 0,
+          maxBlocks: 6,
+          memoryRetrievalMeta: null,
+          knowledgeRetrievalMeta: null,
+          selectedKnowledgeChunks: [],
+          selectedMemoryRecords: [],
+          selectedMemoryReasons: {},
+        }),
+        classifyPressure: () => "low",
+        getSummaryTriggers: () => [],
+        getSummarySchedule: () => ({ configuredRounds: 4, nextRound: 2, remainingRounds: 2 }),
+        buildTransientMemoryCandidate: () => null,
+        generateMemoryUpdate: async () => ({
+          summarySchedule: { configuredRounds: 4, nextRound: 2, remainingRounds: 2 },
+          summaryRecords: [],
+          consolidatedMemoryRecords: [],
+          consolidatedMemorySourceIds: [],
+          supersededLongTermIds: [],
+          records: [],
+        }),
+        generateProposalUpdate: async () => ({
+          proposalRecords: [],
+          proposalTriggers: [],
+          proposalPipeline: { stage: "not_triggered", triggerCount: 0, generatedCount: 0, triggers: [], error: "" },
+        }),
+        detectForgetfulness: () => ({
+          pressureLevel: "low",
+          forgetfulnessState: "normal",
+          forgetfulnessReasons: [],
+          forgetfulnessSignals: { pressure: [], omission: [], conflict: [] },
+        }),
+        buildEndpointUrl: () => "http://example.test/chat/completions",
+        callOpenAICompatible: async () => ({
+          content: "Rewritten assistant reply.",
+          meta: { endpoint: "http://example.test/chat/completions", latencyMs: 1, promptMessages: 1 },
+        }),
+        streamOpenAICompatible: async () => {
+          throw new Error("Streaming should not be called in smoke tests");
+        },
+      });
+
+      const revised = await chatTools.reviseLastExchange(story.id, "Rewrite the turn");
+      const afterRevise = harness.readJson(workspacePath);
+      const storedProposals = harness.readJsonLines(harness.getStoryProposalFile(story.id));
+
+      assert.equal(revised.status, 200);
+      assert.deepEqual(afterRevise.notes, beforeAccept.notes);
+      assert.equal(storedProposals.length, 0);
+    } finally {
+      fs.rmSync(rootDir, { recursive: true, force: true });
+    }
   });
 
   if (!process.exitCode) {

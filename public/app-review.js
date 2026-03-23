@@ -2,11 +2,48 @@ window.createReviewTools = function createReviewTools({
   state,
   els,
   escapeHtml,
-  formatContextLabel,
-  summarizeContextSources,
   api,
   loadStory,
 }) {
+  function formatContextLabel(label) {
+    const value = String(label || "");
+    if (value === "system:global") return "Global system prompt";
+    if (value === "system:story") return "Story system prompt";
+    if (value === "knowledge:retrieved") return "Retrieved knowledge blocks";
+    if (value === "style") return "Enabled style";
+    if (value === "characters") return "Enabled character cards";
+    if (value === "worldbook") return "Enabled worldbooks";
+    if (value === "memory") return "Story memory summary";
+    if (value === "memory:long_term") return "Long-term memory";
+    if (value === "memory:critical") return "Critical memory";
+    if (value === "memory:recent") return "Recent memory";
+    const historyTurn = value.match(/^history_turn:(\d+)$/);
+    if (historyTurn) {
+      return `Recent conversation turn ${Number(historyTurn[1]) + 1}`;
+    }
+    return value;
+  }
+
+  function summarizeContextSources(blocks) {
+    const labels = (blocks || []).map((item) => String(item.label || ""));
+    const basicSources = [];
+    if (labels.includes("system:global")) basicSources.push("Global system prompt");
+    if (labels.includes("system:story")) basicSources.push("Story system prompt");
+    if (labels.includes("knowledge:retrieved")) basicSources.push("Retrieved knowledge");
+    if (labels.includes("characters")) basicSources.push("Character cards");
+    if (labels.includes("worldbook")) basicSources.push("Worldbooks");
+    if (labels.includes("style")) basicSources.push("Style");
+    if (labels.includes("memory")) basicSources.push("Story memory");
+    if (labels.includes("memory:long_term")) basicSources.push("Long-term memory");
+    if (labels.includes("memory:critical")) basicSources.push("Critical memory");
+    if (labels.includes("memory:recent")) basicSources.push("Recent memory");
+    const historyTurns = labels.filter((item) => item.startsWith("history_turn:")).length;
+    if (!basicSources.length && historyTurns === 0) {
+      return "There are no context sources to display for this preview yet.";
+    }
+    return `Included in this run: ${basicSources.length ? basicSources.join(", ") : "no base sources"}; history turns: ${historyTurns}.`;
+  }
+
   function formatProposalPipelineStage(stage) {
     const labels = {
       idle: "Idle",

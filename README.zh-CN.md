@@ -14,6 +14,7 @@
 - 设定更新通过提案机制进入故事 canon，而不是静默覆盖
 - Diagnostics 可以查看上下文压力、检索结果、提示词来源和失忆风险
 - 支持 OpenAI-compatible Provider，并在本地加密保存 API Key
+- 支持 chat-completions-compatible 的思考模型，并可配置 reasoning effort
 - 支持可选的本地混合检索与本地 RAG 基础能力
 - 前端是静态页面，不需要额外构建
 
@@ -135,7 +136,10 @@ data/stories/<storyId>/snapshots/context.jsonl
 ## 项目结构
 
 ```text
-server.js                         API 路由与高层编排
+server.js                         后端装配入口与启动
+lib/http.js                       HTTP 辅助与静态文件服务
+lib/server-config.js              app config、story config 与 embedding runtime 辅助
+lib/api-router.js                 API 路由匹配与资源处理
 lib/providers.js                  Provider 辅助与 OpenAI-compatible 请求封装
 lib/story-store.js                Story、library、config、JSON/JSONL 存储辅助
 lib/workspace.js                  Story workspace 同步与加载
@@ -151,11 +155,13 @@ lib/memory-consolidation.js       长期记忆整合
 lib/proposals.js                  提案生成与审阅
 public/index.html                 主界面
 public/styles.css                 样式与布局
-public/app.js                     前端启动、状态和共享交互
 public/app-chat.js                聊天相关交互
 public/app-library.js             素材编辑相关交互
 public/app-workspace.js           工作区渲染相关交互
 public/app-review.js              Review、memory、diagnostics 渲染
+public/app-provider.js            Provider 设置与本地 embedding 相关交互
+public/app-shell.js               主题、侧边栏和右侧面板框架交互
+public/app.js                     前端启动、状态和跨模块协调
 ```
 
 ## 记忆系统是怎么工作的
@@ -181,6 +187,8 @@ public/app-review.js              Review、memory、diagnostics 渲染
 - model name
 - context window
 - API key
+
+故事生成设置里也可以为兼容的思考模型配置 reasoning effort。
 
 Provider key 会保存在本地，并加密存储。
 

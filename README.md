@@ -14,6 +14,7 @@ It is built for writers who want more than a chat box: each story gets its own i
 - Proposal-based canon updates instead of silent auto-merges
 - Diagnostics for context pressure, prompt inputs, retrieval behavior, and forgetfulness risk
 - OpenAI-compatible provider support with locally encrypted API keys
+- Reasoning-model support on chat-completions-compatible providers with configurable reasoning effort
 - Optional local hybrid retrieval and local RAG groundwork
 - Static browser UI with no frontend build step
 
@@ -135,7 +136,10 @@ Note:
 ## Project Structure
 
 ```text
-server.js                         API routes and high-level orchestration
+server.js                         Backend composition root and startup
+lib/http.js                       HTTP helpers and static file serving
+lib/server-config.js              App config, story config, and embedding runtime helpers
+lib/api-router.js                 API route matching and resource handlers
 lib/providers.js                  Provider helpers and OpenAI-compatible transport
 lib/story-store.js                Story, library, config, JSON, and JSONL storage helpers
 lib/workspace.js                  Story workspace sync and loading helpers
@@ -151,11 +155,13 @@ lib/memory-consolidation.js       Long-term memory consolidation helpers
 lib/proposals.js                  Proposal generation and review helpers
 public/index.html                 Main browser UI
 public/styles.css                 Styling and layout
-public/app.js                     Frontend bootstrapping and shared UI actions
 public/app-chat.js                Chat actions
 public/app-library.js             Library editing helpers
 public/app-workspace.js           Workspace rendering helpers
 public/app-review.js              Review, memory, and diagnostics rendering helpers
+public/app-provider.js            Provider settings and local embedding helpers
+public/app-shell.js               Theme, sidebar, and right-panel shell helpers
+public/app.js                     Frontend bootstrapping and cross-module coordination
 ```
 
 ## How Memory Works
@@ -181,6 +187,8 @@ You can configure:
 - model name
 - context window
 - API key
+
+Story generation settings can also opt into reasoning effort for compatible thinking models.
 
 Provider keys are stored locally and encrypted at rest.
 

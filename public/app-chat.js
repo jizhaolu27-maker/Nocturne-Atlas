@@ -2,6 +2,7 @@ window.createChatTools = function createChatTools({
   state,
   els,
   escapeHtml,
+  renderMarkdownSafe,
   api,
   loadStory,
   renderChatStatus,
@@ -170,7 +171,45 @@ Preparing the reply...
     }
   }
 
+  function decorateLatestEditableMessage(messages) {
+    const lastMessage = messages[messages.length - 1];
+    const previousMessage = messages[messages.length - 2];
+    if (lastMessage?.role !== "assistant" || previousMessage?.role !== "user") {
+      return;
+    }
+    const userNodes = els.chatLog.querySelectorAll(".message.user");
+    const target = userNodes[userNodes.length - 1];
+    if (!target || target.querySelector("[data-edit-last-user]")) {
+      return;
+    }
+    const actions = document.createElement("div");
+    actions.className = "message-actions";
+    actions.innerHTML = `<button type="button" class="ghost msg-action-btn" data-edit-last-user="true">
+    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right:4px;"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>
+    Revise this turn and regenerate
+  </button>`;
+    target.appendChild(actions);
+  }
+
+  function renderMessages(messages) {
+    els.chatLog.innerHTML = messages.length
+      ? messages
+          .map(
+            (message) => `
+            <div class="message ${message.role}">
+              <div class="message-role">${escapeHtml(message.role)} / ${escapeHtml(new Date(message.createdAt).toLocaleString())}</div>
+              <div class="message-content">${message.role === "assistant" ? renderMarkdownSafe(message.content) : escapeHtml(message.content)}</div>
+            </div>
+          `
+          )
+          .join("")
+      : `<div class="message assistant"><div class="message-role">system</div><div class="message-content">Start chatting with this story.</div></div>`;
+    els.chatLog.scrollTop = els.chatLog.scrollHeight;
+  }
+
   return {
+    decorateLatestEditableMessage,
+    renderMessages,
     setChatPending,
     updateStreamingAssistant,
     streamChat,

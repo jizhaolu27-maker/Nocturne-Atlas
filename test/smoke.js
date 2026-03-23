@@ -7,7 +7,12 @@ const { createStoryStore } = require("../lib/story-store");
 const { createWorkspaceTools } = require("../lib/workspace");
 const { createContextTools } = require("../lib/context");
 const { createMemoryTools } = require("../lib/memory");
-const { createEmbeddingTools } = require("../lib/embeddings");
+const {
+  createEmbeddingTools,
+  normalizeEmbeddingConfig,
+  normalizeEmbeddingMode,
+  normalizeEmbeddingRemoteHost,
+} = require("../lib/embeddings");
 const { createKnowledgeRetrievalTools } = require("../lib/knowledge-retrieval");
 const { selectRelevantMemoryRecords, formatMemoryContext } = require("../lib/memory-engine");
 const { createMemoryRetrievalTools } = require("../lib/memory-retrieval");
@@ -15,6 +20,7 @@ const { createLocalVectorSearchRecords } = require("../lib/memory-vector");
 const { createProposalTools } = require("../lib/proposals");
 const { createChatTools } = require("../lib/chat");
 const { createProviderTools } = require("../lib/providers");
+const { createServerConfigTools } = require("../lib/server-config");
 
 const DEFAULT_CONTEXT_BLOCKS = 6;
 const DEFAULT_SUMMARY_INTERVAL = 4;
@@ -269,6 +275,142 @@ async function main() {
     assert.deepEqual(update.summaryRecords[0].triggeredBy, ["Manual smoke trigger"]);
   });
 
+  await runTest("embedding config normalizes custom mirror hosts", () => {
+    assert.equal(normalizeEmbeddingRemoteHost("https://hf-mirror.com"), "https://hf-mirror.com/");
+    assert.equal(normalizeEmbeddingConfig({ remoteHost: "https://hf-mirror.com" }).remoteHost, "https://hf-mirror.com/");
+    assert.equal(normalizeEmbeddingConfig({ remoteHost: "not-a-url" }).remoteHost, "https://huggingface.co/");
+  });
+
+  await runTest("memory tools store the actual fallback embedding provider when neural embedding fails", async () => {
+    const { buildMemoryEmbeddingText } = createEmbeddingTools();
+    const memoryTools = createMemoryTools({
+      DEFAULT_SUMMARY_INTERVAL,
+      MEMORY_SUMMARY_CHAR_LIMIT: 160,
+      classifyPressure: (usedTokens, maxTokens) => {
+        const ratio = maxTokens ? usedTokens / maxTokens : 0;
+        if (ratio >= 0.82) {
+          return "high";
+        }
+        if (ratio >= 0.6) {
+          return "medium";
+        }
+        return "low";
+      },
+      summarizeText,
+      safeId,
+      getProviderForStory: () => null,
+      decryptSecret: () => "",
+      callOpenAICompatible: async () => {
+        throw new Error("Provider should not be called in smoke tests");
+      },
+      tryParseJsonObject: (value) => {
+        try {
+          return JSON.parse(value);
+        } catch {
+          return null;
+        }
+      },
+      embedTextDetailed: async () => ({
+        vector: [0.6, 0.8],
+        provider: "hash_v1",
+        model: "hash_v1",
+        requestedProvider: "transformers_local",
+        requestedModel: "Xenova/all-MiniLM-L6-v2",
+        fallbackUsed: true,
+        error: "fetch failed",
+      }),
+      buildMemoryEmbeddingText,
+      resolveEmbeddingOptions: () => ({
+        mode: "on",
+        provider: "transformers_local",
+        model: "Xenova/all-MiniLM-L6-v2",
+        dimensions: 384,
+        allowFallback: true,
+      }),
+    });
+
+    const update = await memoryTools.generateMemoryUpdate({
+      story: {
+        settings: { summaryInterval: 3, localEmbeddingMode: "inherit" },
+        providerId: "",
+        model: "",
+      },
+      fullMessages: [
+        { role: "user", content: "Continue the story." },
+        { role: "assistant", content: "Lyra opens the submerged archive with her bloodline key." },
+      ],
+      memoryRecords: [],
+      workspace: { characters: [], worldbooks: [], styles: [] },
+      summaryTriggers: ["Manual smoke trigger"],
+    });
+
+    assert.equal(update.summaryRecords.length, 1);
+    assert.deepEqual(update.summaryRecords[0].embedding, [0.6, 0.8]);
+    assert.equal(update.summaryRecords[0].embeddingProvider, "hash_v1");
+    assert.equal(update.summaryRecords[0].embeddingModel, "hash_v1");
+    assert.equal(update.summaryRecords[0].embeddingRequestedProvider, "transformers_local");
+    assert.equal(update.summaryRecords[0].embeddingFallbackUsed, true);
+  });
+
+  await runTest("server config prewarm fails when neural embeddings do not return a usable vector", async () => {
+    const rootDir = createTempRoot();
+    try {
+      const appConfigFile = path.join(rootDir, "app.json");
+      fs.writeFileSync(
+        appConfigFile,
+        JSON.stringify(
+          {
+            theme: "dark",
+            localEmbedding: {
+              mode: "on",
+              provider: "transformers_local",
+              model: "Xenova/all-MiniLM-L6-v2",
+              dimensions: 384,
+              cacheDir: path.join(rootDir, ".cache", "transformers"),
+              remoteHost: "https://hf-mirror.com",
+              allowFallback: true,
+            },
+          },
+          null,
+          2
+        ),
+        "utf8"
+      );
+      const serverConfigTools = createServerConfigTools({
+        readJson: (filePath, fallback = {}) => {
+          try {
+            return JSON.parse(fs.readFileSync(filePath, "utf8"));
+          } catch {
+            return fallback;
+          }
+        },
+        getAppConfigFile: () => appConfigFile,
+        normalizeEmbeddingConfig,
+        normalizeEmbeddingMode,
+        embedText: async () => null,
+        embedTextDetailed: async () => ({
+          vector: null,
+          provider: "transformers_local",
+          model: "Xenova/all-MiniLM-L6-v2",
+          requestedProvider: "transformers_local",
+          requestedModel: "Xenova/all-MiniLM-L6-v2",
+          fallbackUsed: false,
+          error: "fetch failed",
+        }),
+        DEFAULT_GLOBAL_SYSTEM_PROMPT: "Global prompt",
+      });
+
+      const result = await serverConfigTools.prewarmLocalEmbeddingModel(serverConfigTools.getAppConfig());
+      assert.equal(result.ok, false);
+      assert.equal(result.warmed, false);
+      assert.match(result.message, /fetch failed/);
+      assert.equal(result.activeProvider, "transformers_local");
+      assert.equal(result.runtime.remoteHost, "https://hf-mirror.com/");
+    } finally {
+      fs.rmSync(rootDir, { recursive: true, force: true });
+    }
+  });
+
   await runTest("hybrid retrieval stays lexical by default and can admit vector matches when enabled", () => {
     const retrievalTools = createMemoryRetrievalTools({
       selectRelevantMemoryRecords,
@@ -325,6 +467,62 @@ async function main() {
     assert.equal(hybrid.retrievalMeta.mode, "hybrid");
     assert.equal(hybrid.retrievalMeta.vectorEnabled, true);
     assert.ok(hybrid.selectedRecords.some((item) => item.id === "mem_b"));
+  });
+
+  await runTest("knowledge retrieval records the actual vector backend when fallback vectors are used", async () => {
+    let savedCache = null;
+    const retrievalTools = createKnowledgeRetrievalTools({
+      embedTextDetailed: async (text) => ({
+        vector: text.includes("Continue the story")
+          ? [1, 0]
+          : text.includes("Archive")
+            ? [1, 0]
+            : [0, 1],
+        provider: "hash_v1",
+        model: "hash_v1",
+        requestedProvider: "transformers_local",
+        requestedModel: "Xenova/all-MiniLM-L6-v2",
+        fallbackUsed: true,
+        error: "fetch failed",
+      }),
+      extractKeywords: require("../lib/memory-engine").extractKeywords,
+      loadKnowledgeEmbeddingCache: () => ({}),
+      saveKnowledgeEmbeddingCache: (_storyId, value) => {
+        savedCache = value;
+      },
+    });
+
+    const result = await retrievalTools.retrieveKnowledgeChunks({
+      story: { id: "story_test" },
+      workspace: {
+        characters: [
+          {
+            id: "char_ava",
+            name: "Ava",
+            core: { role: "Archivist" },
+            traits: ["careful", "determined"],
+            notes: "Archive access specialist.",
+          },
+        ],
+        worldbooks: [],
+        styles: [],
+      },
+      userMessage: "Continue the story. Ask Ava how the Archive opens.",
+      messages: [{ role: "user", content: "Continue the story. Ask Ava how the Archive opens." }],
+      embeddingOptions: {
+        mode: "on",
+        provider: "transformers_local",
+        model: "Xenova/all-MiniLM-L6-v2",
+      },
+      maxItems: 2,
+    });
+
+    const cacheEntries = Object.values(savedCache?.entries || {});
+    assert.ok(cacheEntries.length > 0);
+    assert.ok(cacheEntries.every((item) => item.provider === "hash_v1"));
+    assert.ok(cacheEntries.every((item) => item.fallbackUsed === true));
+    assert.equal(result.retrievalMeta.vectorProvider, "hash_v1");
+    assert.equal(result.retrievalMeta.vectorFallbackUsed, true);
   });
 
   await runTest("proposal review accepts a create proposal into workspace and story enablement", () => {

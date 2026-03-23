@@ -45,6 +45,7 @@ const DEFAULT_GLOBAL_SYSTEM_PROMPT =
 let workspaceTools = null;
 const {
   embedText,
+  embedTextDetailed,
   buildMemoryEmbeddingText,
   buildQueryEmbeddingText,
 } = createEmbeddingTools();
@@ -106,6 +107,7 @@ const {
   normalizeEmbeddingConfig,
   normalizeEmbeddingMode,
   embedText,
+  embedTextDetailed,
   DEFAULT_GLOBAL_SYSTEM_PROMPT,
 });
 
@@ -120,6 +122,7 @@ const {
   formatKnowledgeContext,
 } = createKnowledgeRetrievalTools({
   embedText,
+  embedTextDetailed,
   extractKeywords,
   loadKnowledgeEmbeddingCache: (storyId) => readJson(getStoryKnowledgeEmbeddingFile(storyId), {}),
   saveKnowledgeEmbeddingCache: (storyId, value) => writeJson(getStoryKnowledgeEmbeddingFile(storyId), value),
@@ -203,6 +206,7 @@ const {
   callOpenAICompatible,
   tryParseJsonObject,
   embedText,
+  embedTextDetailed,
   buildMemoryEmbeddingText,
   resolveEmbeddingOptions: resolveStoryEmbeddingConfig,
 });

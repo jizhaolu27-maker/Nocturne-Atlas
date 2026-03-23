@@ -199,6 +199,12 @@ Provider key 会保存在本地，并加密存储。
 - 这个仓库是本地优先、单用户优先的设计
 - 当前本地 RAG 路径主要由记忆检索和工作区知识检索组成
 
+## 本地 Embedding 镜像源
+
+- 现在可以在界面里的 `Providers & Retrieval -> Local Embedding Mirror` 配置本地 embedding 的模型镜像源
+- 如果当前网络无法直接访问 Hugging Face，可以改成可达镜像，例如 `https://hf-mirror.com/`
+- 预热按钮会使用当前配置的镜像源下载模型；如果镜像也不可达，界面会明确显示失败，而不是假装预热成功
+
 ## License
 
 **Nocturne Atlas** 使用 `MIT` License。

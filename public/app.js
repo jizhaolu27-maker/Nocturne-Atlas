@@ -51,6 +51,7 @@ const els = {
   statusReasons: document.getElementById("status-reasons"),
   appMemoryRetrievalMode: document.getElementById("app-memory-retrieval-mode"),
   appLocalEmbeddingMode: document.getElementById("app-local-embedding-mode"),
+  appLocalEmbeddingRemoteHost: document.getElementById("app-local-embedding-remote-host"),
   prewarmLocalEmbeddingBtn: document.getElementById("prewarm-local-embedding-btn"),
   localEmbeddingStatus: document.getElementById("local-embedding-status"),
   localEmbeddingResult: document.getElementById("local-embedding-result"),
@@ -363,6 +364,7 @@ function renderEmptyState() {
   els.promptGlobal.value = state.appConfig?.globalSystemPrompt || "";
   els.appMemoryRetrievalMode.value = state.appConfig?.memoryRetrievalMode || "lexical";
   els.appLocalEmbeddingMode.value = state.appConfig?.localEmbedding?.mode || "off";
+  els.appLocalEmbeddingRemoteHost.value = state.appConfig?.localEmbedding?.remoteHost || "";
   els.promptStory.value = "";
   els.promptUser.value = "";
   els.providerSelect.value = "";
@@ -424,6 +426,7 @@ function renderStory() {
   els.promptGlobal.value = state.appConfig?.globalSystemPrompt || story.promptConfig?.globalSystemPrompt || "";
   els.appMemoryRetrievalMode.value = state.appConfig?.memoryRetrievalMode || "lexical";
   els.appLocalEmbeddingMode.value = state.appConfig?.localEmbedding?.mode || "off";
+  els.appLocalEmbeddingRemoteHost.value = state.appConfig?.localEmbedding?.remoteHost || "";
   els.promptStory.value = story.promptConfig?.storySystemPrompt || "";
   els.promptUser.value = story.promptConfig?.userPromptTemplate || "";
   els.providerSelect.value = story.providerId || "";
@@ -514,10 +517,13 @@ async function saveStoryConfig() {
     const currentAppMemoryRetrievalMode = state.appConfig?.memoryRetrievalMode || "lexical";
     const nextAppLocalEmbeddingMode = els.appLocalEmbeddingMode.value === "on" ? "on" : "off";
     const currentAppLocalEmbeddingMode = state.appConfig?.localEmbedding?.mode || "off";
+    const nextAppLocalEmbeddingRemoteHost = els.appLocalEmbeddingRemoteHost.value.trim();
+    const currentAppLocalEmbeddingRemoteHost = state.appConfig?.localEmbedding?.remoteHost || "";
     if (
       nextGlobalSystemPrompt !== currentGlobalSystemPrompt ||
       nextAppMemoryRetrievalMode !== currentAppMemoryRetrievalMode ||
-      nextAppLocalEmbeddingMode !== currentAppLocalEmbeddingMode
+      nextAppLocalEmbeddingMode !== currentAppLocalEmbeddingMode ||
+      nextAppLocalEmbeddingRemoteHost !== currentAppLocalEmbeddingRemoteHost
     ) {
       state.appConfig = await api("/api/app-config", {
         method: "POST",
@@ -527,6 +533,7 @@ async function saveStoryConfig() {
           localEmbedding: {
             ...(state.appConfig?.localEmbedding || {}),
             mode: nextAppLocalEmbeddingMode,
+            remoteHost: nextAppLocalEmbeddingRemoteHost,
           },
         }),
       });

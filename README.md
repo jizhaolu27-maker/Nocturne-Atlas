@@ -78,6 +78,7 @@ Current setup:
 - Default local embeddings mode: `off`
 - Local neural embedding backend: `@xenova/transformers`
 - Default local embedding model: `Xenova/all-MiniLM-L6-v2`
+- Optional mirror host: configurable per app via `Local Embedding Mirror`
 - Fallback path: deterministic local hash vectors when neural inference is unavailable
 
 To enable the local RAG-style path after cloning:
@@ -86,13 +87,16 @@ To enable the local RAG-style path after cloning:
 2. Start the app with `npm start`
 3. In the UI, set `Global Default: Memory Retrieval` to `Hybrid`
 4. Set `Global Default: Local Embeddings` to `On`
-5. Click `Prewarm Local Embedding Model` once
+5. If Hugging Face is slow or unreachable on your network, set `Local Embedding Mirror` to a reachable mirror such as `https://hf-mirror.com/`
+6. Click `Prewarm Local Embedding Model` once
 
 What the prewarm button does:
 
 - It triggers one real local embedding call
 - If the local model is not cached yet, this is when the model files are downloaded
 - It fills the local cache ahead of the first real chat turn, so the first retrieval pass is smoother
+- It now reports success only when a real neural embedding vector is produced
+- If neural loading fails, the app reports the failure and keeps using local hash-vector fallback when allowed
 
 ## Configuration Model
 

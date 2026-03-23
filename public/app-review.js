@@ -496,6 +496,12 @@ window.createReviewTools = function createReviewTools({
       const knowledgeBadges = [
         { label: `active: ${knowledgeRetrievalMeta.activeMode || "lexical"}`, tone: knowledgeRetrievalMeta.activeMode === "hybrid" ? "hybrid" : "lexical" },
       ];
+      if (knowledgeRetrievalMeta.vectorProvider) {
+        knowledgeBadges.push({
+          label: `vector backend ${knowledgeRetrievalMeta.vectorProvider}`,
+          tone: knowledgeRetrievalMeta.vectorProvider === "hash_v1" ? "neutral" : "vector",
+        });
+      }
       if (typeof knowledgeRetrievalMeta.cachedVectorCount === "number") {
         knowledgeBadges.push({
           label: `vector cache ${knowledgeRetrievalMeta.cachedVectorCount}`,
@@ -507,6 +513,7 @@ window.createReviewTools = function createReviewTools({
           <strong>Knowledge Retrieval</strong>
           ${renderDiagnosticBadges(knowledgeBadges)}
           <span>${escapeHtml(`Candidate chunks ${knowledgeRetrievalMeta.chunkCount || 0} / vector candidates ${knowledgeRetrievalMeta.vectorCandidateCount || 0}`)}</span>
+          ${knowledgeRetrievalMeta.vectorFailure ? `<div>${escapeHtml(`Vector note: ${knowledgeRetrievalMeta.vectorFailure}`)}</div>` : ""}
         </article>
       `);
     }

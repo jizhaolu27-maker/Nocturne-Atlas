@@ -30,21 +30,35 @@ window.createProviderTools = function createProviderTools({
     const mode = config.mode || "off";
     const dependencyReady = Boolean(runtime?.dependencyInstalled);
     const cacheReady = Boolean(runtime?.cacheExists);
+    const neuralReady = Boolean(runtime?.neuralReady);
+    const configuredProvider = runtime?.configuredProvider || config.provider || "transformers_local";
+    const remoteHost = runtime?.remoteHost || config.remoteHost || "";
     let summary = "Local embeddings: Off";
-    if (mode === "on" && dependencyReady && cacheReady) {
-      summary = "Local embeddings: Enabled. Cache: ready.";
+    if (mode === "on" && configuredProvider === "hash_v1") {
+      summary = "Local embeddings: Enabled. Active backend: deterministic hash vectors.";
+    } else if (mode === "on" && dependencyReady && neuralReady) {
+      summary = "Local embeddings: Enabled. Neural backend: ready.";
     } else if (mode === "on" && dependencyReady) {
-      summary = "Local embeddings: Enabled. Cache: not detected yet.";
+      summary = "Local embeddings: Enabled. Neural backend: not ready yet.";
     } else if (mode === "on") {
       summary = "Local embeddings: Enabled. Dependency: missing.";
     } else if (dependencyReady) {
       summary = "Local embeddings: Off. Dependency: ready.";
     }
-    const tone = mode === "on" && !dependencyReady ? "error" : cacheReady ? "ok" : "";
+    const tone =
+      mode === "on" && configuredProvider !== "hash_v1" && !dependencyReady
+        ? "error"
+        : mode === "on" && (configuredProvider === "hash_v1" || neuralReady)
+          ? "ok"
+          : "";
     els.localEmbeddingStatus.className = `provider-test-result ${tone}`.trim();
-    els.localEmbeddingStatus.textContent = summary;
+    const mirrorNote =
+      mode === "on" && configuredProvider === "transformers_local" && remoteHost
+        ? ` Mirror: ${remoteHost}`
+        : "";
+    els.localEmbeddingStatus.textContent = `${summary}${mirrorNote}${runtime?.note ? ` ${runtime.note}` : ""}`;
     if (els.prewarmLocalEmbeddingBtn) {
-      const canPrewarm = (config.provider || "transformers_local") !== "hash_v1";
+      const canPrewarm = configuredProvider !== "hash_v1";
       els.prewarmLocalEmbeddingBtn.disabled = state.isPrewarmingLocalEmbedding || !canPrewarm;
       els.prewarmLocalEmbeddingBtn.textContent = state.isPrewarmingLocalEmbedding
         ? "Prewarming Local Embedding Model..."
@@ -76,16 +90,11 @@ window.createProviderTools = function createProviderTools({
         ...(state.appConfig || {}),
         localEmbeddingRuntime: result.runtime || state.appConfig?.localEmbeddingRuntime || null,
       };
-      const cacheReady = Boolean(result.runtime?.cacheExists);
-      const dependencyReady = Boolean(result.runtime?.dependencyInstalled);
-      let message = "Last prewarm: completed.";
-      if (result.ok && dependencyReady && cacheReady) {
-        message = "Last prewarm: success. Cache is ready.";
-      } else if (result.ok && dependencyReady) {
-        message = "Last prewarm: success. Model loaded, but cache is not detected yet.";
-      } else if (result.ok) {
-        message = "Last prewarm: completed.";
-      } else {
+      const activeProvider = result.activeProvider || result.runtime?.configuredProvider || "";
+      let message = result.message || "Last prewarm: completed.";
+      if (result.ok && result.warmed && activeProvider === "transformers_local") {
+        message = "Last prewarm: success. Neural embeddings are ready.";
+      } else if (!result.ok) {
         message = result.message || "Last prewarm: failed.";
       }
       renderLocalEmbeddingResult(message, result.ok ? "ok" : "error");

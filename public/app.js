@@ -430,6 +430,7 @@ function renderStory() {
   els.promptStory.value = story.promptConfig?.storySystemPrompt || "";
   els.promptUser.value = story.promptConfig?.userPromptTemplate || "";
   els.providerSelect.value = story.providerId || "";
+  renderSelectors(story.enabled || {});
   renderMessages(payload.messages || []);
   decorateLatestEditableMessage(payload.messages || []);
   try {
@@ -467,11 +468,18 @@ function renderSelectorList(root, items, enabledIds) {
 
 function collectStoryPayload() {
   const collectEnabledIds = (type, selectorRoot) => {
+    const currentEnabledIds = Array.isArray(state.activeStoryData?.story?.enabled?.[type])
+      ? [...state.activeStoryData.story.enabled[type]]
+      : [];
+    const renderedCheckboxes = Array.from(selectorRoot.querySelectorAll("input[type=checkbox]"));
+    if (!renderedCheckboxes.length) {
+      return currentEnabledIds;
+    }
     const selectedIds = new Set(
-      Array.from(selectorRoot.querySelectorAll("input:checked")).map((node) => node.value)
+      renderedCheckboxes.filter((node) => node.checked).map((node) => node.value)
     );
     const libraryIds = new Set((state.libraries[type] || []).map((item) => item.id));
-    for (const id of state.activeStoryData?.story?.enabled?.[type] || []) {
+    for (const id of currentEnabledIds) {
       if (!libraryIds.has(id)) {
         selectedIds.add(id);
       }

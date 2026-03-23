@@ -165,6 +165,7 @@ const {
   saveStory,
   getStoryProposalFile,
   getStoryWorkspaceDir,
+  syncStoryWorkspace,
 });
 
 function slugify(input) {

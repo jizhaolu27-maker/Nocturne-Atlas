@@ -57,7 +57,11 @@ lib/memory-consolidation.js       Long-term memory consolidation helpers
 lib/proposals.js                  Proposal triggers, proposal generation, pipeline state, application helpers
 public/index.html                 Main browser UI
 public/styles.css                 Styling and layout
-public/app.js                     Frontend state, rendering, and actions
+public/app-chat.js                Chat send/stream/stop/revise helpers
+public/app-library.js             Library editor selection, templates, save, and delete helpers
+public/app-workspace.js           Workspace card, detail, and selection rendering helpers
+public/app-review.js              Review, memory, proposals, and diagnostics rendering helpers
+public/app.js                     Frontend state, bootstrapping, story/provider flows, and shared actions
 data/library/*                    Source library assets
 data/stories/<storyId>/*          Per-story local workspace, messages, memory, proposals, snapshots
 ```
@@ -184,6 +188,14 @@ Workspace copy/sync/loading now lives in `lib/workspace.js`, which keeps story-l
 Context block assembly and pressure/default-status helpers now live in `lib/context.js`, which keeps prompt-context shaping out of `server.js`.
 
 Chat context construction, turn finalization, streaming chat flow, and revise-last handling now live in `lib/chat.js`, which keeps story-chat runtime logic out of `server.js`.
+
+Review-oriented frontend rendering now starts in `public/app-review.js`, which keeps proposal, memory, status, and diagnostics UI helpers out of the main browser script.
+
+Chat send/stream/stop/revise behavior now lives in `public/app-chat.js`, which keeps the main browser script focused on state wiring, configuration flows, and non-chat UI actions.
+
+Library-editor selection, templates, save, and delete behavior now lives in `public/app-library.js`, which keeps JSON editing flows out of the main browser script.
+
+Workspace card, detail, and selection rendering now lives in `public/app-workspace.js`, which keeps story-workspace UI assembly out of the main browser script.
 
 The global system prompt now lives in app config and is shared across stories, while each story keeps only its story-specific and user-template prompts.
 

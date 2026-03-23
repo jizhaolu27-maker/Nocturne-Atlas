@@ -57,7 +57,11 @@ lib/memory-consolidation.js       长期记忆合并辅助
 lib/proposals.js                  proposal 触发、生成、pipeline 状态与应用辅助
 public/index.html                 主界面结构
 public/styles.css                 样式与布局
-public/app.js                     前端状态、渲染与交互
+public/app-chat.js                聊天发送、流式生成、停止与 revise-last 辅助
+public/app-library.js             资料库编辑选择、模板、保存与删除辅助
+public/app-workspace.js           工作区卡片、详情与选择渲染辅助
+public/app-review.js              提案、记忆、状态与诊断渲染辅助
+public/app.js                     前端状态、初始化、故事/Provider 流程与共享交互
 data/library/*                    源资料库资源
 data/stories/<storyId>/*          每个故事的本地工作区、消息、记忆、提案与快照
 ```
@@ -174,6 +178,14 @@ Provider key 会保存在本地，并进行静态加密存储。
 运行时的记忆主流程现在集中在 `lib/memory.js`，而召回评分与合并逻辑则继续放在 `lib/memory-engine.js` 和 `lib/memory-consolidation.js` 这样的 helper 模块里。
 
 聊天 context 构建、回合收尾、streaming 聊天流程，以及 revise-last 处理现在集中在 `lib/chat.js`，这样 `server.js` 就更偏向入口层的启动、装配和 route 编排。
+
+前端里偏 review 的渲染逻辑现在集中在 `public/app-review.js`，把提案、记忆、状态与 diagnostics 的 UI 辅助从主脚本里拆了出来。
+
+聊天发送、streaming、停止生成与 revise-last 逻辑现在集中在 `public/app-chat.js`，让主脚本更偏向状态装配、配置流程和非聊天交互。
+
+资料库编辑的选择、模板、保存与删除逻辑现在集中在 `public/app-library.js`，把 JSON 编辑流程从主脚本里拆了出来。
+
+工作区卡片、详情与选择渲染现在集中在 `public/app-workspace.js`，把故事工作区的 UI 组装从主脚本里拆了出来。
 
 现在的全局系统提示词保存在 app config 里，所有故事共用；每个故事只保留自己的故事提示词和用户模板提示词。
 

@@ -7,6 +7,31 @@ window.createChatTools = function createChatTools({
   loadStory,
   renderChatStatus,
 }) {
+  const MIN_CHAT_INPUT_HEIGHT = 96;
+  const MAX_CHAT_INPUT_HEIGHT = 240;
+
+  function syncChatInputHeight({ reset = false } = {}) {
+    if (!els.chatInput) {
+      return;
+    }
+    els.chatInput.style.height = "0px";
+    const contentHeight = reset && !els.chatInput.value
+      ? MIN_CHAT_INPUT_HEIGHT
+      : Math.max(els.chatInput.scrollHeight, MIN_CHAT_INPUT_HEIGHT);
+    els.chatInput.style.height = `${Math.min(contentHeight, MAX_CHAT_INPUT_HEIGHT)}px`;
+  }
+
+  function handleChatInputKeydown(event) {
+    if ((event.ctrlKey || event.metaKey) && event.key === "Enter") {
+      event.preventDefault();
+      els.chatForm.requestSubmit();
+    }
+  }
+
+  els.chatInput.addEventListener("input", () => syncChatInputHeight());
+  els.chatInput.addEventListener("keydown", handleChatInputKeydown);
+  requestAnimationFrame(() => syncChatInputHeight({ reset: true }));
+
   function setChatPending(isPending, submittedText = "") {
     state.isStreamingChat = isPending;
     els.chatInput.disabled = isPending;
@@ -109,6 +134,7 @@ Preparing the reply...
       return;
     }
     els.chatInput.value = "";
+    syncChatInputHeight({ reset: true });
     setChatPending(true, message);
     try {
       const payload = await streamChat(message);
@@ -211,6 +237,7 @@ Preparing the reply...
     decorateLatestEditableMessage,
     renderMessages,
     setChatPending,
+    syncChatInputHeight,
     updateStreamingAssistant,
     streamChat,
     sendChat,

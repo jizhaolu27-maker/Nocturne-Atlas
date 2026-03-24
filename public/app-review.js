@@ -307,20 +307,23 @@ window.createReviewTools = function createReviewTools({
 
   function renderProposals(records) {
     const pendingRecords = records.filter((item) => !item.status || item.status === "pending");
+    const hasItems = pendingRecords.length > 0;
     els.proposalList.innerHTML = pendingRecords.length
       ? pendingRecords
           .slice()
           .reverse()
           .map(
             (item) => `
-              <article class="proposal-item workspace-detail" data-proposal-id="${item.id}">
+              <article class="proposal-item proposal-card workspace-detail" data-proposal-id="${item.id}">
                 <div class="workspace-detail-head">
                   <strong>${escapeHtml(formatProposalAction(item.action || "update"))}${escapeHtml(formatProposalTargetType(item.targetType))} / ${escapeHtml(item.diff?.name || item.targetId)}</strong>
                 </div>
-                <div class="proposal-meta-line">Target ID: ${escapeHtml(item.targetId)}</div>
-                <div style="margin-top:4px;">${escapeHtml(item.reason || "No additional note")}</div>
+                <div class="proposal-meta">
+                  <div class="proposal-meta-line">Target ID: ${escapeHtml(item.targetId)}</div>
+                  <div class="proposal-note">${escapeHtml(item.reason || "No additional note")}</div>
+                  <div class="proposal-status">Status: pending</div>
+                </div>
                 <div class="proposal-diff-list">${renderProposalDiff(item)}</div>
-                <div style="margin-top:6px; color:var(--muted); font-size:11px;">Status: pending</div>
                 <div class="actions-row">
                   <button data-action="accept">
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
@@ -335,7 +338,11 @@ window.createReviewTools = function createReviewTools({
             `
           )
           .join("")
-      : `<article class="proposal-item workspace-detail" style="text-align:center; color:var(--muted);">There are no proposals to review yet.</article>`;
+      : `<article class="proposal-item proposal-empty">There are no proposals to review yet.</article>`;
+
+    els.proposalList.classList.toggle("has-items", hasItems);
+    els.proposalList.classList.toggle("is-empty", !hasItems);
+    els.proposalList.closest(".proposal-fold")?.classList.toggle("is-empty", !hasItems);
 
     for (const article of els.proposalList.querySelectorAll("[data-proposal-id]")) {
       for (const button of article.querySelectorAll("[data-action]")) {

@@ -16,7 +16,7 @@ const {
 const { createKnowledgeRetrievalTools } = require("../lib/knowledge-retrieval");
 const { selectRelevantMemoryRecords, formatMemoryContext } = require("../lib/memory-engine");
 const { createMemoryRetrievalTools } = require("../lib/memory-retrieval");
-const { createLocalVectorSearchRecords } = require("../lib/memory-vector");
+const { createLocalVectorSearchItems, createLocalVectorSearchRecords } = require("../lib/memory-vector");
 const { createProposalTools } = require("../lib/proposals");
 const { createChatTools } = require("../lib/chat");
 const { createProviderTools } = require("../lib/providers");
@@ -301,6 +301,88 @@ async function main() {
     assert.ok(!styleBlock?.content.includes("pacing="));
   });
 
+  await runTest("context tools include retrieved memory evidence in memory rag mode", async () => {
+    const contextTools = createContextTools({
+      DEFAULT_CONTEXT_BLOCKS,
+      estimateTokens: (value) => Math.max(1, Math.ceil(String(value || "").length / 4)),
+      selectRelevantMemoryRecords: () => ({
+        selectedRecords: [
+          {
+            id: "mem_truth",
+            tier: "long_term",
+            kind: "plot_checkpoint",
+            summary: "The archive opens for Lyra's bloodline.",
+            importance: "high",
+            scope: "plot",
+            subjectIds: ["lyra"],
+            tags: ["archive", "bloodline"],
+          },
+        ],
+        reasonsById: {
+          mem_truth: ["Matched keywords: archive, bloodline"],
+        },
+        selectedEvidenceChunks: [
+          {
+            id: "chunk_truth",
+            text: "Lyra presses her bloodline key into the seal and the archive opens.",
+            sourceRole: "assistant",
+            scope: "plot",
+            subjectIds: ["lyra"],
+            tags: ["archive", "bloodline"],
+          },
+        ],
+        selectedEvidenceReasons: {
+          chunk_truth: ["Linked to a selected memory fact", "vector similarity (test-local)"],
+        },
+        retrievalMeta: {
+          mode: "rag",
+          activeMode: "rag",
+          vectorEnabled: true,
+          vectorCandidateCount: 1,
+          vectorSelectedCount: 1,
+          evidenceCandidateCount: 1,
+          evidenceSelectedCount: 1,
+          fallbackReason: "",
+        },
+      }),
+      formatMemoryContext: (records) => records.map((item) => item.summary).join("\n"),
+      getProviderContextWindow: () => 2000,
+      buildQueryEmbedding: async () => [1, 0],
+      retrieveKnowledgeChunks: async () => ({
+        selectedChunks: [],
+        retrievalMeta: {
+          mode: "lexical",
+          activeMode: "lexical",
+          vectorEnabled: false,
+          vectorCandidateCount: 0,
+          vectorSelectedCount: 0,
+          chunkCount: 0,
+        },
+      }),
+      formatKnowledgeContext: () => "",
+    });
+
+    const result = await contextTools.buildContextBlocks(
+      {
+        promptConfig: { globalSystemPrompt: "Global prompt", storySystemPrompt: "Story prompt" },
+        settings: { contextBlocks: 3 },
+      },
+      [],
+      [],
+      { characters: [], worldbooks: [], styles: [] },
+      {
+        currentUserInput: "How does Lyra open the archive?",
+        memoryRetrievalMode: "rag",
+        embeddingOptions: { mode: "on" },
+      }
+    );
+
+    const evidenceBlock = result.blocks.find((item) => item.label === "memory:evidence");
+    assert.ok(evidenceBlock?.content.includes("Lyra presses her bloodline key"));
+    assert.equal(result.memoryRetrievalMeta.mode, "rag");
+    assert.equal(result.memoryRetrievalMeta.evidenceSelectedCount, 1);
+  });
+
   await runTest("memory tools compute schedules and create a non-transcript fallback summary", async () => {
     const memoryTools = buildMemoryTools();
     const story = {
@@ -409,6 +491,8 @@ async function main() {
     assert.equal(update.summaryRecords[0].embeddingModel, "hash_v1");
     assert.equal(update.summaryRecords[0].embeddingRequestedProvider, "transformers_local");
     assert.equal(update.summaryRecords[0].embeddingFallbackUsed, true);
+    assert.ok(update.summaryChunks.length > 0);
+    assert.equal(update.summaryChunks[0].embeddingProvider, "hash_v1");
   });
 
   await runTest("server config prewarm fails when neural embeddings do not return a usable vector", async () => {
@@ -510,9 +594,14 @@ async function main() {
       });
 
       assert.equal(serverConfigTools.getAppConfig().knowledgeRetrievalMode, "hybrid");
+      assert.equal(serverConfigTools.getAppConfig().memoryRetrievalMode, "lexical");
       assert.equal(
         serverConfigTools.buildNextStorySettings({ settings: {} }, { knowledgeRetrievalMode: "hybrid" }).knowledgeRetrievalMode,
         "hybrid"
+      );
+      assert.equal(
+        serverConfigTools.buildNextStorySettings({ settings: {} }, { memoryRetrievalMode: "rag" }).memoryRetrievalMode,
+        "rag"
       );
     } finally {
       fs.rmSync(rootDir, { recursive: true, force: true });
@@ -575,6 +664,69 @@ async function main() {
     assert.equal(hybrid.retrievalMeta.mode, "hybrid");
     assert.equal(hybrid.retrievalMeta.vectorEnabled, true);
     assert.ok(hybrid.selectedRecords.some((item) => item.id === "mem_b"));
+  });
+
+  await runTest("memory rag retrieves stable facts and evidence chunks together", () => {
+    const retrievalTools = createMemoryRetrievalTools({
+      selectRelevantMemoryRecords,
+      formatMemoryContext,
+      vectorSearchRecords: createLocalVectorSearchRecords({ minScore: 0.1, maxCandidates: 4 }),
+      vectorSearchItems: createLocalVectorSearchItems({ minScore: 0.1, maxCandidates: 4 }),
+      isVectorSearchEnabled: (options = {}) => Array.isArray(options.queryEmbedding) && options.queryEmbedding.length > 0,
+    });
+
+    const records = [
+      {
+        id: "mem_truth",
+        tier: "long_term",
+        kind: "plot_checkpoint",
+        scope: "plot",
+        summary: "The archive opens for Lyra's bloodline.",
+        entities: ["Lyra", "archive"],
+        keywords: ["archive", "bloodline", "lyra"],
+        tags: ["archive", "bloodline"],
+        importance: "high",
+        stability: "stable",
+        embedding: [1, 0],
+        embeddingModel: "test-local",
+        createdAt: "2026-03-23T00:00:00.000Z",
+      },
+    ];
+    const chunks = [
+      {
+        id: "chunk_truth",
+        linkedRecordId: "mem_truth",
+        text: "Lyra presses her bloodline key into the seal and the archive opens.",
+        sourceRole: "assistant",
+        scope: "plot",
+        subjectIds: ["lyra"],
+        entities: ["Lyra", "archive"],
+        keywords: ["bloodline", "archive", "opens"],
+        tags: ["archive", "bloodline"],
+        importance: "high",
+        stability: "stable",
+        embedding: [1, 0],
+        embeddingModel: "test-local",
+        createdAt: "2026-03-23T00:00:30.000Z",
+      },
+    ];
+
+    const result = retrievalTools.selectRelevantMemoryRecords(records, {
+      retrievalMode: "rag",
+      userMessage: "How does Lyra open the archive?",
+      messages: [],
+      workspace: { characters: [], worldbooks: [], styles: [] },
+      memoryChunks: chunks,
+      queryEmbedding: [1, 0],
+      maxItems: 2,
+      maxEvidenceItems: 2,
+    });
+
+    assert.equal(result.retrievalMeta.mode, "rag");
+    assert.equal(result.retrievalMeta.activeMode, "rag");
+    assert.ok(result.selectedRecords.some((item) => item.id === "mem_truth"));
+    assert.ok(result.selectedEvidenceChunks.some((item) => item.id === "chunk_truth"));
+    assert.equal(result.retrievalMeta.evidenceSelectedCount, 1);
   });
 
   await runTest("knowledge retrieval records the actual vector backend when fallback vectors are used", async () => {
@@ -1161,6 +1313,7 @@ async function main() {
         writeJsonLines: harness.writeJsonLines,
         getStoryMessagesFile: harness.getStoryMessagesFile,
         getStoryMemoryFile: harness.getStoryMemoryFile,
+        getStoryMemoryChunkFile: harness.getStoryMemoryChunkFile,
         getStoryProposalFile: harness.getStoryProposalFile,
         getStorySnapshotFile: harness.getStorySnapshotFile,
         getStoryWorkspaceDir: harness.getStoryWorkspaceDir,
@@ -1342,6 +1495,7 @@ async function main() {
         writeJsonLines: harness.writeJsonLines,
         getStoryMessagesFile: harness.getStoryMessagesFile,
         getStoryMemoryFile: harness.getStoryMemoryFile,
+        getStoryMemoryChunkFile: harness.getStoryMemoryChunkFile,
         getStoryProposalFile: harness.getStoryProposalFile,
         getStorySnapshotFile: harness.getStorySnapshotFile,
         getStoryWorkspaceDir: harness.getStoryWorkspaceDir,

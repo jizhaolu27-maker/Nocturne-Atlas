@@ -16,7 +16,7 @@ It is built for writers who want more than a single chat box. Each story keeps i
 - Diagnostics for context pressure, retrieval behavior, prompt sources, and forgetfulness risk
 - OpenAI-compatible chat-completions provider support with locally encrypted API keys
 - Reasoning-effort support for compatible thinking models on chat-completions-style endpoints
-- Optional local hybrid retrieval and local-RAG-style knowledge retrieval with no remote embedding API
+- Optional local hybrid retrieval, memory RAG, and local-RAG-style knowledge retrieval with no remote embedding API
 - Static browser UI with no frontend build step
 
 ## Quick Start
@@ -71,7 +71,9 @@ npm test
 
 - The app can summarize turns into compact memory records.
 - Records are written to `data/stories/<storyId>/memory/records.jsonl`.
+- In memory-RAG mode, supporting evidence chunks are also written to `data/stories/<storyId>/memory/chunks.jsonl`.
 - Retrieval can inject long-term, critical, and recent memory blocks back into the prompt.
+- Memory-RAG mode can also inject retrieved evidence chunks alongside stable memory facts.
 
 ### Proposals
 
@@ -104,6 +106,8 @@ That means a story can keep memory retrieval conservative while making workspace
   Keyword and entity matching only
 - `hybrid`
   Lexical matching plus optional local embedding help
+- `rag`
+  Retrieval-first memory mode that keeps stable memory facts and also recalls memory evidence chunks
 - `inherit`
   Story setting follows the app-level default
 
@@ -141,7 +145,7 @@ After cloning:
 1. Run `npm install`
 2. Start the app with `npm start`
 3. In `Providers & Retrieval`, set `Global Knowledge Retrieval` to `Hybrid`
-4. Optionally set `Global Memory Retrieval` to `Hybrid`
+4. Optionally set `Global Memory Retrieval` to `Hybrid` or `Memory RAG`
 5. Set `Global Local Embeddings` to `On`
 6. If Hugging Face is slow or blocked on your network, set `Local Embedding Mirror` to a reachable mirror such as `https://hf-mirror.com/`
 7. Click `Prewarm Local Embedding Model` once
@@ -196,6 +200,7 @@ data/library/styles/                     Source style assets
 data/stories/<storyId>/workspace/        Story-local working copies
 data/stories/<storyId>/messages.jsonl    Chat transcript
 data/stories/<storyId>/memory/records.jsonl
+data/stories/<storyId>/memory/chunks.jsonl
 data/stories/<storyId>/proposals/records.jsonl
 data/stories/<storyId>/snapshots/context.jsonl
 ```
@@ -220,7 +225,7 @@ lib/context.js                    Context block assembly and prompt-shaping help
 lib/chat.js                       Chat context building, streaming, and revise helpers
 lib/memory.js                     Memory orchestration and forgetfulness checks
 lib/memory-engine.js              Lexical memory scoring and formatting helpers
-lib/memory-retrieval.js           Hybrid memory retrieval orchestration
+lib/memory-retrieval.js           Hybrid and memory-RAG retrieval orchestration
 lib/memory-vector.js              Local memory vector scoring helpers
 lib/embeddings.js                 Local embedding generation helpers
 lib/knowledge-retrieval.js        Workspace knowledge chunking and retrieval helpers
@@ -242,8 +247,8 @@ test/smoke.js                     Zero-dependency smoke tests
 
 - The forgetfulness indicator is a heuristic risk signal, not proof of actual model failure.
 - Proposal review is meant to make canon updates inspectable, not automatic.
-- The local-RAG-style path currently affects workspace knowledge most directly.
-- Memory retrieval can still stay lexical even when knowledge retrieval uses hybrid mode.
+- Workspace knowledge and memory retrieval now have separate RAG-like paths.
+- Memory retrieval can stay lexical even when knowledge retrieval uses hybrid mode, or switch to memory RAG without changing knowledge retrieval.
 - The provider layer is aimed at chat-completions-compatible APIs, not a full raw Responses API integration.
 
 ## License

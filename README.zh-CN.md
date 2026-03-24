@@ -16,7 +16,7 @@
 - Diagnostics 可查看上下文压力、检索行为、提示词来源和遗忘风险
 - 支持 OpenAI 兼容的 chat-completions Provider，并在本地加密保存 API Key
 - 支持兼容思考模型的 `reasoning effort`
-- 支持不依赖远程 embedding API 的本地 hybrid / local-RAG 风格检索
+- 支持不依赖远程 embedding API 的本地 hybrid、memory RAG 与 local-RAG 风格检索
 - 浏览器端零构建，直接运行即可
 
 ## 快速开始
@@ -71,7 +71,9 @@ npm test
 
 - 应用会在合适的时候把对话压缩成较短的记忆记录。
 - 这些记录会写入 `data/stories/<storyId>/memory/records.jsonl`。
+- 在 memory-RAG 模式下，配套的证据片段还会写入 `data/stories/<storyId>/memory/chunks.jsonl`。
 - 检索阶段会把长期记忆、关键记忆、近期记忆重新注入 prompt。
+- memory-RAG 模式还会把召回到的记忆证据片段一起注入 prompt。
 
 ### 提案系统
 
@@ -104,6 +106,8 @@ Nocturne Atlas 把 **记忆检索** 和 **知识检索** 分开配置。
   只做关键词和实体匹配
 - `hybrid`
   以 lexical 为基础，再结合本地 embedding 增强
+- `rag`
+  更偏检索优先的记忆模式，会同时保留稳定记忆事实和召回的 evidence chunk
 - `inherit`
   故事配置继承全局默认值
 
@@ -141,7 +145,7 @@ Nocturne Atlas 把 **记忆检索** 和 **知识检索** 分开配置。
 1. 运行 `npm install`
 2. 运行 `npm start`
 3. 在 `Providers & Retrieval` 中把 `Global Knowledge Retrieval` 设为 `Hybrid`
-4. 如有需要，也可以把 `Global Memory Retrieval` 设为 `Hybrid`
+4. 如有需要，也可以把 `Global Memory Retrieval` 设为 `Hybrid` 或 `Memory RAG`
 5. 把 `Global Local Embeddings` 设为 `On`
 6. 如果当前网络访问 Hugging Face 不稳定，可以把 `Local Embedding Mirror` 设成可用镜像，例如 `https://hf-mirror.com/`
 7. 点击一次 `Prewarm Local Embedding Model`
@@ -196,6 +200,7 @@ data/library/styles/                     源文风素材
 data/stories/<storyId>/workspace/        故事本地工作副本
 data/stories/<storyId>/messages.jsonl    聊天记录
 data/stories/<storyId>/memory/records.jsonl
+data/stories/<storyId>/memory/chunks.jsonl
 data/stories/<storyId>/proposals/records.jsonl
 data/stories/<storyId>/snapshots/context.jsonl
 ```
@@ -220,7 +225,7 @@ lib/context.js                    上下文块组装与 prompt 结构控制
 lib/chat.js                       聊天上下文、流式输出与 revise 流程
 lib/memory.js                     记忆编排与遗忘风险检查
 lib/memory-engine.js              lexical 记忆打分与格式化工具
-lib/memory-retrieval.js           hybrid 记忆检索编排
+lib/memory-retrieval.js           hybrid 与 memory-RAG 记忆检索编排
 lib/memory-vector.js              本地记忆向量打分工具
 lib/embeddings.js                 本地 embedding 生成工具
 lib/knowledge-retrieval.js        工作区知识切片与检索工具
@@ -242,8 +247,8 @@ test/smoke.js                     零依赖 smoke 测试
 
 - Forgetfulness 指标是启发式风险提示，不代表模型一定真的遗忘了。
 - Proposal review 的目标是让 canon 更新可审阅，不是自动化替你决定。
-- 当前更接近本地 RAG 的路径，主要影响的是工作区知识检索。
-- 即使知识检索使用 hybrid，记忆检索仍然可以保持 lexical。
+- 现在工作区知识检索和记忆检索都可以分别走更接近 RAG 的路径。
+- 即使知识检索使用 hybrid，记忆检索仍然可以保持 lexical，或者单独切到 memory RAG。
 - Provider 层当前以 chat-completions 兼容接口为主，并不是完整的原生 Responses API 集成。
 
 ## License

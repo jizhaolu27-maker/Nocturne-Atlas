@@ -16,7 +16,7 @@ const {
   formatMemoryContext,
 } = require("./lib/memory-engine");
 const { createMemoryRetrievalTools } = require("./lib/memory-retrieval");
-const { createLocalVectorSearchRecords } = require("./lib/memory-vector");
+const { createLocalVectorSearchItems, createLocalVectorSearchRecords } = require("./lib/memory-vector");
 const { createProposalTools } = require("./lib/proposals");
 const { createStaticHandler, jsonResponse, notFound, parseBody, sendJson } = require("./lib/http");
 const { createServerConfigTools } = require("./lib/server-config");
@@ -65,6 +65,7 @@ const {
   getStoryMessagesFile,
   getStoryWorkspaceDir,
   getStoryMemoryFile,
+  getStoryMemoryChunkFile,
   getStoryKnowledgeEmbeddingFile,
   getStoryProposalFile,
   getStorySnapshotFile,
@@ -149,8 +150,9 @@ const {
   selectRelevantMemoryRecords,
   formatMemoryContext,
   vectorSearchRecords: createLocalVectorSearchRecords(),
+  vectorSearchItems: createLocalVectorSearchItems(),
   isVectorSearchEnabled: (options = {}) =>
-    options.retrievalMode === "hybrid" &&
+    (options.retrievalMode === "hybrid" || options.retrievalMode === "rag") &&
     options.embeddingOptions?.mode === "on" &&
     Array.isArray(options.queryEmbedding) &&
     options.queryEmbedding.length > 0,
@@ -329,6 +331,7 @@ const {
   writeJsonLines,
   getStoryMessagesFile,
   getStoryMemoryFile,
+  getStoryMemoryChunkFile,
   getStoryProposalFile,
   getStorySnapshotFile,
   getStoryWorkspaceDir,

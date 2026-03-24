@@ -17,6 +17,7 @@ window.createReviewTools = function createReviewTools({
     if (value === "memory:long_term") return "Long-term memory";
     if (value === "memory:critical") return "Critical memory";
     if (value === "memory:recent") return "Recent memory";
+    if (value === "memory:evidence") return "Retrieved memory evidence";
     const historyTurn = value.match(/^history_turn:(\d+)$/);
     if (historyTurn) {
       return `Recent conversation turn ${Number(historyTurn[1]) + 1}`;
@@ -37,6 +38,7 @@ window.createReviewTools = function createReviewTools({
     if (labels.includes("memory:long_term")) basicSources.push("Long-term memory");
     if (labels.includes("memory:critical")) basicSources.push("Critical memory");
     if (labels.includes("memory:recent")) basicSources.push("Recent memory");
+    if (labels.includes("memory:evidence")) basicSources.push("Retrieved memory evidence");
     const historyTurns = labels.filter((item) => item.startsWith("history_turn:")).length;
     if (!basicSources.length && historyTurns === 0) {
       return "There are no context sources to display for this preview yet.";
@@ -147,7 +149,14 @@ window.createReviewTools = function createReviewTools({
   }
 
   function formatRetrievalMode(mode) {
-    return String(mode || "").trim().toLowerCase() === "hybrid" ? "local RAG hybrid" : "lexical";
+    const normalized = String(mode || "").trim().toLowerCase();
+    if (normalized === "rag") {
+      return "memory RAG";
+    }
+    if (normalized === "hybrid") {
+      return "local RAG hybrid";
+    }
+    return "lexical";
   }
 
   function getRetrievalSourceMeta(reasons) {
@@ -475,11 +484,14 @@ window.createReviewTools = function createReviewTools({
     const transientMemoryCandidate =
       snapshot?.transientMemoryCandidate || diagnostics.transientMemoryCandidate || null;
     if ((snapshot?.generatedSummaryCount || diagnostics.generatedSummaryCount || 0) > 0) {
+      const generatedSummaryCount = snapshot?.generatedSummaryCount || diagnostics.generatedSummaryCount || 0;
+      const generatedChunkCount = snapshot?.generatedChunkCount || diagnostics.generatedChunkCount || 0;
       triggerRows.push(`
         <article class="diagnostic-item">
           <strong>Memory Writes</strong>
           ${renderDiagnosticBadges([{ label: "written to memory", tone: "hybrid" }])}
-          <span>${escapeHtml(`${snapshot?.generatedSummaryCount || diagnostics.generatedSummaryCount || 0} formal memory record(s) were written this turn`)}</span>
+          <span>${escapeHtml(`${generatedSummaryCount} formal memory record(s) were written this turn`)}</span>
+          ${generatedChunkCount ? `<div>${escapeHtml(`${generatedChunkCount} memory evidence chunk(s) were also indexed for retrieval`)}</div>` : ""}
         </article>
       `);
     } else if (transientMemoryCandidate?.summary) {
@@ -498,7 +510,10 @@ window.createReviewTools = function createReviewTools({
     if (retrievalMeta) {
       const retrievalBadges = [
         { label: `configured: ${formatRetrievalMode(retrievalMeta.mode)}`, tone: "neutral" },
-        { label: `active: ${formatRetrievalMode(retrievalMeta.activeMode)}`, tone: retrievalMeta.activeMode === "hybrid" ? "hybrid" : "lexical" },
+        {
+          label: `active: ${formatRetrievalMode(retrievalMeta.activeMode)}`,
+          tone: retrievalMeta.activeMode === "hybrid" || retrievalMeta.activeMode === "rag" ? "hybrid" : "lexical",
+        },
         { label: retrievalMeta.vectorEnabled ? "embedding on" : "embedding off", tone: retrievalMeta.vectorEnabled ? "vector" : "neutral" },
       ];
       triggerRows.push(`
@@ -506,6 +521,12 @@ window.createReviewTools = function createReviewTools({
           <strong>Memory Retrieval</strong>
           ${renderDiagnosticBadges(retrievalBadges)}
           <span>${escapeHtml(`Embedding candidates ${retrievalMeta.vectorCandidateCount || 0} / selected ${retrievalMeta.vectorSelectedCount || 0}`)}</span>
+          ${
+            typeof retrievalMeta.evidenceCandidateCount === "number" || typeof retrievalMeta.evidenceSelectedCount === "number"
+              ? `<div>${escapeHtml(`Evidence candidates ${retrievalMeta.evidenceCandidateCount || 0} / selected ${retrievalMeta.evidenceSelectedCount || 0}`)}</div>`
+              : ""
+          }
+          ${retrievalMeta.mode === "rag" ? `<div>${escapeHtml("Memory RAG keeps stable memory facts in prompt and injects retrieved evidence chunks when they are relevant.")}</div>` : ""}
           ${retrievalMeta.fallbackReason ? `<div>${escapeHtml(`Fallback: ${retrievalMeta.fallbackReason}`)}</div>` : ""}
         </article>
       `);
@@ -568,6 +589,25 @@ window.createReviewTools = function createReviewTools({
                 getRetrievalSourceMeta(item.reasons || []),
               ])}
               <span>${escapeHtml(item.summary || "")}</span>
+              <div>${escapeHtml(`Scope: ${formatMemoryScope(item.scope)}${item.subjectIds?.length ? ` / Subjects: ${item.subjectIds.join(", ")}` : ""}${item.tags?.length ? ` / Tags: ${item.tags.join(", ")}` : ""}`)}</div>
+              <div>${escapeHtml((item.reasons || []).join(" / ") || "Selected this turn")}</div>
+            </article>
+          `
+        )
+      );
+    }
+    if (preview?.selectedMemoryEvidence?.length) {
+      triggerRows.push(
+        ...preview.selectedMemoryEvidence.map(
+          (item) => `
+            <article class="diagnostic-item">
+              <strong>Retrieved Memory Evidence / ${escapeHtml(item.sourceRole || "unknown source")}</strong>
+              ${renderDiagnosticBadges([
+                { label: formatMemoryScope(item.scope), tone: "neutral" },
+                getRetrievalSourceMeta(item.reasons || []),
+                getSemanticCandidateMeta(item.reasons || []),
+              ])}
+              <span>${escapeHtml(item.text || "")}</span>
               <div>${escapeHtml(`Scope: ${formatMemoryScope(item.scope)}${item.subjectIds?.length ? ` / Subjects: ${item.subjectIds.join(", ")}` : ""}${item.tags?.length ? ` / Tags: ${item.tags.join(", ")}` : ""}`)}</div>
               <div>${escapeHtml((item.reasons || []).join(" / ") || "Selected this turn")}</div>
             </article>

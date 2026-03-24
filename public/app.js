@@ -230,6 +230,11 @@ function parseNumberInput(value, fallback) {
   return Number.isFinite(parsed) ? parsed : fallback;
 }
 
+function parseMemoryRetrievalMode(value, fallback = "lexical") {
+  const normalized = String(value || "").trim().toLowerCase();
+  return ["lexical", "hybrid", "rag"].includes(normalized) ? normalized : fallback;
+}
+
 const {
   prewarmLocalEmbeddingModel,
   renderLocalEmbeddingResult,
@@ -539,7 +544,7 @@ async function saveStoryConfig() {
   try {
     const nextGlobalSystemPrompt = els.promptGlobal.value.trim();
     const currentGlobalSystemPrompt = state.appConfig?.globalSystemPrompt || "";
-    const nextAppMemoryRetrievalMode = els.appMemoryRetrievalMode.value === "hybrid" ? "hybrid" : "lexical";
+    const nextAppMemoryRetrievalMode = parseMemoryRetrievalMode(els.appMemoryRetrievalMode.value, "lexical");
     const currentAppMemoryRetrievalMode = state.appConfig?.memoryRetrievalMode || "lexical";
     const nextAppKnowledgeRetrievalMode =
       els.appKnowledgeRetrievalMode.value === "hybrid" ? "hybrid" : "lexical";

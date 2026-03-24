@@ -9,10 +9,10 @@ window.createReviewTools = function createReviewTools({
     const value = String(label || "");
     if (value === "system:global") return "Global system prompt";
     if (value === "system:story") return "Story system prompt";
-    if (value === "knowledge:retrieved") return "Retrieved knowledge blocks";
-    if (value === "style") return "Enabled style";
-    if (value === "characters") return "Enabled character cards";
-    if (value === "worldbook") return "Enabled worldbooks";
+    if (value === "knowledge:retrieved") return "Retrieved knowledge chunks";
+    if (value === "style") return "Style anchors";
+    if (value === "characters") return "Character anchors";
+    if (value === "worldbook") return "Worldbook anchors";
     if (value === "memory") return "Story memory summary";
     if (value === "memory:long_term") return "Long-term memory";
     if (value === "memory:critical") return "Critical memory";
@@ -30,9 +30,9 @@ window.createReviewTools = function createReviewTools({
     if (labels.includes("system:global")) basicSources.push("Global system prompt");
     if (labels.includes("system:story")) basicSources.push("Story system prompt");
     if (labels.includes("knowledge:retrieved")) basicSources.push("Retrieved knowledge");
-    if (labels.includes("characters")) basicSources.push("Character cards");
-    if (labels.includes("worldbook")) basicSources.push("Worldbooks");
-    if (labels.includes("style")) basicSources.push("Style");
+    if (labels.includes("characters")) basicSources.push("Character anchors");
+    if (labels.includes("worldbook")) basicSources.push("Worldbook anchors");
+    if (labels.includes("style")) basicSources.push("Style anchors");
     if (labels.includes("memory")) basicSources.push("Story memory");
     if (labels.includes("memory:long_term")) basicSources.push("Long-term memory");
     if (labels.includes("memory:critical")) basicSources.push("Critical memory");
@@ -146,6 +146,10 @@ window.createReviewTools = function createReviewTools({
     return `Configured to summarize every ${schedule.configuredRounds} turns. If nothing triggers early, the next summary is on turn ${nextRound}, in ${remainingRounds} more turns.`;
   }
 
+  function formatRetrievalMode(mode) {
+    return String(mode || "").trim().toLowerCase() === "hybrid" ? "local RAG hybrid" : "lexical";
+  }
+
   function getRetrievalSourceMeta(reasons) {
     const rows = Array.isArray(reasons) ? reasons.filter(Boolean) : [];
     const hasVector = rows.some((item) => /vector|\u5411\u91cf/i.test(String(item)));
@@ -157,6 +161,13 @@ window.createReviewTools = function createReviewTools({
       return { label: "embedding", tone: "vector" };
     }
     return { label: "lexical", tone: "lexical" };
+  }
+
+  function getSemanticCandidateMeta(reasons) {
+    const rows = Array.isArray(reasons) ? reasons.filter(Boolean) : [];
+    return rows.some((item) => /semantic-only/i.test(String(item)))
+      ? { label: "semantic-only rescue", tone: "vector" }
+      : null;
   }
 
   function renderDiagnosticBadges(items) {
@@ -486,32 +497,34 @@ window.createReviewTools = function createReviewTools({
     }
     if (retrievalMeta) {
       const retrievalBadges = [
-        { label: `configured: ${retrievalMeta.mode || "lexical"}`, tone: "neutral" },
-        { label: `active: ${retrievalMeta.activeMode || "lexical"}`, tone: retrievalMeta.activeMode === "hybrid" ? "hybrid" : "lexical" },
-        { label: retrievalMeta.vectorEnabled ? "vector on" : "vector off", tone: retrievalMeta.vectorEnabled ? "vector" : "neutral" },
+        { label: `configured: ${formatRetrievalMode(retrievalMeta.mode)}`, tone: "neutral" },
+        { label: `active: ${formatRetrievalMode(retrievalMeta.activeMode)}`, tone: retrievalMeta.activeMode === "hybrid" ? "hybrid" : "lexical" },
+        { label: retrievalMeta.vectorEnabled ? "embedding on" : "embedding off", tone: retrievalMeta.vectorEnabled ? "vector" : "neutral" },
       ];
       triggerRows.push(`
         <article class="diagnostic-item">
           <strong>Memory Retrieval</strong>
           ${renderDiagnosticBadges(retrievalBadges)}
-          <span>${escapeHtml(`Vector candidates ${retrievalMeta.vectorCandidateCount || 0} / selected ${retrievalMeta.vectorSelectedCount || 0}`)}</span>
+          <span>${escapeHtml(`Embedding candidates ${retrievalMeta.vectorCandidateCount || 0} / selected ${retrievalMeta.vectorSelectedCount || 0}`)}</span>
           ${retrievalMeta.fallbackReason ? `<div>${escapeHtml(`Fallback: ${retrievalMeta.fallbackReason}`)}</div>` : ""}
         </article>
       `);
     }
     if (knowledgeRetrievalMeta) {
       const knowledgeBadges = [
-        { label: `active: ${knowledgeRetrievalMeta.activeMode || "lexical"}`, tone: knowledgeRetrievalMeta.activeMode === "hybrid" ? "hybrid" : "lexical" },
+        { label: `configured: ${formatRetrievalMode(knowledgeRetrievalMeta.mode)}`, tone: "neutral" },
+        { label: `active: ${formatRetrievalMode(knowledgeRetrievalMeta.activeMode)}`, tone: knowledgeRetrievalMeta.activeMode === "hybrid" ? "hybrid" : "lexical" },
+        { label: knowledgeRetrievalMeta.vectorEnabled ? "embedding on" : "embedding off", tone: knowledgeRetrievalMeta.vectorEnabled ? "vector" : "neutral" },
       ];
       if (knowledgeRetrievalMeta.vectorProvider) {
         knowledgeBadges.push({
-          label: `vector backend ${knowledgeRetrievalMeta.vectorProvider}`,
+          label: `embedding backend ${knowledgeRetrievalMeta.vectorProvider}`,
           tone: knowledgeRetrievalMeta.vectorProvider === "hash_v1" ? "neutral" : "vector",
         });
       }
       if (typeof knowledgeRetrievalMeta.cachedVectorCount === "number") {
         knowledgeBadges.push({
-          label: `vector cache ${knowledgeRetrievalMeta.cachedVectorCount}`,
+          label: `embedding cache ${knowledgeRetrievalMeta.cachedVectorCount}`,
           tone: knowledgeRetrievalMeta.cachedVectorCount ? "vector" : "neutral",
         });
       }
@@ -519,8 +532,10 @@ window.createReviewTools = function createReviewTools({
         <article class="diagnostic-item">
           <strong>Knowledge Retrieval</strong>
           ${renderDiagnosticBadges(knowledgeBadges)}
-          <span>${escapeHtml(`Candidate chunks ${knowledgeRetrievalMeta.chunkCount || 0} / vector candidates ${knowledgeRetrievalMeta.vectorCandidateCount || 0}`)}</span>
-          ${knowledgeRetrievalMeta.vectorFailure ? `<div>${escapeHtml(`Vector note: ${knowledgeRetrievalMeta.vectorFailure}`)}</div>` : ""}
+          <span>${escapeHtml(`Knowledge chunks ${knowledgeRetrievalMeta.chunkCount || 0} / embedding candidates ${knowledgeRetrievalMeta.vectorCandidateCount || 0} / selected ${knowledgeRetrievalMeta.vectorSelectedCount || 0}`)}</span>
+          ${knowledgeRetrievalMeta.vectorFailure ? `<div>${escapeHtml(`Embedding note: ${knowledgeRetrievalMeta.vectorFailure}`)}</div>` : ""}
+          ${knowledgeRetrievalMeta.mode === "hybrid" ? `<div>${escapeHtml("Hybrid knowledge mode keeps light anchors in prompt and lets retrieved knowledge chunks carry more detail.")}</div>` : ""}
+          ${knowledgeRetrievalMeta.fallbackReason ? `<div>${escapeHtml(`Fallback: ${knowledgeRetrievalMeta.fallbackReason}`)}</div>` : ""}
         </article>
       `);
     }
@@ -533,6 +548,7 @@ window.createReviewTools = function createReviewTools({
               ${renderDiagnosticBadges([
                 item.chunkType ? { label: item.chunkType.replaceAll("_", " "), tone: "neutral" } : null,
                 getRetrievalSourceMeta(item.reasons || []),
+                getSemanticCandidateMeta(item.reasons || []),
               ])}
               <span>${escapeHtml(String(item.text || "").slice(0, 220))}</span>
               <div>${escapeHtml((item.reasons || []).join(" / ") || "Selected this turn")}</div>

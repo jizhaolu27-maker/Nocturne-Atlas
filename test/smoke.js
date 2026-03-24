@@ -233,6 +233,7 @@ async function main() {
     assert.equal(result.selectedMemoryRecords[0].id, "mem_1");
     assert.ok(result.selectedKnowledgeChunks.length > 0);
     assert.ok(result.selectedKnowledgeChunks.some((item) => item.chunkType));
+    assert.equal(result.knowledgeRetrievalMeta.mode, "lexical");
     assert.ok(Number.isFinite(result.knowledgeRetrievalMeta.vectorCandidateCount || 0));
     const characterBlock = result.blocks.find((item) => item.label === "characters");
     const worldbookBlock = result.blocks.find((item) => item.label === "worldbook");
@@ -240,6 +241,64 @@ async function main() {
     assert.ok(!characterBlock?.content.includes("Relationships:"));
     assert.ok(worldbookBlock?.content.includes("World: Nocturne City"));
     assert.ok(!worldbookBlock?.content.includes("Content: A rain-soaked city."));
+  });
+
+  await runTest("context tools lean knowledge anchors in hybrid knowledge mode", async () => {
+    const contextTools = createContextTools({
+      DEFAULT_CONTEXT_BLOCKS,
+      estimateTokens: (value) => Math.max(1, Math.ceil(String(value || "").length / 4)),
+      selectRelevantMemoryRecords: () => ({
+        selectedRecords: [],
+        reasonsById: {},
+        retrievalMeta: { mode: "lexical", activeMode: "lexical", vectorEnabled: false, vectorCandidateCount: 0, vectorSelectedCount: 0 },
+      }),
+      formatMemoryContext: () => "",
+      getProviderContextWindow: () => 2000,
+      buildQueryEmbedding: async () => [1, 0],
+      retrieveKnowledgeChunks: async () => ({
+        selectedChunks: [],
+        retrievalMeta: {
+          mode: "hybrid",
+          activeMode: "lexical",
+          vectorEnabled: true,
+          vectorCandidateCount: 0,
+          vectorSelectedCount: 0,
+          chunkCount: 0,
+          fallbackReason: "",
+        },
+      }),
+      formatKnowledgeContext: () => "",
+    });
+
+    const story = {
+      promptConfig: {
+        globalSystemPrompt: "Global prompt",
+        storySystemPrompt: "Story prompt",
+      },
+      settings: { contextBlocks: 3 },
+    };
+    const workspace = {
+      characters: [{ name: "Hero", core: { role: "lead" }, traits: ["brave"], arcState: { current: "chooses duty" } }],
+      worldbooks: [{ title: "Nocturne City", category: "city", rules: ["Never cross the red bridge"], storyState: "Unrest is rising" }],
+      styles: [{ name: "Velvet Gothic", tone: "lush", voice: "close third", pacing: "measured", dos: ["Use concrete imagery"], donts: ["Break canon"] }],
+    };
+
+    const result = await contextTools.buildContextBlocks(story, [], [], workspace, {
+      currentUserInput: "Continue the scene.",
+      knowledgeRetrievalMode: "hybrid",
+      embeddingOptions: { mode: "on" },
+    });
+
+    const characterBlock = result.blocks.find((item) => item.label === "characters");
+    const worldbookBlock = result.blocks.find((item) => item.label === "worldbook");
+    const styleBlock = result.blocks.find((item) => item.label === "style");
+
+    assert.ok(characterBlock?.content.includes("Character: Hero / Role: lead / Arc: chooses duty"));
+    assert.ok(!characterBlock?.content.includes("Traits:"));
+    assert.ok(worldbookBlock?.content.includes("World: Nocturne City / Category: city / State: Unrest is rising"));
+    assert.ok(!worldbookBlock?.content.includes("Rules:"));
+    assert.ok(styleBlock?.content.includes("Style: Velvet Gothic / Tone: lush / Voice: close third"));
+    assert.ok(!styleBlock?.content.includes("pacing="));
   });
 
   await runTest("memory tools compute schedules and create a non-transcript fallback summary", async () => {
@@ -411,6 +470,55 @@ async function main() {
     }
   });
 
+  await runTest("server config keeps dedicated knowledge retrieval defaults and story overrides", async () => {
+    const rootDir = createTempRoot();
+    try {
+      const appConfigFile = path.join(rootDir, "app.json");
+      fs.writeFileSync(
+        appConfigFile,
+        JSON.stringify(
+          {
+            theme: "dark",
+            memoryRetrievalMode: "lexical",
+            knowledgeRetrievalMode: "hybrid",
+            localEmbedding: {
+              mode: "off",
+              provider: "transformers_local",
+              model: "Xenova/all-MiniLM-L6-v2",
+              dimensions: 384,
+            },
+          },
+          null,
+          2
+        ),
+        "utf8"
+      );
+      const serverConfigTools = createServerConfigTools({
+        readJson: (filePath, fallback = {}) => {
+          try {
+            return JSON.parse(fs.readFileSync(filePath, "utf8"));
+          } catch {
+            return fallback;
+          }
+        },
+        getAppConfigFile: () => appConfigFile,
+        normalizeEmbeddingConfig,
+        normalizeEmbeddingMode,
+        embedText: async () => null,
+        embedTextDetailed: async () => null,
+        DEFAULT_GLOBAL_SYSTEM_PROMPT: "Global prompt",
+      });
+
+      assert.equal(serverConfigTools.getAppConfig().knowledgeRetrievalMode, "hybrid");
+      assert.equal(
+        serverConfigTools.buildNextStorySettings({ settings: {} }, { knowledgeRetrievalMode: "hybrid" }).knowledgeRetrievalMode,
+        "hybrid"
+      );
+    } finally {
+      fs.rmSync(rootDir, { recursive: true, force: true });
+    }
+  });
+
   await runTest("hybrid retrieval stays lexical by default and can admit vector matches when enabled", () => {
     const retrievalTools = createMemoryRetrievalTools({
       selectRelevantMemoryRecords,
@@ -514,6 +622,7 @@ async function main() {
         provider: "transformers_local",
         model: "Xenova/all-MiniLM-L6-v2",
       },
+      retrievalMode: "hybrid",
       maxItems: 2,
     });
 
@@ -521,8 +630,82 @@ async function main() {
     assert.ok(cacheEntries.length > 0);
     assert.ok(cacheEntries.every((item) => item.provider === "hash_v1"));
     assert.ok(cacheEntries.every((item) => item.fallbackUsed === true));
+    assert.equal(result.retrievalMeta.mode, "hybrid");
+    assert.equal(result.retrievalMeta.vectorEnabled, true);
     assert.equal(result.retrievalMeta.vectorProvider, "hash_v1");
     assert.equal(result.retrievalMeta.vectorFallbackUsed, true);
+  });
+
+  await runTest("hybrid knowledge retrieval can admit semantic-only candidates", async () => {
+    const retrievalTools = createKnowledgeRetrievalTools({
+      embedTextDetailed: async (text) => {
+        if (text.includes("Which clue opens the sealed lock")) {
+          return {
+            vector: [1, 0],
+            provider: "transformers_local",
+            model: "test-local",
+            requestedProvider: "transformers_local",
+            requestedModel: "test-local",
+            fallbackUsed: false,
+            error: "",
+          };
+        }
+        if (text.includes("Notes: The hidden cadence opens the vault")) {
+          return {
+            vector: [1, 0],
+            provider: "transformers_local",
+            model: "test-local",
+            requestedProvider: "transformers_local",
+            requestedModel: "test-local",
+            fallbackUsed: false,
+            error: "",
+          };
+        }
+        return {
+          vector: [0, 1],
+          provider: "transformers_local",
+          model: "test-local",
+          requestedProvider: "transformers_local",
+          requestedModel: "test-local",
+          fallbackUsed: false,
+          error: "",
+        };
+      },
+      extractKeywords: require("../lib/memory-engine").extractKeywords,
+      loadKnowledgeEmbeddingCache: () => ({}),
+      saveKnowledgeEmbeddingCache: () => {},
+    });
+
+    const result = await retrievalTools.retrieveKnowledgeChunks({
+      story: { id: "story_semantic" },
+      workspace: {
+        characters: [
+          {
+            id: "char_keeper",
+            name: "Keeper",
+            core: { role: "Gate Warden" },
+            traits: ["silent"],
+            notes: "The hidden cadence opens the vault.",
+          },
+        ],
+        worldbooks: [],
+        styles: [],
+      },
+      userMessage: "Which clue opens the sealed lock?",
+      messages: [{ role: "user", content: "Which clue opens the sealed lock?" }],
+      retrievalMode: "hybrid",
+      embeddingOptions: {
+        mode: "on",
+        provider: "transformers_local",
+        model: "test-local",
+      },
+      maxItems: 2,
+    });
+
+    assert.equal(result.retrievalMeta.mode, "hybrid");
+    assert.equal(result.retrievalMeta.activeMode, "hybrid");
+    assert.ok(result.retrievalMeta.vectorCandidateCount > 0);
+    assert.ok(result.selectedChunks.some((item) => (item.reasons || []).includes("Local vector similarity")));
   });
 
   await runTest("proposal review accepts a create proposal into workspace and story enablement", () => {

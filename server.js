@@ -364,6 +364,7 @@ function initializeData() {
         lastOpenedStoryId: "",
         globalSystemPrompt: DEFAULT_GLOBAL_SYSTEM_PROMPT,
         memoryRetrievalMode: "lexical",
+        knowledgeRetrievalMode: "lexical",
         localEmbedding: {
           mode: "off",
           provider: "transformers_local",

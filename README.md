@@ -4,18 +4,19 @@
 
 **Nocturne Atlas** is a local, zero-build AI fiction workspace for long-running stories.
 
-It is built for writers who want more than a chat box: each story gets its own isolated canon, editable workspace, memory trail, diagnostics, and reviewable update proposals.
+It is built for writers who want more than a single chat box. Each story keeps its own isolated canon, editable workspace, memory trail, diagnostics, and proposal review flow.
 
 ## Highlights
 
 - Per-story isolated workspaces for characters, worldbooks, and style profiles
-- Immutable source library assets with story-local working copies
-- Local memory checkpoints stored as readable JSONL
+- Immutable source library assets plus story-local working copies
+- Streaming chat with stop control and last-turn revise
+- Memory checkpoints stored as readable local JSONL
 - Proposal-based canon updates instead of silent auto-merges
-- Diagnostics for context pressure, prompt inputs, retrieval behavior, and forgetfulness risk
-- OpenAI-compatible provider support with locally encrypted API keys
-- Reasoning-model support on chat-completions-compatible providers with configurable reasoning effort
-- Optional local hybrid retrieval and local RAG groundwork
+- Diagnostics for context pressure, retrieval behavior, prompt sources, and forgetfulness risk
+- OpenAI-compatible chat-completions provider support with locally encrypted API keys
+- Reasoning-effort support for compatible thinking models on chat-completions-style endpoints
+- Optional local hybrid retrieval and local-RAG-style knowledge retrieval with no remote embedding API
 - Static browser UI with no frontend build step
 
 ## Quick Start
@@ -48,73 +49,141 @@ http://localhost:3000
 npm test
 ```
 
-## What The App Does
-
-With **Nocturne Atlas**, you can:
-
-- create multiple stories and keep their canon separate
-- attach story-specific characters, worldbooks, and style profiles
-- chat with an OpenAI-compatible model in a local browser UI
-- generate memory checkpoints for long-running continuity
-- review proposals for character, relationship, and world-state updates
-- inspect context diagnostics and retrieval results
-- stream replies and stop generation mid-turn
-
-## Core Workflow
+## First-Run Workflow
 
 1. Create or open a story.
 2. Enable the characters, worldbooks, and style profile that story should use.
-3. Configure a provider and start chatting.
-4. Let the app record compact memory checkpoints and surface canon proposals.
-5. Accept only the updates that should become part of that story's working canon.
+3. Configure an OpenAI-compatible provider and choose a model.
+4. Chat in the browser UI.
+5. Review memory records, proposal suggestions, and diagnostics as the story evolves.
+6. Accept only the workspace updates that should become canon for that story.
 
-## Local RAG And Embeddings
+## Core Concepts
 
-**Nocturne Atlas** can run a fully local embedding path without a remote embedding API.
+### Source Library vs Story Workspace
 
-Current setup:
+- `data/library/*` stores reusable source assets.
+- `data/stories/<storyId>/workspace/*` stores mutable story-local copies.
+- Story progression never mutates the source library.
+- Accepted proposals update only the active story workspace.
 
-- Default retrieval mode: `lexical`
-- Default local embeddings mode: `off`
-- Local neural embedding backend: `@xenova/transformers`
-- Default local embedding model: `Xenova/all-MiniLM-L6-v2`
-- Optional mirror host: configurable per app via `Local Embedding Mirror`
-- Fallback path: deterministic local hash vectors when neural inference is unavailable
+### Memory
 
-To enable the local RAG-style path after cloning:
+- The app can summarize turns into compact memory records.
+- Records are written to `data/stories/<storyId>/memory/records.jsonl`.
+- Retrieval can inject long-term, critical, and recent memory blocks back into the prompt.
+
+### Proposals
+
+- The model can suggest structured workspace updates instead of silently rewriting canon.
+- Proposal acceptance updates story-local cards only.
+- Rejected proposals stay out of the active workspace.
+
+### Diagnostics
+
+The Diagnostics panel helps explain what the model actually saw.
+
+Common labels:
+
+- `Character anchors`, `Worldbook anchors`, `Style anchors`
+  Stable prompt anchors derived from enabled assets
+- `Retrieved knowledge chunks`
+  On-demand knowledge snippets recalled from workspace assets
+- `Critical memory`, `Recent memory`
+  Memory blocks injected into the current prompt
+
+## Retrieval Modes And Local RAG
+
+Nocturne Atlas separates **memory retrieval** from **knowledge retrieval**.
+
+That means a story can keep memory retrieval conservative while making workspace knowledge more retrieval-driven.
+
+### Available Retrieval Settings
+
+- `lexical`
+  Keyword and entity matching only
+- `hybrid`
+  Lexical matching plus optional local embedding help
+- `inherit`
+  Story setting follows the app-level default
+
+### Local Embeddings
+
+The app can run a fully local embedding path without a remote embedding API.
+
+Current local embedding path:
+
+- Backend: `@xenova/transformers`
+- Default model: `Xenova/all-MiniLM-L6-v2`
+- Optional mirror host: configurable in `Providers & Retrieval -> Local Embedding Mirror`
+- Fallback: deterministic local `hash_v1` vectors when neural inference is unavailable
+
+### Lexical Mode vs Hybrid Knowledge Mode
+
+`lexical` knowledge retrieval keeps the classic prompt shape:
+
+- asset anchors stay fuller
+- retrieved knowledge stays lexical
+- behavior is simpler and more conservative
+
+`hybrid` knowledge retrieval pushes the app closer to local RAG:
+
+- enabled character, worldbook, and style blocks become lighter anchors
+- retrieved workspace chunks carry more factual detail
+- local embeddings can rescue semantically related chunks even when wording overlaps less
+
+In other words, hybrid mode does not remove anchors entirely. It keeps light anchors in the prompt and lets retrieved chunks do more of the detailed work.
+
+### Enabling The Local-RAG-Style Path
+
+After cloning:
 
 1. Run `npm install`
 2. Start the app with `npm start`
-3. In the UI, set `Global Default: Memory Retrieval` to `Hybrid`
-4. Set `Global Default: Local Embeddings` to `On`
-5. If Hugging Face is slow or unreachable on your network, set `Local Embedding Mirror` to a reachable mirror such as `https://hf-mirror.com/`
-6. Click `Prewarm Local Embedding Model` once
+3. In `Providers & Retrieval`, set `Global Knowledge Retrieval` to `Hybrid`
+4. Optionally set `Global Memory Retrieval` to `Hybrid`
+5. Set `Global Local Embeddings` to `On`
+6. If Hugging Face is slow or blocked on your network, set `Local Embedding Mirror` to a reachable mirror such as `https://hf-mirror.com/`
+7. Click `Prewarm Local Embedding Model` once
 
-What the prewarm button does:
+### What Prewarm Does
 
-- It triggers one real local embedding call
-- If the local model is not cached yet, this is when the model files are downloaded
-- It fills the local cache ahead of the first real chat turn, so the first retrieval pass is smoother
-- It now reports success only when a real neural embedding vector is produced
-- If neural loading fails, the app reports the failure and keeps using local hash-vector fallback when allowed
+- It performs one real local embedding call.
+- On a fresh machine, this is when the local model files are downloaded.
+- It warms the local cache before the first real retrieval-heavy turn.
+- It reports success only when a real neural embedding vector is produced.
+- If neural loading fails, the app reports the failure instead of pretending the model is ready.
 
 ## Configuration Model
 
-There are two levels of retrieval settings:
+There are two levels of settings:
 
 - Global defaults
-  These apply to all stories unless a story overrides them.
+  Apply to all stories unless a story overrides them
 - Story overrides
-  These let one story opt into different retrieval or embedding behavior.
+  Let one story use a different provider, retrieval mode, or embedding mode
 
-Typical combinations:
+This applies to:
 
-- `Lexical Only` + `Off`
-  Most stable and lightweight
-- `Hybrid` + `On`
-  Enables local vector-enhanced retrieval
-- `Inherit App Default`
-  Follows the current global defaults
+- provider/model choice
+- reasoning effort
+- memory retrieval mode
+- knowledge retrieval mode
+- local embedding mode
+
+## Providers
+
+The app currently targets OpenAI-compatible **chat completions** APIs.
+
+You can configure:
+
+- base URL
+- model name
+- context window
+- API key
+- reasoning effort for compatible thinking models
+
+Provider keys are stored locally and encrypted at rest.
 
 ## Data Layout
 
@@ -131,11 +200,11 @@ data/stories/<storyId>/proposals/records.jsonl
 data/stories/<storyId>/snapshots/context.jsonl
 ```
 
-Note:
+Notes:
 
 - `data/stories/` is ignored by Git in this repository setup
 - local model caches are also ignored by Git
-- that means other users must build their own local story data and local embedding cache after cloning
+- other users need to build their own local story data and local embedding cache after cloning
 
 ## Project Structure
 
@@ -147,12 +216,12 @@ lib/api-router.js                 API route matching and resource handlers
 lib/providers.js                  Provider helpers and OpenAI-compatible transport
 lib/story-store.js                Story, library, config, JSON, and JSONL storage helpers
 lib/workspace.js                  Story workspace sync and loading helpers
-lib/context.js                    Context block assembly and pressure helpers
-lib/chat.js                       Chat context building, turn finalization, and streaming
+lib/context.js                    Context block assembly and prompt-shaping helpers
+lib/chat.js                       Chat context building, streaming, and revise helpers
 lib/memory.js                     Memory orchestration and forgetfulness checks
 lib/memory-engine.js              Lexical memory scoring and formatting helpers
-lib/memory-retrieval.js           Hybrid retrieval orchestration
-lib/memory-vector.js              Local vector scoring helpers
+lib/memory-retrieval.js           Hybrid memory retrieval orchestration
+lib/memory-vector.js              Local memory vector scoring helpers
 lib/embeddings.js                 Local embedding generation helpers
 lib/knowledge-retrieval.js        Workspace knowledge chunking and retrieval helpers
 lib/memory-consolidation.js       Long-term memory consolidation helpers
@@ -162,46 +231,20 @@ public/styles.css                 Styling and layout
 public/app-chat.js                Chat actions
 public/app-library.js             Library editing helpers
 public/app-workspace.js           Workspace rendering helpers
-public/app-review.js              Review, memory, and diagnostics rendering helpers
+public/app-review.js              Review, memory, proposal, and diagnostics rendering
 public/app-provider.js            Provider settings and local embedding helpers
 public/app-shell.js               Theme, sidebar, and right-panel shell helpers
 public/app.js                     Frontend bootstrapping and cross-module coordination
+test/smoke.js                     Zero-dependency smoke tests
 ```
 
-## How Memory Works
-
-The memory system is explicit and local-first.
-
-1. The app periodically summarizes recent dialogue into compact memory records.
-2. Each record is written to `data/stories/<storyId>/memory/records.jsonl`.
-3. Records include fields such as `kind`, `importance`, `entities`, `keywords`, and `tier`.
-4. Before generation, stored memories are ranked using lexical overlap, structured fields, recency, importance, and optional vector similarity.
-5. Relevant memories are injected back into the prompt as compact context blocks.
-6. Stable short-term records can later be consolidated into cleaner long-term memory.
-
-This keeps continuity inspectable instead of burying it inside a single opaque prompt.
-
-## Providers
-
-The app currently targets OpenAI-compatible chat completion APIs.
-
-You can configure:
-
-- base URL
-- model name
-- context window
-- API key
-
-Story generation settings can also opt into reasoning effort for compatible thinking models.
-
-Provider keys are stored locally and encrypted at rest.
-
-## Notes
+## Notes And Limits
 
 - The forgetfulness indicator is a heuristic risk signal, not proof of actual model failure.
 - Proposal review is meant to make canon updates inspectable, not automatic.
-- This repository is intentionally local-first and optimized for single-user use.
-- The local RAG path currently combines memory retrieval and workspace knowledge retrieval.
+- The local-RAG-style path currently affects workspace knowledge most directly.
+- Memory retrieval can still stay lexical even when knowledge retrieval uses hybrid mode.
+- The provider layer is aimed at chat-completions-compatible APIs, not a full raw Responses API integration.
 
 ## License
 

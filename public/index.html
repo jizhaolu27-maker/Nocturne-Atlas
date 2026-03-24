@@ -186,6 +186,13 @@
                       <option value="hybrid">Hybrid (Vector Ready)</option>
                     </select>
                   </label>
+                  <label>Story Knowledge Retrieval
+                    <select id="story-config-knowledge-retrieval-mode">
+                      <option value="inherit">Use Global Default</option>
+                      <option value="lexical">Lexical Only</option>
+                      <option value="hybrid">Local RAG Hybrid</option>
+                    </select>
+                  </label>
                   <label>Story Local Embeddings
                     <select id="story-config-local-embedding-mode">
                       <option value="inherit">Use Global Default</option>
@@ -259,6 +266,12 @@
                   <select id="app-memory-retrieval-mode">
                     <option value="lexical">Lexical Default</option>
                     <option value="hybrid">Hybrid Default</option>
+                  </select>
+                </label>
+                <label>Global Knowledge Retrieval
+                  <select id="app-knowledge-retrieval-mode">
+                    <option value="lexical">Lexical Default</option>
+                    <option value="hybrid">Local RAG Hybrid Default</option>
                   </select>
                 </label>
                 <label>Global Local Embeddings

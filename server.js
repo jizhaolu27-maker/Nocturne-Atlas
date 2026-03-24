@@ -8,6 +8,7 @@ const { createWorkspaceTools } = require("./lib/workspace");
 const { createContextTools } = require("./lib/context");
 const { createMemoryTools } = require("./lib/memory");
 const { createChatTools } = require("./lib/chat");
+const { createGroundingCheckTools } = require("./lib/grounding-check");
 const { createEmbeddingTools, normalizeEmbeddingConfig, normalizeEmbeddingMode } = require("./lib/embeddings");
 const { createKnowledgeRetrievalTools } = require("./lib/knowledge-retrieval");
 const {
@@ -152,7 +153,6 @@ const {
   vectorSearchRecords: createLocalVectorSearchRecords(),
   vectorSearchItems: createLocalVectorSearchItems(),
   isVectorSearchEnabled: (options = {}) =>
-    (options.retrievalMode === "hybrid" || options.retrievalMode === "rag") &&
     options.embeddingOptions?.mode === "on" &&
     Array.isArray(options.queryEmbedding) &&
     options.queryEmbedding.length > 0,
@@ -211,6 +211,12 @@ const {
   embedTextDetailed,
   buildMemoryEmbeddingText,
   resolveEmbeddingOptions: resolveStoryEmbeddingConfig,
+});
+
+const {
+  evaluateAssistantGrounding,
+} = createGroundingCheckTools({
+  summarizeText,
 });
 
 const {
@@ -344,6 +350,7 @@ const {
   generateMemoryUpdate,
   generateProposalUpdate,
   detectForgetfulness,
+  evaluateAssistantGrounding,
   buildEndpointUrl,
   callOpenAICompatible,
   streamOpenAICompatible,
@@ -366,8 +373,8 @@ function initializeData() {
         theme: "dark",
         lastOpenedStoryId: "",
         globalSystemPrompt: DEFAULT_GLOBAL_SYSTEM_PROMPT,
-        memoryRetrievalMode: "lexical",
-        knowledgeRetrievalMode: "lexical",
+        memoryRetrievalMode: "rag",
+        knowledgeRetrievalMode: "rag",
         localEmbedding: {
           mode: "off",
           provider: "transformers_local",

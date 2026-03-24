@@ -179,21 +179,7 @@
                   <label>Context Turns<input id="story-config-context-blocks" type="number" min="8" max="60" /></label>
                   <label>Summary Interval<input id="story-config-summary-interval" type="number" min="2"
                       max="30" /></label>
-                  <label>Story Memory Retrieval
-                    <select id="story-config-memory-retrieval-mode">
-                      <option value="inherit">Use Global Default</option>
-                      <option value="lexical">Lexical Only</option>
-                      <option value="hybrid">Hybrid (Vector Ready)</option>
-                      <option value="rag">Memory RAG</option>
-                    </select>
-                  </label>
-                  <label>Story Knowledge Retrieval
-                    <select id="story-config-knowledge-retrieval-mode">
-                      <option value="inherit">Use Global Default</option>
-                      <option value="lexical">Lexical Only</option>
-                      <option value="hybrid">Local RAG Hybrid</option>
-                    </select>
-                  </label>
+                  <div class="provider-test-result">Knowledge retrieval now always uses Knowledge RAG. When embeddings are unavailable, lexical chunk recall is used as fallback.</div>
                   <label>Story Local Embeddings
                     <select id="story-config-local-embedding-mode">
                       <option value="inherit">Use Global Default</option>
@@ -259,23 +245,12 @@
 
           <section class="rp-section">
             <h3 class="rp-title">Providers & Retrieval</h3>
-            <p class="rp-subtitle">Provider endpoints, global retrieval defaults, and local model status.</p>
+            <p class="rp-subtitle">Provider endpoints, retrieval runtime, and local model status.</p>
             <details class="fold-section" open>
-              <summary>Global Retrieval Defaults</summary>
+              <summary>Retrieval Runtime</summary>
               <div class="fold-body stack-fields">
-                <label>Global Memory Retrieval
-                  <select id="app-memory-retrieval-mode">
-                    <option value="lexical">Lexical Default</option>
-                    <option value="hybrid">Hybrid Default</option>
-                    <option value="rag">Memory RAG Default</option>
-                  </select>
-                </label>
-                <label>Global Knowledge Retrieval
-                  <select id="app-knowledge-retrieval-mode">
-                    <option value="lexical">Lexical Default</option>
-                    <option value="hybrid">Local RAG Hybrid Default</option>
-                  </select>
-                </label>
+                <div class="provider-test-result">Memory retrieval now always uses Memory RAG with automatic lexical and embedding fallback.</div>
+                <div class="provider-test-result">Knowledge retrieval now always uses Knowledge RAG. Semantic retrieval runs first, and lexical chunk recall only fills in when needed.</div>
                 <label>Global Local Embeddings
                   <select id="app-local-embedding-mode">
                     <option value="off">Off</option>
@@ -399,9 +374,21 @@
         <div class="tab-content" id="tab-diagnostics">
           <section class="rp-section">
             <h3 class="rp-title">Diagnostics</h3>
-            <p class="rp-subtitle">Deep inspection and trigger traces.</p>
+            <p class="rp-subtitle">See what this turn actually used first, then expand the deeper traces only when needed.</p>
             <details class="fold-section" open>
-              <summary>Pipeline</summary>
+              <summary>What this turn used</summary>
+              <div class="fold-body">
+                <div id="diagnostic-highlights" class="diagnostic-list"></div>
+              </div>
+            </details>
+            <details class="fold-section" open>
+              <summary>Warnings and repairs</summary>
+              <div class="fold-body">
+                <div id="diagnostic-warnings" class="diagnostic-list"></div>
+              </div>
+            </details>
+            <details class="fold-section">
+              <summary>Technical details</summary>
               <div class="fold-body">
                 <div id="diagnostic-triggers" class="diagnostic-list"></div>
               </div>

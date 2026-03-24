@@ -16,7 +16,7 @@ It is built for writers who want more than a single chat box. Each story keeps i
 - Diagnostics for context pressure, retrieval behavior, prompt sources, and forgetfulness risk
 - OpenAI-compatible chat-completions provider support with locally encrypted API keys
 - Reasoning-effort support for compatible thinking models on chat-completions-style endpoints
-- Optional local hybrid retrieval, memory RAG, and local-RAG-style knowledge retrieval with no remote embedding API
+- Always-on memory RAG and knowledge RAG with no remote embedding API
 - Static browser UI with no frontend build step
 
 ## Quick Start
@@ -71,9 +71,9 @@ npm test
 
 - The app can summarize turns into compact memory records.
 - Records are written to `data/stories/<storyId>/memory/records.jsonl`.
-- In memory-RAG mode, supporting evidence chunks are also written to `data/stories/<storyId>/memory/chunks.jsonl`.
+- Supporting evidence chunks are also written to `data/stories/<storyId>/memory/chunks.jsonl`.
 - Retrieval can inject long-term, critical, and recent memory blocks back into the prompt.
-- Memory-RAG mode can also inject retrieved evidence chunks alongside stable memory facts.
+- Memory retrieval always runs through Memory RAG, which can also inject retrieved evidence chunks alongside stable memory facts.
 
 ### Proposals
 
@@ -94,22 +94,29 @@ Common labels:
 - `Critical memory`, `Recent memory`
   Memory blocks injected into the current prompt
 
-## Retrieval Modes And Local RAG
+## Retrieval And Local RAG
 
 Nocturne Atlas separates **memory retrieval** from **knowledge retrieval**.
 
-That means a story can keep memory retrieval conservative while making workspace knowledge more retrieval-driven.
+Memory retrieval now always uses **Memory RAG** with automatic lexical and embedding fallback.
 
-### Available Retrieval Settings
+Knowledge retrieval now also always uses **Knowledge RAG**. Semantic retrieval runs first, and lexical chunk recall only fills in when embeddings are unavailable or semantic matches are too weak.
 
-- `lexical`
-  Keyword and entity matching only
-- `hybrid`
-  Lexical matching plus optional local embedding help
-- `rag`
-  Retrieval-first memory mode that keeps stable memory facts and also recalls memory evidence chunks
-- `inherit`
-  Story setting follows the app-level default
+### Memory RAG
+
+Memory RAG keeps the stable summary-record layer while also recalling evidence chunks when they help.
+
+- Stable memory facts still protect canon continuity
+- Evidence chunks let retrieval re-introduce concrete scene facts
+- When embeddings are unavailable, the same Memory-RAG path falls back to lexical recall instead of breaking
+
+### Knowledge RAG
+
+Knowledge RAG keeps character, worldbook, and style anchors intentionally light and lets retrieved knowledge chunks carry the detailed facts.
+
+- Semantic chunk retrieval searches the whole workspace corpus
+- Lexical chunk recall only fills the gaps when semantic retrieval is unavailable or too weak
+- Local embeddings improve semantic reach, but the fallback path still keeps the app usable offline or on a cold machine
 
 ### Local Embeddings
 
@@ -122,33 +129,15 @@ Current local embedding path:
 - Optional mirror host: configurable in `Providers & Retrieval -> Local Embedding Mirror`
 - Fallback: deterministic local `hash_v1` vectors when neural inference is unavailable
 
-### Lexical Mode vs Hybrid Knowledge Mode
-
-`lexical` knowledge retrieval keeps the classic prompt shape:
-
-- asset anchors stay fuller
-- retrieved knowledge stays lexical
-- behavior is simpler and more conservative
-
-`hybrid` knowledge retrieval pushes the app closer to local RAG:
-
-- enabled character, worldbook, and style blocks become lighter anchors
-- retrieved workspace chunks carry more factual detail
-- local embeddings can rescue semantically related chunks even when wording overlaps less
-
-In other words, hybrid mode does not remove anchors entirely. It keeps light anchors in the prompt and lets retrieved chunks do more of the detailed work.
-
 ### Enabling The Local-RAG-Style Path
 
 After cloning:
 
 1. Run `npm install`
 2. Start the app with `npm start`
-3. In `Providers & Retrieval`, set `Global Knowledge Retrieval` to `Hybrid`
-4. Optionally set `Global Memory Retrieval` to `Hybrid` or `Memory RAG`
-5. Set `Global Local Embeddings` to `On`
-6. If Hugging Face is slow or blocked on your network, set `Local Embedding Mirror` to a reachable mirror such as `https://hf-mirror.com/`
-7. Click `Prewarm Local Embedding Model` once
+3. Set `Global Local Embeddings` to `On`
+4. If Hugging Face is slow or blocked on your network, set `Local Embedding Mirror` to a reachable mirror such as `https://hf-mirror.com/`
+5. Click `Prewarm Local Embedding Model` once
 
 ### What Prewarm Does
 
@@ -165,14 +154,12 @@ There are two levels of settings:
 - Global defaults
   Apply to all stories unless a story overrides them
 - Story overrides
-  Let one story use a different provider, retrieval mode, or embedding mode
+  Let one story use a different provider or embedding mode
 
 This applies to:
 
 - provider/model choice
 - reasoning effort
-- memory retrieval mode
-- knowledge retrieval mode
 - local embedding mode
 
 ## Providers
@@ -225,10 +212,10 @@ lib/context.js                    Context block assembly and prompt-shaping help
 lib/chat.js                       Chat context building, streaming, and revise helpers
 lib/memory.js                     Memory orchestration and forgetfulness checks
 lib/memory-engine.js              Lexical memory scoring and formatting helpers
-lib/memory-retrieval.js           Hybrid and memory-RAG retrieval orchestration
+lib/memory-retrieval.js           Memory-RAG retrieval orchestration and fallback selection
 lib/memory-vector.js              Local memory vector scoring helpers
 lib/embeddings.js                 Local embedding generation helpers
-lib/knowledge-retrieval.js        Workspace knowledge chunking and retrieval helpers
+lib/knowledge-retrieval.js        Knowledge-RAG chunking, retrieval, and lexical fallback helpers
 lib/memory-consolidation.js       Long-term memory consolidation helpers
 lib/proposals.js                  Proposal generation and review helpers
 public/index.html                 Main browser UI
@@ -247,8 +234,8 @@ test/smoke.js                     Zero-dependency smoke tests
 
 - The forgetfulness indicator is a heuristic risk signal, not proof of actual model failure.
 - Proposal review is meant to make canon updates inspectable, not automatic.
-- Workspace knowledge and memory retrieval now have separate RAG-like paths.
-- Memory retrieval can stay lexical even when knowledge retrieval uses hybrid mode, or switch to memory RAG without changing knowledge retrieval.
+- Workspace knowledge and memory retrieval now have separate retrieval paths.
+- Memory retrieval always uses Memory RAG, and knowledge retrieval always uses Knowledge RAG.
 - The provider layer is aimed at chat-completions-compatible APIs, not a full raw Responses API integration.
 
 ## License

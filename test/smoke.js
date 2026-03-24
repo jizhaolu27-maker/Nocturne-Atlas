@@ -1,4 +1,5 @@
 const assert = require("node:assert/strict");
+const { EventEmitter } = require("node:events");
 const fs = require("node:fs");
 const os = require("node:os");
 const path = require("node:path");
@@ -7,6 +8,7 @@ const { createStoryStore } = require("../lib/story-store");
 const { createWorkspaceTools } = require("../lib/workspace");
 const { createContextTools } = require("../lib/context");
 const { createMemoryTools } = require("../lib/memory");
+const { consolidateMemoryRecords } = require("../lib/memory-consolidation");
 const {
   createEmbeddingTools,
   normalizeEmbeddingConfig,
@@ -14,13 +16,14 @@ const {
   normalizeEmbeddingRemoteHost,
 } = require("../lib/embeddings");
 const { createKnowledgeRetrievalTools } = require("../lib/knowledge-retrieval");
-const { selectRelevantMemoryRecords, formatMemoryContext } = require("../lib/memory-engine");
+const { buildMemoryQuery, selectRelevantMemoryRecords, formatMemoryContext } = require("../lib/memory-engine");
 const { createMemoryRetrievalTools } = require("../lib/memory-retrieval");
 const { createLocalVectorSearchItems, createLocalVectorSearchRecords } = require("../lib/memory-vector");
 const { createProposalTools } = require("../lib/proposals");
 const { createChatTools } = require("../lib/chat");
 const { createProviderTools } = require("../lib/providers");
 const { createServerConfigTools } = require("../lib/server-config");
+const { createGroundingCheckTools } = require("../lib/grounding-check");
 
 const DEFAULT_CONTEXT_BLOCKS = 6;
 const DEFAULT_SUMMARY_INTERVAL = 4;
@@ -224,6 +227,7 @@ async function main() {
 
     assert.ok(labels.includes("system:global"));
     assert.ok(labels.includes("system:story"));
+    assert.ok(labels.includes("system:retrieval_policy"));
     assert.ok(labels.includes("characters"));
     assert.ok(labels.includes("worldbook"));
     assert.ok(labels.includes("style"));
@@ -233,7 +237,7 @@ async function main() {
     assert.equal(result.selectedMemoryRecords[0].id, "mem_1");
     assert.ok(result.selectedKnowledgeChunks.length > 0);
     assert.ok(result.selectedKnowledgeChunks.some((item) => item.chunkType));
-    assert.equal(result.knowledgeRetrievalMeta.mode, "lexical");
+    assert.equal(result.knowledgeRetrievalMeta.mode, "rag");
     assert.ok(Number.isFinite(result.knowledgeRetrievalMeta.vectorCandidateCount || 0));
     const characterBlock = result.blocks.find((item) => item.label === "characters");
     const worldbookBlock = result.blocks.find((item) => item.label === "worldbook");
@@ -243,7 +247,34 @@ async function main() {
     assert.ok(!worldbookBlock?.content.includes("Content: A rain-soaked city."));
   });
 
-  await runTest("context tools lean knowledge anchors in hybrid knowledge mode", async () => {
+  await runTest("knowledge retrieval builds focused query cues from workspace and recent turns", async () => {
+    const { buildKnowledgeQuery } = createKnowledgeRetrievalTools({
+      extractKeywords: require("../lib/memory-engine").extractKeywords,
+    });
+
+    const query = buildKnowledgeQuery({
+      userMessage: "How does Mira cross the red bridge now?",
+      messages: [
+        { role: "assistant", content: "Mira learns the city still forbids crossing the red bridge at dusk." },
+        { role: "user", content: "Does Nocturne City still matter here?" },
+      ],
+      workspace: {
+        characters: [{ id: "mira", name: "Mira", core: { role: "Scout" }, traits: ["bridge-runner"] }],
+        worldbooks: [{ id: "city", title: "Nocturne City", category: "city", rules: ["Never cross the red bridge"] }],
+        styles: [{ id: "style_gothic", name: "Velvet Gothic", tone: "lush", voice: "close third" }],
+      },
+    });
+
+    assert.ok(query.focusClauses.length > 0);
+    assert.ok(query.keywords.includes("mira"));
+    assert.ok(query.matchedEntries.some((item) => item.id === "mira"));
+    assert.ok(query.matchedEntries.some((item) => item.id === "city"));
+    assert.ok(query.embeddingText.includes("Current ask:"));
+    assert.ok(query.embeddingText.includes("Focus cues:"));
+    assert.ok(query.embeddingText.includes("Entity focus:"));
+  });
+
+  await runTest("context tools lean knowledge anchors in knowledge rag mode", async () => {
     const contextTools = createContextTools({
       DEFAULT_CONTEXT_BLOCKS,
       estimateTokens: (value) => Math.max(1, Math.ceil(String(value || "").length / 4)),
@@ -258,8 +289,8 @@ async function main() {
       retrieveKnowledgeChunks: async () => ({
         selectedChunks: [],
         retrievalMeta: {
-          mode: "hybrid",
-          activeMode: "lexical",
+          mode: "rag",
+          activeMode: "rag",
           vectorEnabled: true,
           vectorCandidateCount: 0,
           vectorSelectedCount: 0,
@@ -285,7 +316,6 @@ async function main() {
 
     const result = await contextTools.buildContextBlocks(story, [], [], workspace, {
       currentUserInput: "Continue the scene.",
-      knowledgeRetrievalMode: "hybrid",
       embeddingOptions: { mode: "on" },
     });
 
@@ -299,6 +329,86 @@ async function main() {
     assert.ok(!worldbookBlock?.content.includes("Rules:"));
     assert.ok(styleBlock?.content.includes("Style: Velvet Gothic / Tone: lush / Voice: close third"));
     assert.ok(!styleBlock?.content.includes("pacing="));
+  });
+
+  await runTest("context tools focus knowledge anchors around retrieved or hinted sources", async () => {
+    const contextTools = createContextTools({
+      DEFAULT_CONTEXT_BLOCKS,
+      estimateTokens: (value) => Math.max(1, Math.ceil(String(value || "").length / 4)),
+      selectRelevantMemoryRecords: () => ({
+        selectedRecords: [],
+        reasonsById: {},
+        retrievalMeta: { mode: "rag", activeMode: "lexical", vectorEnabled: false, vectorCandidateCount: 0, vectorSelectedCount: 0 },
+      }),
+      formatMemoryContext: () => "",
+      getProviderContextWindow: () => 2000,
+      buildQueryEmbedding: async () => [1, 0],
+      retrieveKnowledgeChunks: async () => ({
+        selectedChunks: [
+          {
+            id: "knowledge_character_relationships_mira",
+            sourceType: "character",
+            sourceId: "mira",
+            chunkType: "relationships",
+            text: "Character: Mira\nRelationships: Hero=ally",
+          },
+          {
+            id: "knowledge_world_rules_city",
+            sourceType: "worldbook",
+            sourceId: "city",
+            chunkType: "rules",
+            text: "World: Nocturne City\nRules: Never cross the red bridge",
+          },
+        ],
+        retrievalMeta: {
+          mode: "rag",
+          activeMode: "rag",
+          vectorEnabled: true,
+          vectorCandidateCount: 2,
+          vectorSelectedCount: 2,
+          chunkCount: 6,
+          fallbackReason: "",
+        },
+        anchorHints: {
+          characterIds: ["mira"],
+          worldbookIds: ["city"],
+          styleIds: [],
+        },
+      }),
+      formatKnowledgeContext: (chunks) => chunks.map((item) => item.text).join("\n\n"),
+    });
+
+    const result = await contextTools.buildContextBlocks(
+      {
+        promptConfig: { globalSystemPrompt: "Global prompt", storySystemPrompt: "Story prompt" },
+        settings: { contextBlocks: 3 },
+      },
+      [{ role: "user", content: "How does Mira deal with the bridge rule now?" }],
+      [],
+      {
+        characters: [
+          { id: "mira", name: "Mira", core: { role: "Scout" }, traits: ["sharp"], arcState: { current: "tests the city limits" } },
+          { id: "hero", name: "Hero", core: { role: "Lead" }, traits: ["brave"], arcState: { current: "holds the line" } },
+        ],
+        worldbooks: [
+          { id: "city", title: "Nocturne City", category: "city", rules: ["Never cross the red bridge"], storyState: "Unrest is rising" },
+          { id: "forest", title: "Moth Forest", category: "wilds", rules: ["Never answer the lanterns"], storyState: "Silent" },
+        ],
+        styles: [{ id: "style_gothic", name: "Velvet Gothic", tone: "lush", voice: "close third" }],
+      },
+      {
+        currentUserInput: "How does Mira deal with the bridge rule now?",
+        embeddingOptions: { mode: "on" },
+      }
+    );
+
+    const characterBlock = result.blocks.find((item) => item.label === "characters");
+    const worldbookBlock = result.blocks.find((item) => item.label === "worldbook");
+
+    assert.ok(characterBlock?.content.includes("Character: Mira"));
+    assert.ok(!characterBlock?.content.includes("Character: Hero"));
+    assert.ok(worldbookBlock?.content.includes("World: Nocturne City"));
+    assert.ok(!worldbookBlock?.content.includes("World: Moth Forest"));
   });
 
   await runTest("context tools include retrieved memory evidence in memory rag mode", async () => {
@@ -351,7 +461,7 @@ async function main() {
       retrieveKnowledgeChunks: async () => ({
         selectedChunks: [],
         retrievalMeta: {
-          mode: "lexical",
+          mode: "rag",
           activeMode: "lexical",
           vectorEnabled: false,
           vectorCandidateCount: 0,
@@ -372,15 +482,270 @@ async function main() {
       { characters: [], worldbooks: [], styles: [] },
       {
         currentUserInput: "How does Lyra open the archive?",
-        memoryRetrievalMode: "rag",
         embeddingOptions: { mode: "on" },
       }
     );
 
     const evidenceBlock = result.blocks.find((item) => item.label === "memory:evidence");
+    const groundingBlock = result.blocks.find((item) => item.label === "memory:grounding");
+    const retrievalPolicyBlock = result.blocks.find((item) => item.label === "system:retrieval_policy");
     assert.ok(evidenceBlock?.content.includes("Lyra presses her bloodline key"));
+    assert.ok(groundingBlock?.content.includes("Memory grounding rules:"));
+    assert.ok(groundingBlock?.content.includes("Selected memory facts: 1. Retrieved evidence chunks: 1. Contested candidates: 0."));
+    assert.ok(retrievalPolicyBlock?.content.includes("Grounding policy for this response:"));
     assert.equal(result.memoryRetrievalMeta.mode, "rag");
     assert.equal(result.memoryRetrievalMeta.evidenceSelectedCount, 1);
+  });
+
+  await runTest("context tools keep long-term, critical, and recent memory blocks disjoint", async () => {
+    const contextTools = createContextTools({
+      DEFAULT_CONTEXT_BLOCKS,
+      estimateTokens: (value) => Math.max(1, Math.ceil(String(value || "").length / 4)),
+      selectRelevantMemoryRecords: () => ({
+        selectedRecords: [
+          {
+            id: "mem_long",
+            tier: "long_term",
+            kind: "plot_checkpoint",
+            summary: "Long-term canon anchor.",
+            importance: "high",
+            stability: "stable",
+            scope: "plot",
+          },
+          {
+            id: "mem_critical",
+            tier: "short_term",
+            kind: "plot_checkpoint",
+            summary: "Critical short-term development.",
+            importance: "high",
+            scope: "plot",
+          },
+          {
+            id: "mem_recent",
+            tier: "short_term",
+            kind: "plot_checkpoint",
+            summary: "Recent low-priority detail.",
+            importance: "low",
+            scope: "plot",
+          },
+        ],
+        reasonsById: {
+          mem_long: ["Matched keywords: canon"],
+          mem_critical: ["Matched keywords: development"],
+          mem_recent: ["Matched keywords: detail"],
+        },
+        selectedEvidenceChunks: [],
+        selectedEvidenceReasons: {},
+        contestedRecords: [],
+        contestedReasonsById: {},
+        retrievalMeta: {
+          mode: "rag",
+          activeMode: "lexical",
+          vectorEnabled: false,
+          vectorCandidateCount: 0,
+          vectorSelectedCount: 0,
+          evidenceCandidateCount: 0,
+          evidenceSelectedCount: 0,
+          contestedCandidateCount: 0,
+          fallbackReason: "",
+        },
+      }),
+      formatMemoryContext: (records) => records.map((item) => item.summary).join("\n"),
+      getProviderContextWindow: () => 2000,
+      buildQueryEmbedding: async () => [1, 0],
+      retrieveKnowledgeChunks: async () => ({
+        selectedChunks: [],
+        retrievalMeta: {
+          mode: "rag",
+          activeMode: "lexical",
+          vectorEnabled: false,
+          vectorCandidateCount: 0,
+          vectorSelectedCount: 0,
+          chunkCount: 0,
+        },
+      }),
+      formatKnowledgeContext: () => "",
+    });
+
+    const result = await contextTools.buildContextBlocks(
+      {
+        promptConfig: { globalSystemPrompt: "Global prompt", storySystemPrompt: "Story prompt" },
+        settings: { contextBlocks: 3 },
+      },
+      [],
+      [],
+      { characters: [], worldbooks: [], styles: [] },
+      {
+        currentUserInput: "What canon matters now?",
+        embeddingOptions: { mode: "off" },
+      }
+    );
+
+    assert.deepEqual(result.selectedMemoryGroups.longTerm.map((item) => item.id), ["mem_long"]);
+    assert.deepEqual(result.selectedMemoryGroups.critical.map((item) => item.id), ["mem_critical"]);
+    assert.deepEqual(result.selectedMemoryGroups.recent.map((item) => item.id), ["mem_recent"]);
+    const longTermBlock = result.blocks.find((item) => item.label === "memory:long_term");
+    const criticalBlock = result.blocks.find((item) => item.label === "memory:critical");
+    const recentBlock = result.blocks.find((item) => item.label === "memory:recent");
+    assert.ok(longTermBlock?.content.includes("Long-term canon anchor."));
+    assert.ok(!criticalBlock?.content.includes("Long-term canon anchor."));
+    assert.ok(!recentBlock?.content.includes("Long-term canon anchor."));
+    assert.ok(criticalBlock?.content.includes("Critical short-term development."));
+    assert.ok(!recentBlock?.content.includes("Critical short-term development."));
+  });
+
+  await runTest("context tools expose contested memory candidates in a separate uncertainty block", async () => {
+    const contextTools = createContextTools({
+      DEFAULT_CONTEXT_BLOCKS,
+      estimateTokens: (value) => Math.max(1, Math.ceil(String(value || "").length / 4)),
+      selectRelevantMemoryRecords: () => ({
+        selectedRecords: [
+          {
+            id: "mem_truth",
+            tier: "long_term",
+            kind: "plot_checkpoint",
+            summary: "Lyra's bloodline key opens the archive.",
+            importance: "high",
+            scope: "plot",
+            subjectIds: ["lyra"],
+            tags: ["archive", "bloodline"],
+          },
+        ],
+        reasonsById: {
+          mem_truth: ["Matched keywords: archive, bloodline"],
+        },
+        contestedRecords: [
+          {
+            id: "mem_alt",
+            tier: "short_term",
+            kind: "plot_checkpoint",
+            summary: "A mirror sigil may also trigger the archive seal.",
+            importance: "medium",
+            scope: "plot",
+            subjectIds: ["lyra"],
+            tags: ["archive", "sigil"],
+            confidence: 0.58,
+          },
+        ],
+        contestedReasonsById: {
+          mem_alt: ["Competes with a selected memory fact in the same canon slot"],
+        },
+        selectedEvidenceChunks: [],
+        selectedEvidenceReasons: {},
+        retrievalMeta: {
+          mode: "rag",
+          activeMode: "lexical",
+          vectorEnabled: false,
+          vectorCandidateCount: 0,
+          vectorSelectedCount: 0,
+          evidenceCandidateCount: 0,
+          evidenceSelectedCount: 0,
+          contestedCandidateCount: 1,
+          fallbackReason: "",
+        },
+      }),
+      formatMemoryContext: (records) => records.map((item) => item.summary).join("\n"),
+      getProviderContextWindow: () => 2000,
+      buildQueryEmbedding: async () => [1, 0],
+      retrieveKnowledgeChunks: async () => ({
+        selectedChunks: [],
+        retrievalMeta: {
+          mode: "rag",
+          activeMode: "lexical",
+          vectorEnabled: false,
+          vectorCandidateCount: 0,
+          vectorSelectedCount: 0,
+          chunkCount: 0,
+        },
+      }),
+      formatKnowledgeContext: () => "",
+    });
+
+    const result = await contextTools.buildContextBlocks(
+      {
+        promptConfig: { globalSystemPrompt: "Global prompt", storySystemPrompt: "Story prompt" },
+        settings: { contextBlocks: 3 },
+      },
+      [],
+      [],
+      { characters: [], worldbooks: [], styles: [] },
+      {
+        currentUserInput: "How does the archive open now?",
+        embeddingOptions: { mode: "off" },
+      }
+    );
+
+    const uncertaintyBlock = result.blocks.find((item) => item.label === "memory:uncertainty");
+    const retrievalPolicyBlock = result.blocks.find((item) => item.label === "system:retrieval_policy");
+    assert.ok(uncertaintyBlock?.content.includes("[Contested memory 1]"));
+    assert.ok(uncertaintyBlock?.content.includes("Competes with a selected memory fact in the same canon slot"));
+    assert.ok(retrievalPolicyBlock?.content.includes("If contested memory candidates remain unresolved"));
+    assert.equal(result.memoryRetrievalMeta.contestedCandidateCount, 1);
+  });
+
+  await runTest("memory query builder extracts retrieval focus cues for rag recall", () => {
+    const query = buildMemoryQuery({
+      userMessage: "How does Lyra open the archive now?",
+      messages: [
+        { role: "assistant", content: "Lyra's bloodline key is the only thing that breaks the seal." },
+        { role: "user", content: "Does the key still matter after the reveal?" },
+      ],
+      workspace: {
+        characters: [{ id: "lyra", name: "Lyra", core: { role: "Heir" }, traits: ["bloodline"] }],
+        worldbooks: [{ id: "archive", title: "Archive", category: "vault", rules: ["Only bloodline keys can open it"] }],
+        styles: [],
+      },
+    });
+
+    assert.ok(query.focusClauses.length > 0);
+    assert.ok(query.keywords.includes("archive"));
+    assert.ok(query.matchedEntityIds.includes("lyra"));
+    assert.ok(query.embeddingText.includes("Current ask:"));
+    assert.ok(query.embeddingText.includes("Focus cues:"));
+  });
+
+  await runTest("grounding check flags unsupported and contested answer clauses", () => {
+    const { evaluateAssistantGrounding } = createGroundingCheckTools({ summarizeText });
+    const result = evaluateAssistantGrounding({
+      assistantText:
+        "Lyra opens the archive with her bloodline key. The mirror sigil still controls the seal. A hidden choir descends from the ceiling.",
+      selectedKnowledgeChunks: [
+        {
+          text: "The archive opens only for Lyra's bloodline key.",
+        },
+      ],
+      selectedMemoryRecords: [
+        {
+          summary: "Lyra's bloodline key is the true trigger for the archive seal.",
+          subjectIds: ["lyra"],
+          tags: ["archive", "bloodline", "key"],
+        },
+      ],
+      selectedMemoryEvidence: [
+        {
+          text: "assistant: Lyra presses the bloodline key into the seal and the archive answers immediately.",
+          subjectIds: ["lyra"],
+          tags: ["archive", "bloodline", "key"],
+        },
+      ],
+      contestedMemoryRecords: [
+        {
+          summary: "A mirror sigil may also trigger the archive seal.",
+          subjectIds: ["lyra"],
+          tags: ["archive", "sigil"],
+        },
+      ],
+    });
+
+    assert.equal(result.state, "caution");
+    assert.ok(result.supportedClauseCount >= 1);
+    assert.ok(result.contestedClauseCount >= 1);
+    assert.ok(result.unsupportedClauseCount >= 1);
+    assert.ok(result.supportedClauses[0]?.supportRefs?.length >= 1);
+    assert.equal(result.supportedClauses[0]?.supportRefs?.[0]?.sourceType, "knowledge");
+    assert.ok(result.contestedClauses[0]?.supportRefs?.some((item) => item.sourceType === "memory_fact"));
+    assert.equal(result.contestedClauses[0]?.contestedSupportRefs?.[0]?.sourceType, "contested_memory");
+    assert.ok(result.notes.some((item) => /under-grounded|contested/i.test(item)));
   });
 
   await runTest("memory tools compute schedules and create a non-transcript fallback summary", async () => {
@@ -414,6 +779,126 @@ async function main() {
     assert.ok(!update.summaryRecords[0].summary.includes("user:"));
     assert.ok(!update.summaryRecords[0].summary.includes("assistant:"));
     assert.deepEqual(update.summaryRecords[0].triggeredBy, ["Manual smoke trigger"]);
+  });
+
+  await runTest("memory tools write windowed evidence chunks with tighter source ranges", async () => {
+    const memoryTools = buildMemoryTools();
+    const story = {
+      settings: { summaryInterval: 3 },
+      providerId: "",
+      model: "",
+    };
+    const fullMessages = [
+      { role: "user", content: "How does Lyra finally open the archive seal?" },
+      {
+        role: "assistant",
+        content:
+          "Lyra presses the bloodline key into the seal, the archive answers at once, and the chamber wakes around her.",
+      },
+      { role: "user", content: "What confirms the key mattered?" },
+      {
+        role: "assistant",
+        content: "The seal only reacts once the key turns, proving the bloodline mechanism was real all along.",
+      },
+    ];
+
+    const update = await memoryTools.generateMemoryUpdate({
+      story,
+      fullMessages,
+      memoryRecords: [],
+      workspace: { characters: [], worldbooks: [], styles: [] },
+      summaryTriggers: ["Manual smoke trigger"],
+    });
+
+    assert.ok(update.summaryChunks.length > 0);
+    assert.ok(update.summaryChunks.some((item) => Array.isArray(item.sourceMessageRange) && item.sourceMessageRange.length === 2));
+    assert.ok(update.summaryChunks.some((item) => item.sourceRole === "mixed" || item.text.includes("assistant:")));
+    assert.ok(update.summaryChunks.every((item) => item.sourceMessageRange[0] >= 1));
+    assert.ok(update.summaryChunks.every((item) => item.sourceMessageRange[1] <= fullMessages.length));
+  });
+
+  await runTest("memory tools assign canon keys and conflict groups to new facts and evidence", async () => {
+    const memoryTools = buildMemoryTools();
+    const story = {
+      settings: { summaryInterval: 3 },
+      providerId: "",
+      model: "",
+    };
+    const fullMessages = [
+      { role: "user", content: "How does Lyra finally open the archive seal?" },
+      {
+        role: "assistant",
+        content:
+          "Lyra presses the bloodline key into the seal, the archive answers at once, and everyone realizes her lineage is the key.",
+      },
+    ];
+
+    const update = await memoryTools.generateMemoryUpdate({
+      story,
+      fullMessages,
+      memoryRecords: [],
+      workspace: {
+        characters: [{ id: "lyra", name: "Lyra", core: { role: "Heir" }, traits: ["bloodline"] }],
+        worldbooks: [{ id: "archive", title: "Archive", category: "vault", rules: ["Only the bloodline key works"] }],
+        styles: [],
+      },
+      summaryTriggers: ["Manual smoke trigger"],
+    });
+
+    assert.equal(update.summaryRecords.length, 1);
+    assert.ok(update.summaryRecords[0].conflictGroup);
+    assert.ok(update.summaryRecords[0].canonKey);
+    assert.ok(update.summaryChunks.length > 0);
+    assert.equal(update.summaryChunks[0].conflictGroup, update.summaryRecords[0].conflictGroup);
+    assert.equal(update.summaryChunks[0].canonKey, update.summaryRecords[0].canonKey);
+  });
+
+  await runTest("memory consolidation carries canon keys and conflict groups into long-term records", () => {
+    const now = "2026-03-25T00:00:00.000Z";
+    const result = consolidateMemoryRecords(
+      [
+        {
+          id: "mem_rel_1",
+          tier: "short_term",
+          kind: "relationship_update",
+          scope: "relationship",
+          summary: "Lyra and Mira reconcile after the archive breach.",
+          subjectIds: ["lyra"],
+          objectIds: ["mira"],
+          entities: ["Lyra", "Mira"],
+          tags: ["reconcile", "archive"],
+          keywords: ["lyra", "mira", "reconcile", "archive"],
+          importance: "high",
+          confidence: 0.88,
+          createdAt: "2026-03-24T00:00:00.000Z",
+        },
+        {
+          id: "mem_rel_2",
+          tier: "short_term",
+          kind: "relationship_update",
+          scope: "relationship",
+          summary: "Lyra trusts Mira again as they protect the archive together.",
+          subjectIds: ["lyra"],
+          objectIds: ["mira"],
+          entities: ["Lyra", "Mira"],
+          tags: ["trust", "archive"],
+          keywords: ["lyra", "mira", "trust", "archive"],
+          importance: "high",
+          confidence: 0.86,
+          createdAt: "2026-03-24T00:02:00.000Z",
+        },
+      ],
+      {
+        now,
+        makeId: safeId,
+        shortTermThreshold: 2,
+      }
+    );
+
+    assert.equal(result.addedRecords.length, 1);
+    assert.equal(result.addedRecords[0].tier, "long_term");
+    assert.ok(result.addedRecords[0].conflictGroup);
+    assert.ok(result.addedRecords[0].canonKey);
   });
 
   await runTest("embedding config normalizes custom mirror hosts", () => {
@@ -554,7 +1039,7 @@ async function main() {
     }
   });
 
-  await runTest("server config keeps dedicated knowledge retrieval defaults and story overrides", async () => {
+  await runTest("server config keeps both retrieval systems pinned to rag", async () => {
     const rootDir = createTempRoot();
     try {
       const appConfigFile = path.join(rootDir, "app.json");
@@ -564,7 +1049,7 @@ async function main() {
           {
             theme: "dark",
             memoryRetrievalMode: "lexical",
-            knowledgeRetrievalMode: "hybrid",
+            knowledgeRetrievalMode: "lexical",
             localEmbedding: {
               mode: "off",
               provider: "transformers_local",
@@ -593,14 +1078,14 @@ async function main() {
         DEFAULT_GLOBAL_SYSTEM_PROMPT: "Global prompt",
       });
 
-      assert.equal(serverConfigTools.getAppConfig().knowledgeRetrievalMode, "hybrid");
-      assert.equal(serverConfigTools.getAppConfig().memoryRetrievalMode, "lexical");
+      assert.equal(serverConfigTools.getAppConfig().knowledgeRetrievalMode, "rag");
+      assert.equal(serverConfigTools.getAppConfig().memoryRetrievalMode, "rag");
       assert.equal(
-        serverConfigTools.buildNextStorySettings({ settings: {} }, { knowledgeRetrievalMode: "hybrid" }).knowledgeRetrievalMode,
-        "hybrid"
+        serverConfigTools.buildNextStorySettings({ settings: {} }, { knowledgeRetrievalMode: "lexical" }).knowledgeRetrievalMode,
+        "rag"
       );
       assert.equal(
-        serverConfigTools.buildNextStorySettings({ settings: {} }, { memoryRetrievalMode: "rag" }).memoryRetrievalMode,
+        serverConfigTools.buildNextStorySettings({ settings: {} }, { memoryRetrievalMode: "lexical" }).memoryRetrievalMode,
         "rag"
       );
     } finally {
@@ -608,7 +1093,7 @@ async function main() {
     }
   });
 
-  await runTest("hybrid retrieval stays lexical by default and can admit vector matches when enabled", () => {
+  await runTest("memory rag falls back lexically and can admit vector-enhanced fact matches", () => {
     const retrievalTools = createMemoryRetrievalTools({
       selectRelevantMemoryRecords,
       formatMemoryContext,
@@ -650,18 +1135,18 @@ async function main() {
       workspace: { characters: [], worldbooks: [], styles: [] },
       maxItems: 2,
     });
-    assert.equal(lexicalOnly.retrievalMeta.mode, "lexical");
+    assert.equal(lexicalOnly.retrievalMeta.mode, "rag");
+    assert.equal(lexicalOnly.retrievalMeta.activeMode, "lexical");
     assert.equal(lexicalOnly.retrievalMeta.vectorEnabled, false);
 
     const hybrid = retrievalTools.selectRelevantMemoryRecords(records, {
-      retrievalMode: "hybrid",
       userMessage: "What does the signal reveal?",
       messages: [],
       workspace: { characters: [], worldbooks: [], styles: [] },
       queryEmbedding: [0, 1],
       maxItems: 2,
     });
-    assert.equal(hybrid.retrievalMeta.mode, "hybrid");
+    assert.equal(hybrid.retrievalMeta.mode, "rag");
     assert.equal(hybrid.retrievalMeta.vectorEnabled, true);
     assert.ok(hybrid.selectedRecords.some((item) => item.id === "mem_b"));
   });
@@ -712,7 +1197,6 @@ async function main() {
     ];
 
     const result = retrievalTools.selectRelevantMemoryRecords(records, {
-      retrievalMode: "rag",
       userMessage: "How does Lyra open the archive?",
       messages: [],
       workspace: { characters: [], worldbooks: [], styles: [] },
@@ -727,6 +1211,289 @@ async function main() {
     assert.ok(result.selectedRecords.some((item) => item.id === "mem_truth"));
     assert.ok(result.selectedEvidenceChunks.some((item) => item.id === "chunk_truth"));
     assert.equal(result.retrievalMeta.evidenceSelectedCount, 1);
+  });
+
+  await runTest("memory rag can promote evidence-backed facts into the final fact set", () => {
+    const retrievalTools = createMemoryRetrievalTools({
+      selectRelevantMemoryRecords,
+      formatMemoryContext,
+      vectorSearchItems: createLocalVectorSearchItems({ minScore: 0.1, maxCandidates: 6 }),
+      isVectorSearchEnabled: (options = {}) => Array.isArray(options.queryEmbedding) && options.queryEmbedding.length > 0,
+    });
+
+    const records = [
+      {
+        id: "mem_archive",
+        tier: "short_term",
+        kind: "plot_checkpoint",
+        scope: "plot",
+        summary: "Lyra opened the archive seal.",
+        entities: ["Lyra", "archive"],
+        keywords: ["lyra", "archive", "seal"],
+        tags: ["archive"],
+        importance: "medium",
+        confidence: 0.62,
+        createdAt: "2026-03-23T00:00:00.000Z",
+      },
+      {
+        id: "mem_mirror",
+        tier: "short_term",
+        kind: "world_state",
+        scope: "world",
+        summary: "The mirror court is still asleep.",
+        entities: ["mirror court"],
+        keywords: ["mirror", "court", "asleep"],
+        tags: ["mirror"],
+        importance: "medium",
+        confidence: 0.58,
+        createdAt: "2026-03-23T00:01:00.000Z",
+      },
+      {
+        id: "mem_key",
+        tier: "long_term",
+        kind: "plot_checkpoint",
+        scope: "plot",
+        summary: "Lyra's bloodline key is the true trigger for the archive seal.",
+        entities: ["Lyra", "archive"],
+        keywords: ["lyra", "bloodline", "key", "archive", "seal"],
+        tags: ["archive", "bloodline", "key"],
+        importance: "high",
+        stability: "stable",
+        confidence: 0.91,
+        createdAt: "2026-03-23T00:02:00.000Z",
+      },
+    ];
+    const chunks = [
+      {
+        id: "chunk_key",
+        linkedRecordId: "mem_key",
+        text: "assistant: Lyra presses the bloodline key into the archive seal and the gate answers immediately.",
+        sourceRole: "mixed",
+        scope: "plot",
+        entities: ["Lyra", "archive"],
+        subjectIds: ["lyra"],
+        keywords: ["lyra", "bloodline", "key", "archive", "seal"],
+        tags: ["archive", "bloodline", "key"],
+        importance: "high",
+        stability: "stable",
+        confidence: 0.93,
+        embedding: [1, 0],
+        embeddingModel: "test-local",
+        createdAt: "2026-03-23T00:02:30.000Z",
+      },
+    ];
+
+    const result = retrievalTools.selectRelevantMemoryRecords(records, {
+      userMessage: "Why did the archive answer Lyra at all?",
+      messages: [],
+      workspace: { characters: [], worldbooks: [], styles: [] },
+      memoryChunks: chunks,
+      queryEmbedding: [1, 0],
+      maxItems: 2,
+      maxEvidenceItems: 1,
+    });
+
+    assert.ok(result.selectedEvidenceChunks.some((item) => item.id === "chunk_key"));
+    assert.ok(result.selectedRecords.some((item) => item.id === "mem_key"));
+    assert.ok(result.reasonsById.mem_key.includes("Supported by retrieved memory evidence"));
+  });
+
+  await runTest("memory rag keeps nearby conflicting facts visible as contested candidates", () => {
+    const retrievalTools = createMemoryRetrievalTools({
+      selectRelevantMemoryRecords: (memoryRecords, options = {}) => ({
+        selectedRecords: (memoryRecords || []).slice(0, Math.max(2, Number(options.maxItems) || 2)),
+        reasonsById: Object.fromEntries((memoryRecords || []).map((item) => [item.id, ["Lexical candidate"]]))
+      }),
+      formatMemoryContext,
+      isVectorSearchEnabled: () => false,
+    });
+
+    const records = [
+      {
+        id: "mem_key",
+        tier: "long_term",
+        kind: "plot_checkpoint",
+        scope: "plot",
+        summary: "Lyra's bloodline key opens the archive seal.",
+        entities: ["Lyra", "archive"],
+        keywords: ["lyra", "bloodline", "key", "archive", "seal"],
+        tags: ["archive", "bloodline", "key"],
+        importance: "high",
+        stability: "stable",
+        confidence: 0.92,
+        createdAt: "2026-03-23T00:02:00.000Z",
+      },
+      {
+        id: "mem_sigil",
+        tier: "short_term",
+        kind: "plot_checkpoint",
+        scope: "plot",
+        summary: "A mirror sigil may open the archive seal instead.",
+        entities: ["Lyra", "archive"],
+        keywords: ["lyra", "mirror", "sigil", "archive", "seal"],
+        tags: ["archive", "sigil"],
+        importance: "medium",
+        confidence: 0.84,
+        createdAt: "2026-03-23T00:01:30.000Z",
+      },
+    ];
+
+    const result = retrievalTools.selectRelevantMemoryRecords(records, {
+      userMessage: "Does Lyra's bloodline key or a mirror sigil open the archive seal?",
+      messages: [],
+      workspace: { characters: [], worldbooks: [], styles: [] },
+      maxItems: 1,
+      maxEvidenceItems: 0,
+    });
+
+    assert.ok(result.selectedRecords.some((item) => item.id === "mem_key"));
+    assert.ok(result.contestedRecords.some((item) => item.id === "mem_sigil"));
+    assert.ok(result.contestedReasonsById.mem_sigil.includes("Competes with a selected memory fact in the same canon slot"));
+    assert.equal(result.retrievalMeta.contestedCandidateCount, 1);
+  });
+
+  await runTest("memory rag does not flag complementary same-subject facts as contested by default", () => {
+    const retrievalTools = createMemoryRetrievalTools({
+      selectRelevantMemoryRecords: (memoryRecords, options = {}) => ({
+        selectedRecords: (memoryRecords || []).slice(0, Math.max(2, Number(options.maxItems) || 2)),
+        reasonsById: Object.fromEntries((memoryRecords || []).map((item) => [item.id, ["Lexical candidate"]])),
+      }),
+      formatMemoryContext,
+      isVectorSearchEnabled: () => false,
+    });
+
+    const records = [
+      {
+        id: "mem_key",
+        tier: "long_term",
+        kind: "plot_checkpoint",
+        scope: "plot",
+        subjectIds: ["lyra"],
+        summary: "Lyra's bloodline key opens the archive seal.",
+        entities: ["Lyra", "archive"],
+        keywords: ["lyra", "bloodline", "key", "archive", "seal"],
+        tags: ["archive", "bloodline", "key"],
+        importance: "high",
+        stability: "stable",
+        confidence: 0.92,
+        createdAt: "2026-03-23T00:02:00.000Z",
+      },
+      {
+        id: "mem_lineage",
+        tier: "short_term",
+        kind: "character_update",
+        scope: "plot",
+        subjectIds: ["lyra"],
+        summary: "Lyra learns the archive builders belonged to her family line.",
+        entities: ["Lyra", "archive builders"],
+        keywords: ["lyra", "family", "lineage", "builders"],
+        tags: ["lineage", "family"],
+        importance: "medium",
+        confidence: 0.81,
+        createdAt: "2026-03-23T00:01:30.000Z",
+      },
+    ];
+
+    const result = retrievalTools.selectRelevantMemoryRecords(records, {
+      userMessage: "What does Lyra know about the archive now?",
+      messages: [],
+      workspace: { characters: [], worldbooks: [], styles: [] },
+      maxItems: 1,
+      maxEvidenceItems: 0,
+    });
+
+    assert.ok(result.selectedRecords.some((item) => item.id === "mem_key"));
+    assert.equal(result.contestedRecords.length, 0);
+    assert.equal(result.retrievalMeta.contestedCandidateCount, 0);
+  });
+
+  await runTest("memory rag diversifies evidence across linked facts when multiple chunks compete", () => {
+    const retrievalTools = createMemoryRetrievalTools({
+      selectRelevantMemoryRecords,
+      formatMemoryContext,
+      vectorSearchItems: createLocalVectorSearchItems({ minScore: 0.1, maxCandidates: 6 }),
+      isVectorSearchEnabled: () => false,
+    });
+
+    const records = [
+      {
+        id: "mem_key",
+        tier: "long_term",
+        kind: "plot_checkpoint",
+        scope: "plot",
+        summary: "Lyra's key opens the archive seal.",
+        entities: ["Lyra", "archive"],
+        keywords: ["lyra", "key", "archive", "seal"],
+        tags: ["archive", "key"],
+        importance: "high",
+        stability: "stable",
+        createdAt: "2026-03-23T00:00:00.000Z",
+      },
+      {
+        id: "mem_song",
+        tier: "long_term",
+        kind: "plot_checkpoint",
+        scope: "plot",
+        summary: "The mirror door answers to a hidden song.",
+        entities: ["mirror door"],
+        keywords: ["mirror", "door", "song"],
+        tags: ["mirror", "song"],
+        importance: "high",
+        stability: "stable",
+        createdAt: "2026-03-23T00:01:00.000Z",
+      },
+    ];
+    const chunks = [
+      {
+        id: "chunk_key_1",
+        linkedRecordId: "mem_key",
+        text: "Lyra presses the key into the seal and the archive groans open.",
+        scope: "plot",
+        entities: ["Lyra", "archive"],
+        keywords: ["lyra", "key", "archive", "seal"],
+        tags: ["archive", "key"],
+        importance: "high",
+        stability: "stable",
+        createdAt: "2026-03-23T00:00:30.000Z",
+      },
+      {
+        id: "chunk_key_2",
+        linkedRecordId: "mem_key",
+        text: "The seal only yields when Lyra's key turns fully in the lock.",
+        scope: "plot",
+        entities: ["Lyra", "seal"],
+        keywords: ["lyra", "key", "seal", "lock"],
+        tags: ["archive", "key"],
+        importance: "high",
+        stability: "stable",
+        createdAt: "2026-03-23T00:00:40.000Z",
+      },
+      {
+        id: "chunk_song",
+        linkedRecordId: "mem_song",
+        text: "The mirror door opens only after the hidden song is sung aloud.",
+        scope: "plot",
+        entities: ["mirror door"],
+        keywords: ["mirror", "door", "song"],
+        tags: ["mirror", "song"],
+        importance: "high",
+        stability: "stable",
+        createdAt: "2026-03-23T00:01:30.000Z",
+      },
+    ];
+
+    const result = retrievalTools.selectRelevantMemoryRecords(records, {
+      userMessage: "How do Lyra's key and the mirror door work together?",
+      messages: [],
+      workspace: { characters: [], worldbooks: [], styles: [] },
+      memoryChunks: chunks,
+      maxItems: 2,
+      maxEvidenceItems: 2,
+    });
+
+    const linkedIds = result.selectedEvidenceChunks.map((item) => item.linkedRecordId);
+    assert.ok(linkedIds.includes("mem_key"));
+    assert.ok(linkedIds.includes("mem_song"));
   });
 
   await runTest("knowledge retrieval records the actual vector backend when fallback vectors are used", async () => {
@@ -774,7 +1541,6 @@ async function main() {
         provider: "transformers_local",
         model: "Xenova/all-MiniLM-L6-v2",
       },
-      retrievalMode: "hybrid",
       maxItems: 2,
     });
 
@@ -782,13 +1548,13 @@ async function main() {
     assert.ok(cacheEntries.length > 0);
     assert.ok(cacheEntries.every((item) => item.provider === "hash_v1"));
     assert.ok(cacheEntries.every((item) => item.fallbackUsed === true));
-    assert.equal(result.retrievalMeta.mode, "hybrid");
+    assert.equal(result.retrievalMeta.mode, "rag");
     assert.equal(result.retrievalMeta.vectorEnabled, true);
     assert.equal(result.retrievalMeta.vectorProvider, "hash_v1");
     assert.equal(result.retrievalMeta.vectorFallbackUsed, true);
   });
 
-  await runTest("hybrid knowledge retrieval can admit semantic-only candidates", async () => {
+  await runTest("knowledge rag can admit semantic-only candidates", async () => {
     const retrievalTools = createKnowledgeRetrievalTools({
       embedTextDetailed: async (text) => {
         if (text.includes("Which clue opens the sealed lock")) {
@@ -845,7 +1611,6 @@ async function main() {
       },
       userMessage: "Which clue opens the sealed lock?",
       messages: [{ role: "user", content: "Which clue opens the sealed lock?" }],
-      retrievalMode: "hybrid",
       embeddingOptions: {
         mode: "on",
         provider: "transformers_local",
@@ -854,8 +1619,8 @@ async function main() {
       maxItems: 2,
     });
 
-    assert.equal(result.retrievalMeta.mode, "hybrid");
-    assert.equal(result.retrievalMeta.activeMode, "hybrid");
+    assert.equal(result.retrievalMeta.mode, "rag");
+    assert.equal(result.retrievalMeta.activeMode, "rag");
     assert.ok(result.retrievalMeta.vectorCandidateCount > 0);
     assert.ok(result.selectedChunks.some((item) => (item.reasons || []).includes("Local vector similarity")));
   });
@@ -1193,6 +1958,565 @@ async function main() {
       assert.ok(!Object.prototype.hasOwnProperty.call(calls[1].payload, "reasoning_effort"));
     } finally {
       global.fetch = originalFetch;
+    }
+  });
+
+  await runTest("chat diagnostics persist the post-response grounding check", async () => {
+    const rootDir = createTempRoot();
+    try {
+      const harness = createStoreHarness(rootDir);
+      const story = harness.createDefaultStory({
+        title: "Grounding Smoke",
+        providerId: "provider_1",
+        model: "test-model",
+        enabled: { characters: [], worldbooks: [], styles: [] },
+      });
+
+      const chatTools = createChatTools({
+        safeId,
+        summarizeText,
+        jsonResponse: (status, data) => ({ status, data }),
+        sendJson: () => {},
+        getAppConfig: () => ({ globalSystemPrompt: "Global prompt", localEmbedding: { mode: "off" } }),
+        getStory: harness.getStory,
+        saveStory: harness.saveStory,
+        getProviderForStory: () => ({
+          id: "provider_1",
+          name: "Smoke Provider",
+          baseUrl: "http://example.test",
+          model: "test-model",
+          encryptedApiKey: { mock: true },
+        }),
+        decryptSecret: () => "test-key",
+        syncStoryWorkspace: harness.workspaceTools.syncStoryWorkspace,
+        loadActiveWorkspaceItems: harness.workspaceTools.loadActiveWorkspaceItems,
+        readJsonLines: harness.readJsonLines,
+        appendJsonLine: harness.appendJsonLine,
+        writeJson: harness.writeJson,
+        writeJsonLines: harness.writeJsonLines,
+        getStoryMessagesFile: harness.getStoryMessagesFile,
+        getStoryMemoryFile: harness.getStoryMemoryFile,
+        getStoryMemoryChunkFile: harness.getStoryMemoryChunkFile,
+        getStoryProposalFile: harness.getStoryProposalFile,
+        getStorySnapshotFile: harness.getStorySnapshotFile,
+        getStoryWorkspaceDir: harness.getStoryWorkspaceDir,
+        getDefaultContextStatus: (storyValue) => storyValue.contextStatus,
+        buildContextBlocks: async () => ({
+          blocks: [
+            { label: "system:global", content: "Global prompt", tokens: 3, priority: 100 },
+            { label: "system:story", content: "Story prompt", tokens: 3, priority: 95 },
+            { label: "system:retrieval_policy", content: "Grounding policy for this response:", tokens: 6, priority: 97 },
+            { label: "memory:grounding", content: "Memory grounding rules:", tokens: 4, priority: 87 },
+          ],
+          usedTokens: 16,
+          maxTokens: 100,
+          usedBlocks: 0,
+          maxBlocks: 6,
+          memoryRetrievalMeta: {
+            mode: "rag",
+            activeMode: "rag",
+            vectorEnabled: false,
+            vectorCandidateCount: 0,
+            vectorSelectedCount: 0,
+            evidenceCandidateCount: 1,
+            evidenceSelectedCount: 1,
+            contestedCandidateCount: 0,
+            fallbackReason: "",
+          },
+          knowledgeRetrievalMeta: {
+            mode: "rag",
+            activeMode: "lexical",
+            vectorEnabled: false,
+            vectorCandidateCount: 0,
+            vectorSelectedCount: 0,
+            chunkCount: 1,
+            fallbackReason: "",
+          },
+          selectedKnowledgeChunks: [{ id: "kg_1", text: "The archive answers to Lyra's bloodline key." }],
+          selectedMemoryRecords: [{ id: "mem_1", summary: "Lyra's bloodline key opens the archive." }],
+          selectedMemoryReasons: { mem_1: ["Matched keywords: lyra, archive, key"] },
+          selectedMemoryEvidence: [{ id: "chunk_1", text: "assistant: Lyra presses the bloodline key into the seal." }],
+          selectedMemoryEvidenceReasons: { chunk_1: ["Supported by retrieved memory evidence"] },
+          selectedContestedMemoryRecords: [],
+          selectedContestedMemoryReasons: {},
+        }),
+        classifyPressure: () => "low",
+        getSummaryTriggers: () => [],
+        getSummarySchedule: () => ({ configuredRounds: 4, nextRound: 2, remainingRounds: 2 }),
+        buildTransientMemoryCandidate: () => null,
+        generateMemoryUpdate: async () => ({
+          summarySchedule: { configuredRounds: 4, nextRound: 2, remainingRounds: 2 },
+          summaryRecords: [],
+          summaryChunks: [],
+          consolidatedMemoryRecords: [],
+          consolidatedMemorySourceIds: [],
+          supersededLongTermIds: [],
+          records: [],
+          chunks: [],
+        }),
+        generateProposalUpdate: async () => ({
+          proposalRecords: [],
+          proposalTriggers: [],
+          proposalPipeline: { stage: "not_triggered", triggerCount: 0, generatedCount: 0, triggers: [], error: "" },
+        }),
+        detectForgetfulness: () => ({
+          pressureLevel: "low",
+          forgetfulnessState: "normal",
+          forgetfulnessReasons: [],
+          forgetfulnessSignals: { pressure: [], omission: [], conflict: [] },
+        }),
+        evaluateAssistantGrounding: () => ({
+          state: "caution",
+          supportedClauseCount: 1,
+          unsupportedClauseCount: 1,
+          contestedClauseCount: 0,
+          knowledgeSupportCount: 1,
+          memoryFactSupportCount: 1,
+          memoryEvidenceSupportCount: 1,
+          supportedClauses: [
+            {
+              text: "Lyra opens the archive with the key.",
+              reasons: ["Supported by selected memory facts"],
+              supportRefs: [
+                {
+                  sourceType: "memory_fact",
+                  preview: "Lyra's bloodline key opens the archive.",
+                  matchedTerms: ["lyra", "archive", "key"],
+                },
+              ],
+            },
+          ],
+          unsupportedClauses: [
+            {
+              text: "A hidden choir descends from the ceiling.",
+              reasons: ["No strong memory or knowledge grounding matched this clause"],
+              supportRefs: [],
+            },
+          ],
+          contestedClauses: [],
+          notes: ["Part of the answer may be under-grounded."],
+        }),
+        buildEndpointUrl: () => "http://example.test/chat/completions",
+        callOpenAICompatible: async () => ({
+          content: "Lyra opens the archive with the key. A hidden choir descends from the ceiling.",
+          meta: { endpoint: "http://example.test/chat/completions", latencyMs: 1, promptMessages: 1 },
+        }),
+        streamOpenAICompatible: async () => {
+          throw new Error("Streaming should not be called in smoke tests");
+        },
+      });
+
+      const response = await chatTools.handleChat(story.id, { message: "Continue the scene." });
+      assert.equal(response.status, 200);
+      assert.equal(response.data.diagnostics.latestSnapshot.groundingCheck.state, "caution");
+      assert.equal(response.data.diagnostics.groundingCheck.state, "caution");
+      assert.equal(response.data.diagnostics.latestSnapshot.groundingCheck.unsupportedClauseCount, 1);
+      assert.equal(
+        response.data.diagnostics.latestSnapshot.groundingCheck.supportedClauses[0]?.supportRefs?.[0]?.sourceType,
+        "memory_fact"
+      );
+    } finally {
+      fs.rmSync(rootDir, { recursive: true, force: true });
+    }
+  });
+
+  await runTest("chat auto-repairs risky grounded replies before finalizing", async () => {
+    const rootDir = createTempRoot();
+    try {
+      const harness = createStoreHarness(rootDir);
+      const story = harness.createDefaultStory({
+        title: "Grounding Repair Smoke",
+        providerId: "provider_1",
+        model: "test-model",
+        enabled: { characters: [], worldbooks: [], styles: [] },
+      });
+      const providerCalls = [];
+
+      const chatTools = createChatTools({
+        safeId,
+        summarizeText,
+        jsonResponse: (status, data) => ({ status, data }),
+        sendJson: () => {},
+        getAppConfig: () => ({ globalSystemPrompt: "Global prompt", localEmbedding: { mode: "off" } }),
+        getStory: harness.getStory,
+        saveStory: harness.saveStory,
+        getProviderForStory: () => ({
+          id: "provider_1",
+          name: "Smoke Provider",
+          baseUrl: "http://example.test",
+          model: "test-model",
+          encryptedApiKey: { mock: true },
+        }),
+        decryptSecret: () => "test-key",
+        syncStoryWorkspace: harness.workspaceTools.syncStoryWorkspace,
+        loadActiveWorkspaceItems: harness.workspaceTools.loadActiveWorkspaceItems,
+        readJsonLines: harness.readJsonLines,
+        appendJsonLine: harness.appendJsonLine,
+        writeJson: harness.writeJson,
+        writeJsonLines: harness.writeJsonLines,
+        getStoryMessagesFile: harness.getStoryMessagesFile,
+        getStoryMemoryFile: harness.getStoryMemoryFile,
+        getStoryMemoryChunkFile: harness.getStoryMemoryChunkFile,
+        getStoryProposalFile: harness.getStoryProposalFile,
+        getStorySnapshotFile: harness.getStorySnapshotFile,
+        getStoryWorkspaceDir: harness.getStoryWorkspaceDir,
+        getDefaultContextStatus: (storyValue) => storyValue.contextStatus,
+        buildContextBlocks: async () => ({
+          blocks: [
+            { label: "system:global", content: "Global prompt", tokens: 3, priority: 100 },
+            { label: "system:story", content: "Story prompt", tokens: 3, priority: 95 },
+            { label: "system:retrieval_policy", content: "Grounding policy for this response:", tokens: 6, priority: 97 },
+            { label: "memory:grounding", content: "Memory grounding rules:", tokens: 4, priority: 87 },
+          ],
+          usedTokens: 16,
+          maxTokens: 100,
+          usedBlocks: 0,
+          maxBlocks: 6,
+          memoryRetrievalMeta: {
+            mode: "rag",
+            activeMode: "rag",
+            vectorEnabled: false,
+            vectorCandidateCount: 0,
+            vectorSelectedCount: 0,
+            evidenceCandidateCount: 1,
+            evidenceSelectedCount: 1,
+            contestedCandidateCount: 0,
+            fallbackReason: "",
+          },
+          knowledgeRetrievalMeta: {
+            mode: "rag",
+            activeMode: "lexical",
+            vectorEnabled: false,
+            vectorCandidateCount: 0,
+            vectorSelectedCount: 0,
+            chunkCount: 1,
+            fallbackReason: "",
+          },
+          selectedKnowledgeChunks: [{ id: "kg_1", text: "The archive answers to Lyra's bloodline key." }],
+          selectedMemoryRecords: [{ id: "mem_1", summary: "Lyra's bloodline key opens the archive." }],
+          selectedMemoryReasons: { mem_1: ["Matched keywords: lyra, archive, key"] },
+          selectedMemoryEvidence: [{ id: "chunk_1", text: "assistant: Lyra presses the bloodline key into the seal." }],
+          selectedMemoryEvidenceReasons: { chunk_1: ["Supported by retrieved memory evidence"] },
+          selectedContestedMemoryRecords: [],
+          selectedContestedMemoryReasons: {},
+        }),
+        classifyPressure: () => "low",
+        getSummaryTriggers: () => [],
+        getSummarySchedule: () => ({ configuredRounds: 4, nextRound: 2, remainingRounds: 2 }),
+        buildTransientMemoryCandidate: () => null,
+        generateMemoryUpdate: async () => ({
+          summarySchedule: { configuredRounds: 4, nextRound: 2, remainingRounds: 2 },
+          summaryRecords: [],
+          summaryChunks: [],
+          consolidatedMemoryRecords: [],
+          consolidatedMemorySourceIds: [],
+          supersededLongTermIds: [],
+          records: [],
+          chunks: [],
+        }),
+        generateProposalUpdate: async () => ({
+          proposalRecords: [],
+          proposalTriggers: [],
+          proposalPipeline: { stage: "not_triggered", triggerCount: 0, generatedCount: 0, triggers: [], error: "" },
+        }),
+        detectForgetfulness: () => ({
+          pressureLevel: "low",
+          forgetfulnessState: "normal",
+          forgetfulnessReasons: [],
+          forgetfulnessSignals: { pressure: [], omission: [], conflict: [] },
+        }),
+        evaluateAssistantGrounding: ({ assistantText }) => {
+          if (/hidden choir/i.test(assistantText)) {
+            return {
+              state: "risk",
+              supportedClauseCount: 1,
+              unsupportedClauseCount: 2,
+              contestedClauseCount: 0,
+              knowledgeSupportCount: 1,
+              memoryFactSupportCount: 1,
+              memoryEvidenceSupportCount: 1,
+              supportedClauses: [
+                {
+                  text: "Lyra opens the archive with the key.",
+                  reasons: ["Supported by selected memory facts"],
+                  supportRefs: [
+                    {
+                      sourceType: "memory_fact",
+                      preview: "Lyra's bloodline key opens the archive.",
+                      matchedTerms: ["lyra", "archive", "key"],
+                    },
+                  ],
+                },
+              ],
+              unsupportedClauses: [
+                {
+                  text: "A hidden choir descends from the ceiling.",
+                  reasons: ["No strong memory or knowledge grounding matched this clause"],
+                  supportRefs: [],
+                },
+                {
+                  text: "The chamber floods with silver birds.",
+                  reasons: ["No strong memory or knowledge grounding matched this clause"],
+                  supportRefs: [],
+                },
+              ],
+              contestedClauses: [],
+              notes: ["Multiple answer clauses were not grounded in the retrieved memory or knowledge context."],
+            };
+          }
+          return {
+            state: "grounded",
+            supportedClauseCount: 1,
+            unsupportedClauseCount: 0,
+            contestedClauseCount: 0,
+            knowledgeSupportCount: 1,
+            memoryFactSupportCount: 1,
+            memoryEvidenceSupportCount: 1,
+            supportedClauses: [
+              {
+                text: "Lyra opens the archive with the key.",
+                reasons: ["Supported by selected memory facts"],
+                supportRefs: [
+                  {
+                    sourceType: "memory_fact",
+                    preview: "Lyra's bloodline key opens the archive.",
+                    matchedTerms: ["lyra", "archive", "key"],
+                  },
+                ],
+              },
+            ],
+            unsupportedClauses: [],
+            contestedClauses: [],
+            notes: ["The answer stayed aligned with the retrieved memory and knowledge context."],
+          };
+        },
+        buildEndpointUrl: () => "http://example.test/chat/completions",
+        callOpenAICompatible: async ({ messages }) => {
+          providerCalls.push(messages);
+          if (providerCalls.length === 1) {
+            return {
+              content: "Lyra opens the archive with the key. A hidden choir descends from the ceiling. The chamber floods with silver birds.",
+              meta: { endpoint: "http://example.test/chat/completions", latencyMs: 5, promptMessages: messages.length },
+            };
+          }
+          return {
+            content: "Lyra opens the archive with the key.",
+            meta: { endpoint: "http://example.test/chat/completions", latencyMs: 7, promptMessages: messages.length },
+          };
+        },
+        streamOpenAICompatible: async () => {
+          throw new Error("Streaming should not be called in smoke tests");
+        },
+      });
+
+      const response = await chatTools.handleChat(story.id, { message: "Continue the scene." });
+      assert.equal(response.status, 200);
+      assert.equal(response.data.message.content, "Lyra opens the archive with the key.");
+      assert.equal(providerCalls.length, 2);
+      const repairPrompt = providerCalls[1][providerCalls[1].length - 1]?.content || "";
+      assert.match(repairPrompt, /Grounded clauses to preserve if possible/i);
+      assert.match(repairPrompt, /Canon support: memory fact: Lyra's bloodline key opens the archive/i);
+      assert.equal(response.data.diagnostics.latestSnapshot.groundingCheck.state, "grounded");
+      assert.equal(response.data.diagnostics.latestSnapshot.groundingRepair.attempted, true);
+      assert.equal(response.data.diagnostics.latestSnapshot.groundingRepair.applied, true);
+      assert.equal(response.data.diagnostics.latestSnapshot.requestMeta.latencyMs, 12);
+    } finally {
+      fs.rmSync(rootDir, { recursive: true, force: true });
+    }
+  });
+
+  await runTest("streaming chat emits a replace event when grounding repair rewrites the final answer", async () => {
+    const rootDir = createTempRoot();
+    try {
+      const harness = createStoreHarness(rootDir);
+      const story = harness.createDefaultStory({
+        title: "Streaming Grounding Repair Smoke",
+        providerId: "provider_1",
+        model: "test-model",
+        enabled: { characters: [], worldbooks: [], styles: [] },
+      });
+
+      const chatTools = createChatTools({
+        safeId,
+        summarizeText,
+        jsonResponse: (status, data) => ({ status, data }),
+        sendJson: () => {},
+        getAppConfig: () => ({ globalSystemPrompt: "Global prompt", localEmbedding: { mode: "off" } }),
+        getStory: harness.getStory,
+        saveStory: harness.saveStory,
+        getProviderForStory: () => ({
+          id: "provider_1",
+          name: "Smoke Provider",
+          baseUrl: "http://example.test",
+          model: "test-model",
+          encryptedApiKey: { mock: true },
+        }),
+        decryptSecret: () => "test-key",
+        syncStoryWorkspace: harness.workspaceTools.syncStoryWorkspace,
+        loadActiveWorkspaceItems: harness.workspaceTools.loadActiveWorkspaceItems,
+        readJsonLines: harness.readJsonLines,
+        appendJsonLine: harness.appendJsonLine,
+        writeJson: harness.writeJson,
+        writeJsonLines: harness.writeJsonLines,
+        getStoryMessagesFile: harness.getStoryMessagesFile,
+        getStoryMemoryFile: harness.getStoryMemoryFile,
+        getStoryMemoryChunkFile: harness.getStoryMemoryChunkFile,
+        getStoryProposalFile: harness.getStoryProposalFile,
+        getStorySnapshotFile: harness.getStorySnapshotFile,
+        getStoryWorkspaceDir: harness.getStoryWorkspaceDir,
+        getDefaultContextStatus: (storyValue) => storyValue.contextStatus,
+        buildContextBlocks: async () => ({
+          blocks: [
+            { label: "system:global", content: "Global prompt", tokens: 3, priority: 100 },
+            { label: "system:story", content: "Story prompt", tokens: 3, priority: 95 },
+            { label: "system:retrieval_policy", content: "Grounding policy for this response:", tokens: 6, priority: 97 },
+            { label: "memory:grounding", content: "Memory grounding rules:", tokens: 4, priority: 87 },
+          ],
+          usedTokens: 16,
+          maxTokens: 100,
+          usedBlocks: 0,
+          maxBlocks: 6,
+          memoryRetrievalMeta: {
+            mode: "rag",
+            activeMode: "rag",
+            vectorEnabled: false,
+            vectorCandidateCount: 0,
+            vectorSelectedCount: 0,
+            evidenceCandidateCount: 1,
+            evidenceSelectedCount: 1,
+            contestedCandidateCount: 0,
+            fallbackReason: "",
+          },
+          knowledgeRetrievalMeta: {
+            mode: "rag",
+            activeMode: "lexical",
+            vectorEnabled: false,
+            vectorCandidateCount: 0,
+            vectorSelectedCount: 0,
+            chunkCount: 1,
+            fallbackReason: "",
+          },
+          selectedKnowledgeChunks: [{ id: "kg_1", text: "The archive answers to Lyra's bloodline key." }],
+          selectedMemoryRecords: [{ id: "mem_1", summary: "Lyra's bloodline key opens the archive." }],
+          selectedMemoryReasons: { mem_1: ["Matched keywords: lyra, archive, key"] },
+          selectedMemoryEvidence: [{ id: "chunk_1", text: "assistant: Lyra presses the bloodline key into the seal." }],
+          selectedMemoryEvidenceReasons: { chunk_1: ["Supported by retrieved memory evidence"] },
+          selectedContestedMemoryRecords: [],
+          selectedContestedMemoryReasons: {},
+        }),
+        classifyPressure: () => "low",
+        getSummaryTriggers: () => [],
+        getSummarySchedule: () => ({ configuredRounds: 4, nextRound: 2, remainingRounds: 2 }),
+        buildTransientMemoryCandidate: () => null,
+        generateMemoryUpdate: async () => ({
+          summarySchedule: { configuredRounds: 4, nextRound: 2, remainingRounds: 2 },
+          summaryRecords: [],
+          summaryChunks: [],
+          consolidatedMemoryRecords: [],
+          consolidatedMemorySourceIds: [],
+          supersededLongTermIds: [],
+          records: [],
+          chunks: [],
+        }),
+        generateProposalUpdate: async () => ({
+          proposalRecords: [],
+          proposalTriggers: [],
+          proposalPipeline: { stage: "not_triggered", triggerCount: 0, generatedCount: 0, triggers: [], error: "" },
+        }),
+        detectForgetfulness: () => ({
+          pressureLevel: "low",
+          forgetfulnessState: "normal",
+          forgetfulnessReasons: [],
+          forgetfulnessSignals: { pressure: [], omission: [], conflict: [] },
+        }),
+        evaluateAssistantGrounding: ({ assistantText }) => {
+          if (/hidden choir/i.test(assistantText)) {
+            return {
+              state: "risk",
+              supportedClauseCount: 1,
+              unsupportedClauseCount: 2,
+              contestedClauseCount: 0,
+              knowledgeSupportCount: 1,
+              memoryFactSupportCount: 1,
+              memoryEvidenceSupportCount: 1,
+              supportedClauses: [{ text: "Lyra opens the archive with the key.", reasons: ["Supported by selected memory facts"] }],
+              unsupportedClauses: [
+                { text: "A hidden choir descends from the ceiling.", reasons: ["No strong memory or knowledge grounding matched this clause"] },
+                { text: "The chamber floods with silver birds.", reasons: ["No strong memory or knowledge grounding matched this clause"] },
+              ],
+              contestedClauses: [],
+              notes: ["Multiple answer clauses were not grounded in the retrieved memory or knowledge context."],
+            };
+          }
+          return {
+            state: "grounded",
+            supportedClauseCount: 1,
+            unsupportedClauseCount: 0,
+            contestedClauseCount: 0,
+            knowledgeSupportCount: 1,
+            memoryFactSupportCount: 1,
+            memoryEvidenceSupportCount: 1,
+            supportedClauses: [{ text: "Lyra opens the archive with the key.", reasons: ["Supported by selected memory facts"] }],
+            unsupportedClauses: [],
+            contestedClauses: [],
+            notes: ["The answer stayed aligned with the retrieved memory and knowledge context."],
+          };
+        },
+        buildEndpointUrl: () => "http://example.test/chat/completions",
+        callOpenAICompatible: async () => ({
+          content: "Lyra opens the archive with the key.",
+          meta: { endpoint: "http://example.test/chat/completions", latencyMs: 7, promptMessages: 6 },
+        }),
+        streamOpenAICompatible: async () => ({
+          endpoint: "http://example.test/chat/completions",
+          startedAt: Date.now() - 5,
+          stream: new ReadableStream({
+            start(controller) {
+              controller.enqueue(
+                new TextEncoder().encode(
+                  [
+                    'data: {"choices":[{"delta":{"content":"Lyra opens the archive with the key. "}}]}',
+                    'data: {"choices":[{"delta":{"content":"A hidden choir descends from the ceiling. "}}]}',
+                    'data: {"choices":[{"delta":{"content":"The chamber floods with silver birds."}}]}',
+                    "data: [DONE]",
+                    "",
+                  ].join("\n")
+                )
+              );
+              controller.close();
+            },
+          }),
+        }),
+      });
+
+      const req = new EventEmitter();
+      const chunks = [];
+      const res = {
+        writableEnded: false,
+        writeHead() {},
+        write(chunk) {
+          chunks.push(String(chunk));
+        },
+        end() {
+          this.writableEnded = true;
+        },
+      };
+
+      await chatTools.handleChatStream(req, res, story.id, { message: "Continue the scene." });
+      const events = chunks
+        .join("")
+        .split(/\r?\n/)
+        .filter(Boolean)
+        .map((line) => JSON.parse(line));
+      const replaceEvent = events.find((item) => item.type === "replace");
+      const doneEvent = events.find((item) => item.type === "done");
+
+      assert.ok(replaceEvent);
+      assert.equal(replaceEvent.text, "Lyra opens the archive with the key.");
+      assert.equal(doneEvent.payload.message.content, "Lyra opens the archive with the key.");
+      assert.equal(doneEvent.payload.diagnostics.latestSnapshot.groundingRepair.applied, true);
+    } finally {
+      fs.rmSync(rootDir, { recursive: true, force: true });
     }
   });
 

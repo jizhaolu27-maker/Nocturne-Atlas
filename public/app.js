@@ -49,8 +49,6 @@ const els = {
   statusPressure: document.getElementById("status-pressure"),
   statusForgetfulness: document.getElementById("status-forgetfulness"),
   statusReasons: document.getElementById("status-reasons"),
-  appMemoryRetrievalMode: document.getElementById("app-memory-retrieval-mode"),
-  appKnowledgeRetrievalMode: document.getElementById("app-knowledge-retrieval-mode"),
   appLocalEmbeddingMode: document.getElementById("app-local-embedding-mode"),
   appLocalEmbeddingRemoteHost: document.getElementById("app-local-embedding-remote-host"),
   prewarmLocalEmbeddingBtn: document.getElementById("prewarm-local-embedding-btn"),
@@ -71,8 +69,6 @@ const els = {
   storyConfigModel: document.getElementById("story-config-model"),
   storyConfigContextBlocks: document.getElementById("story-config-context-blocks"),
   storyConfigSummaryInterval: document.getElementById("story-config-summary-interval"),
-  storyConfigMemoryRetrievalMode: document.getElementById("story-config-memory-retrieval-mode"),
-  storyConfigKnowledgeRetrievalMode: document.getElementById("story-config-knowledge-retrieval-mode"),
   storyConfigLocalEmbeddingMode: document.getElementById("story-config-local-embedding-mode"),
   storyConfigTemperature: document.getElementById("story-config-temperature"),
   storyConfigReasoningEffort: document.getElementById("story-config-reasoning-effort"),
@@ -89,6 +85,8 @@ const els = {
   saveLibraryBtn: document.getElementById("save-library-btn"),
   newLibraryBtn: document.getElementById("new-library-btn"),
   deleteLibraryBtn: document.getElementById("delete-library-btn"),
+  diagnosticHighlights: document.getElementById("diagnostic-highlights"),
+  diagnosticWarnings: document.getElementById("diagnostic-warnings"),
   diagnosticTriggers: document.getElementById("diagnostic-triggers"),
   diagnosticContextBlocks: document.getElementById("diagnostic-context-blocks"),
   diagnosticPromptPreview: document.getElementById("diagnostic-prompt-preview"),
@@ -230,11 +228,6 @@ function parseNumberInput(value, fallback) {
   return Number.isFinite(parsed) ? parsed : fallback;
 }
 
-function parseMemoryRetrievalMode(value, fallback = "lexical") {
-  const normalized = String(value || "").trim().toLowerCase();
-  return ["lexical", "hybrid", "rag"].includes(normalized) ? normalized : fallback;
-}
-
 const {
   prewarmLocalEmbeddingModel,
   renderLocalEmbeddingResult,
@@ -373,15 +366,11 @@ function renderEmptyState() {
   els.storyConfigModel.value = "";
   els.storyConfigContextBlocks.value = 20;
   els.storyConfigSummaryInterval.value = 20;
-  els.storyConfigMemoryRetrievalMode.value = "inherit";
-  els.storyConfigKnowledgeRetrievalMode.value = "inherit";
   els.storyConfigLocalEmbeddingMode.value = "inherit";
   els.storyConfigTemperature.value = 1;
   els.storyConfigReasoningEffort.value = "inherit";
   els.storyConfigMaxCompletion.value = 120000;
   els.promptGlobal.value = state.appConfig?.globalSystemPrompt || "";
-  els.appMemoryRetrievalMode.value = state.appConfig?.memoryRetrievalMode || "lexical";
-  els.appKnowledgeRetrievalMode.value = state.appConfig?.knowledgeRetrievalMode || "lexical";
   els.appLocalEmbeddingMode.value = state.appConfig?.localEmbedding?.mode || "off";
   els.appLocalEmbeddingRemoteHost.value = state.appConfig?.localEmbedding?.remoteHost || "";
   els.promptStory.value = "";
@@ -438,15 +427,11 @@ function renderStory() {
   els.storyConfigModel.value = story.model || "";
   els.storyConfigContextBlocks.value = story.settings?.contextBlocks ?? 20;
   els.storyConfigSummaryInterval.value = story.settings?.summaryInterval ?? 20;
-  els.storyConfigMemoryRetrievalMode.value = story.settings?.memoryRetrievalMode || "inherit";
-  els.storyConfigKnowledgeRetrievalMode.value = story.settings?.knowledgeRetrievalMode || "inherit";
   els.storyConfigLocalEmbeddingMode.value = story.settings?.localEmbeddingMode || "inherit";
   els.storyConfigTemperature.value = story.settings?.temperature ?? 1;
   els.storyConfigReasoningEffort.value = story.settings?.reasoningEffort || "inherit";
   els.storyConfigMaxCompletion.value = story.settings?.maxCompletionTokens ?? 120000;
   els.promptGlobal.value = state.appConfig?.globalSystemPrompt || story.promptConfig?.globalSystemPrompt || "";
-  els.appMemoryRetrievalMode.value = state.appConfig?.memoryRetrievalMode || "lexical";
-  els.appKnowledgeRetrievalMode.value = state.appConfig?.knowledgeRetrievalMode || "lexical";
   els.appLocalEmbeddingMode.value = state.appConfig?.localEmbedding?.mode || "off";
   els.appLocalEmbeddingRemoteHost.value = state.appConfig?.localEmbedding?.remoteHost || "";
   els.promptStory.value = story.promptConfig?.storySystemPrompt || "";
@@ -517,8 +502,6 @@ function collectStoryPayload() {
     settings: {
       contextBlocks: parseNumberInput(els.storyConfigContextBlocks.value, 20),
       summaryInterval: parseNumberInput(els.storyConfigSummaryInterval.value, 20),
-      memoryRetrievalMode: els.storyConfigMemoryRetrievalMode.value || "inherit",
-      knowledgeRetrievalMode: els.storyConfigKnowledgeRetrievalMode.value || "inherit",
       localEmbeddingMode: els.storyConfigLocalEmbeddingMode.value || "inherit",
       temperature: parseNumberInput(els.storyConfigTemperature.value, 1),
       reasoningEffort: els.storyConfigReasoningEffort.value || "inherit",
@@ -544,19 +527,12 @@ async function saveStoryConfig() {
   try {
     const nextGlobalSystemPrompt = els.promptGlobal.value.trim();
     const currentGlobalSystemPrompt = state.appConfig?.globalSystemPrompt || "";
-    const nextAppMemoryRetrievalMode = parseMemoryRetrievalMode(els.appMemoryRetrievalMode.value, "lexical");
-    const currentAppMemoryRetrievalMode = state.appConfig?.memoryRetrievalMode || "lexical";
-    const nextAppKnowledgeRetrievalMode =
-      els.appKnowledgeRetrievalMode.value === "hybrid" ? "hybrid" : "lexical";
-    const currentAppKnowledgeRetrievalMode = state.appConfig?.knowledgeRetrievalMode || "lexical";
     const nextAppLocalEmbeddingMode = els.appLocalEmbeddingMode.value === "on" ? "on" : "off";
     const currentAppLocalEmbeddingMode = state.appConfig?.localEmbedding?.mode || "off";
     const nextAppLocalEmbeddingRemoteHost = els.appLocalEmbeddingRemoteHost.value.trim();
     const currentAppLocalEmbeddingRemoteHost = state.appConfig?.localEmbedding?.remoteHost || "";
     if (
       nextGlobalSystemPrompt !== currentGlobalSystemPrompt ||
-      nextAppMemoryRetrievalMode !== currentAppMemoryRetrievalMode ||
-      nextAppKnowledgeRetrievalMode !== currentAppKnowledgeRetrievalMode ||
       nextAppLocalEmbeddingMode !== currentAppLocalEmbeddingMode ||
       nextAppLocalEmbeddingRemoteHost !== currentAppLocalEmbeddingRemoteHost
     ) {
@@ -564,8 +540,6 @@ async function saveStoryConfig() {
         method: "POST",
         body: JSON.stringify({
           globalSystemPrompt: nextGlobalSystemPrompt,
-          memoryRetrievalMode: nextAppMemoryRetrievalMode,
-          knowledgeRetrievalMode: nextAppKnowledgeRetrievalMode,
           localEmbedding: {
             ...(state.appConfig?.localEmbedding || {}),
             mode: nextAppLocalEmbeddingMode,

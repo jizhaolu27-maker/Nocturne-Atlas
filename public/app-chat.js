@@ -111,6 +111,9 @@ Preparing the reply...
         if (event.type === "delta") {
           assistantText += event.text || "";
           updateStreamingAssistant(assistantText);
+        } else if (event.type === "replace") {
+          assistantText = event.text || assistantText;
+          updateStreamingAssistant(assistantText);
         } else if (event.type === "done") {
           return event.payload;
         } else if (event.type === "error") {

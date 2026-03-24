@@ -16,7 +16,7 @@
 - Diagnostics 可查看上下文压力、检索行为、提示词来源和遗忘风险
 - 支持 OpenAI 兼容的 chat-completions Provider，并在本地加密保存 API Key
 - 支持兼容思考模型的 `reasoning effort`
-- 支持不依赖远程 embedding API 的本地 hybrid、memory RAG 与 local-RAG 风格检索
+- 支持不依赖远程 embedding API 的 Memory RAG 与 Knowledge RAG
 - 浏览器端零构建，直接运行即可
 
 ## 快速开始
@@ -71,9 +71,9 @@ npm test
 
 - 应用会在合适的时候把对话压缩成较短的记忆记录。
 - 这些记录会写入 `data/stories/<storyId>/memory/records.jsonl`。
-- 在 memory-RAG 模式下，配套的证据片段还会写入 `data/stories/<storyId>/memory/chunks.jsonl`。
+- 配套的证据片段也会写入 `data/stories/<storyId>/memory/chunks.jsonl`。
 - 检索阶段会把长期记忆、关键记忆、近期记忆重新注入 prompt。
-- memory-RAG 模式还会把召回到的记忆证据片段一起注入 prompt。
+- Memory RAG 还会把召回到的记忆证据片段一起注入 prompt。
 
 ### 提案系统
 
@@ -94,22 +94,29 @@ Diagnostics 用来解释“这一轮模型到底看到了什么”。
 - `Critical memory`、`Recent memory`
   指本轮 prompt 中实际注入的记忆块
 
-## 检索模式与本地 RAG
+## 检索与本地 RAG
 
 Nocturne Atlas 把 **记忆检索** 和 **知识检索** 分开配置。
 
-这意味着你可以让记忆检索保持保守，同时把工作区知识切换到更接近本地 RAG 的模式。
+现在的记忆检索始终走 **Memory RAG**，但内部会根据当轮情况自动选择 lexical 或 embedding 增强路径。
 
-### 可选检索模式
+现在的知识检索也始终走 **Knowledge RAG**。系统会先尝试语义检索，再在 embedding 不可用或语义命中过弱时用 lexical chunk recall 兜底。
 
-- `lexical`
-  只做关键词和实体匹配
-- `hybrid`
-  以 lexical 为基础，再结合本地 embedding 增强
-- `rag`
-  更偏检索优先的记忆模式，会同时保留稳定记忆事实和召回的 evidence chunk
-- `inherit`
-  故事配置继承全局默认值
+### Memory RAG
+
+Memory RAG 保留了稳定的 summary record 层，同时也会在合适时把 evidence chunk 一起召回。
+
+- 稳定记忆事实继续负责保护 canon 连续性
+- evidence chunk 负责把更具体的场景事实重新带回 prompt
+- 如果 embedding 暂时不可用，这条 Memory RAG 路径会自动回退到 lexical，而不是直接失效
+
+### Knowledge RAG
+
+Knowledge RAG 会把角色卡、世界书、文风 anchor 压得更轻，把更详细的事实尽量交给召回到的知识 chunk。
+
+- 语义检索会面向整个工作区 chunk 语料运行
+- lexical chunk recall 只在语义检索不可用或太弱时补位
+- 本地 embedding 能提升语义召回范围，但 fallback 路径依然能保证冷启动或离线环境可用
 
 ### 本地 Embedding
 
@@ -122,33 +129,15 @@ Nocturne Atlas 把 **记忆检索** 和 **知识检索** 分开配置。
 - 镜像源：可在 `Providers & Retrieval -> Local Embedding Mirror` 中配置
 - 回退路径：当神经推理不可用时，使用本地确定性的 `hash_v1`
 
-### Lexical 模式与 Hybrid 知识模式的区别
-
-`lexical` 知识检索会保留更经典的 prompt 结构：
-
-- 素材锚点更完整
-- 知识召回主要依赖 lexical 命中
-- 行为更稳定，也更保守
-
-`hybrid` 知识检索会让整体更接近本地 RAG：
-
-- 角色卡、世界书、文风在 prompt 中会收缩成更轻的 anchor
-- 更详细的事实主要由 `Retrieved knowledge chunks` 提供
-- 当词面重合不强时，本地 embedding 仍有机会把语义相关片段召回来
-
-也就是说，hybrid 模式不会彻底移除角色卡和世界书，而是保留轻量锚点，并让检索片段承担更多细节。
-
 ### 如何开启更接近本地 RAG 的路径
 
 克隆项目后：
 
 1. 运行 `npm install`
 2. 运行 `npm start`
-3. 在 `Providers & Retrieval` 中把 `Global Knowledge Retrieval` 设为 `Hybrid`
-4. 如有需要，也可以把 `Global Memory Retrieval` 设为 `Hybrid` 或 `Memory RAG`
-5. 把 `Global Local Embeddings` 设为 `On`
-6. 如果当前网络访问 Hugging Face 不稳定，可以把 `Local Embedding Mirror` 设成可用镜像，例如 `https://hf-mirror.com/`
-7. 点击一次 `Prewarm Local Embedding Model`
+3. 把 `Global Local Embeddings` 设为 `On`
+4. 如果当前网络访问 Hugging Face 不稳定，可以把 `Local Embedding Mirror` 设成可用镜像，例如 `https://hf-mirror.com/`
+5. 点击一次 `Prewarm Local Embedding Model`
 
 ### Prewarm 的作用
 
@@ -165,14 +154,12 @@ Nocturne Atlas 把 **记忆检索** 和 **知识检索** 分开配置。
 - 全局默认值
   对所有故事生效，除非某个故事显式覆盖
 - 故事级覆盖
-  允许单个故事使用不同的 provider、检索模式或 embedding 模式
+  允许单个故事使用不同的 provider 或 embedding 模式
 
 当前可独立控制的项目包括：
 
 - provider / model
 - reasoning effort
-- memory retrieval mode
-- knowledge retrieval mode
 - local embedding mode
 
 ## Provider
@@ -225,10 +212,10 @@ lib/context.js                    上下文块组装与 prompt 结构控制
 lib/chat.js                       聊天上下文、流式输出与 revise 流程
 lib/memory.js                     记忆编排与遗忘风险检查
 lib/memory-engine.js              lexical 记忆打分与格式化工具
-lib/memory-retrieval.js           hybrid 与 memory-RAG 记忆检索编排
+lib/memory-retrieval.js           Memory-RAG 记忆检索编排与回退选择
 lib/memory-vector.js              本地记忆向量打分工具
 lib/embeddings.js                 本地 embedding 生成工具
-lib/knowledge-retrieval.js        工作区知识切片与检索工具
+lib/knowledge-retrieval.js        Knowledge-RAG 切片、检索与 lexical 回退工具
 lib/memory-consolidation.js       长期记忆整合工具
 lib/proposals.js                  提案生成与审阅工具
 public/index.html                 主界面结构

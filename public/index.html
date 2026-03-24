@@ -179,7 +179,7 @@
                   <label>Context Turns<input id="story-config-context-blocks" type="number" min="8" max="60" /></label>
                   <label>Summary Interval<input id="story-config-summary-interval" type="number" min="2"
                       max="30" /></label>
-                  <div class="provider-test-result">Knowledge retrieval now always uses Knowledge RAG. When embeddings are unavailable, lexical chunk recall is used as fallback.</div>
+                  <div class="provider-test-result">Knowledge retrieval always runs in Knowledge RAG mode. If local embeddings are unavailable, it falls back to lexical chunk recall automatically.</div>
                   <label>Story Local Embeddings
                     <select id="story-config-local-embedding-mode">
                       <option value="inherit">Use Global Default</option>
@@ -375,6 +375,12 @@
           <section class="rp-section">
             <h3 class="rp-title">Diagnostics</h3>
             <p class="rp-subtitle">See what this turn actually used first, then expand the deeper traces only when needed.</p>
+            <details class="fold-section">
+              <summary>Technical details</summary>
+              <div class="fold-body">
+                <div id="diagnostic-triggers" class="diagnostic-list"></div>
+              </div>
+            </details>
             <details class="fold-section" open>
               <summary>What this turn used</summary>
               <div class="fold-body">
@@ -385,12 +391,6 @@
               <summary>Warnings and repairs</summary>
               <div class="fold-body">
                 <div id="diagnostic-warnings" class="diagnostic-list"></div>
-              </div>
-            </details>
-            <details class="fold-section">
-              <summary>Technical details</summary>
-              <div class="fold-body">
-                <div id="diagnostic-triggers" class="diagnostic-list"></div>
               </div>
             </details>
             <details class="fold-section">

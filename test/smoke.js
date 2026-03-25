@@ -372,6 +372,9 @@ async function main() {
           summary:
             "\u9646\u77e5\u7ed2\u5728\u65e5\u672c\u7684\u66b4\u96e8\u8857\u5934\u6361\u5230\u4e86\u4e00\u4f4d\u795e\u4f8d\u5c11\u5973",
           keywords: ["\u9646\u77e5\u7ed2\u5728", "\u65e5\u672c\u7684\u66b4\u96e8\u8857"],
+          embedding: [0.6, 0.8],
+          embeddingProvider: "hash_v1",
+          embeddingModel: "hash_v1",
         },
       ],
       memoryChunks: [
@@ -380,6 +383,9 @@ async function main() {
           text:
             "\u9646\u77e5\u7ed2\u5c0f\u59d0\u5728\u65e5\u672c\u7684\u66b4\u96e8\u8857\u5934\u6361\u5230\u4e86\u4e00\u4f4d\u5f88\u6f02\u4eae\u7684\u795e\u4f8d\u5c11\u5973",
           keywords: ["\u9646\u77e5\u7ed2\u5c0f\u59d0\u5728", "\u65e5\u672c\u7684\u66b4\u96e8\u8857"],
+          embedding: [0.6, 0.8],
+          embeddingProvider: "hash_v1",
+          embeddingModel: "hash_v1",
         },
       ],
     });
@@ -391,6 +397,8 @@ async function main() {
     assert.ok(normalized.memoryChunks[0].keywords.includes("\u795e\u4f8d") || normalized.memoryChunks[0].keywords.includes("\u795e\u4f8d\u5c11\u5973"));
     assert.ok(!normalized.memoryRecords[0].keywords.includes("\u9646\u77e5\u7ed2\u5728"));
     assert.ok(!normalized.memoryChunks[0].keywords.includes("\u65e5\u672c\u7684\u66b4\u96e8\u8857"));
+    assert.equal(normalized.memoryRecords[0].embeddingSignature, "hash_v1:hash_v1");
+    assert.equal(normalized.memoryChunks[0].embeddingSignature, "hash_v1:hash_v1");
   });
 
   await runTest("knowledge query keeps primary focus on the current ask over stale recent history", async () => {
@@ -1261,10 +1269,94 @@ async function main() {
     });
 
     assert.ok(query.focusClauses.length > 0);
+    assert.ok(query.primaryFocusClauses.length > 0);
     assert.ok(query.keywords.includes("archive"));
     assert.ok(query.matchedEntityIds.includes("lyra"));
+    assert.ok(query.primaryMatchedEntityIds.includes("lyra"));
     assert.ok(query.embeddingText.includes("Current ask:"));
+    assert.ok(query.embeddingText.includes("Primary focus:"));
     assert.ok(query.embeddingText.includes("Focus cues:"));
+  });
+
+  await runTest("memory query keeps primary entity focus on the current ask over stale nearby history", () => {
+    const query = buildMemoryQuery({
+      userMessage: "Continue with Bai meeting Yian on the path.",
+      messages: [
+        { role: "assistant", content: "Earlier, Bai woke in Eira's cave and noticed Eira still studying the array map." },
+        { role: "user", content: "What was Eira doing with the array map?" },
+      ],
+      workspace: {
+        characters: [
+          { id: "bai", name: "Bai", core: { role: "Lead" } },
+          { id: "yian", name: "Yian", core: { role: "Youngest disciple" } },
+          { id: "eira", name: "Eira", core: { role: "First senior sister" } },
+        ],
+        worldbooks: [],
+        styles: [],
+      },
+    });
+
+    assert.ok(query.matchedEntityIds.includes("eira"));
+    assert.ok(query.primaryMatchedEntityIds.includes("bai"));
+    assert.ok(query.primaryMatchedEntityIds.includes("yian"));
+    assert.ok(!query.primaryMatchedEntityIds.includes("eira"));
+  });
+
+  await runTest("memory lexical recall favors current-turn entities over stale history carryover", () => {
+    const result = selectRelevantMemoryRecords(
+      [
+        {
+          id: "mem_bai",
+          tier: "short_term",
+          kind: "plot_checkpoint",
+          scope: "plot",
+          subjectIds: ["bai", "yian"],
+          entities: ["Bai", "Yian"],
+          keywords: ["bai", "yian", "path"],
+          tags: ["path"],
+          summary: "Bai meets Yian on the mountain path.",
+          importance: "medium",
+          confidence: 0.8,
+          createdAt: "2026-03-23T00:01:00.000Z",
+        },
+        {
+          id: "mem_eira",
+          tier: "short_term",
+          kind: "plot_checkpoint",
+          scope: "plot",
+          subjectIds: ["eira"],
+          entities: ["Eira"],
+          keywords: ["eira", "array", "map", "cave"],
+          tags: ["array"],
+          summary: "Eira studies the array map in her cave.",
+          importance: "medium",
+          confidence: 0.8,
+          createdAt: "2026-03-23T00:02:00.000Z",
+        },
+      ],
+      {
+        userMessage: "Continue with Bai meeting Yian on the path.",
+        messages: [
+          { role: "assistant", content: "Earlier, Bai woke in Eira's cave and noticed Eira still studying the array map." },
+          { role: "user", content: "What was Eira doing with the array map?" },
+        ],
+        workspace: {
+          characters: [
+            { id: "bai", name: "Bai" },
+            { id: "yian", name: "Yian" },
+            { id: "eira", name: "Eira" },
+          ],
+          worldbooks: [],
+          styles: [],
+        },
+        maxItems: 1,
+      }
+    );
+
+    assert.deepEqual(
+      result.selectedRecords.map((item) => item.id),
+      ["mem_bai"]
+    );
   });
 
   await runTest("grounding check flags unsupported and contested answer clauses", () => {
@@ -1341,6 +1433,48 @@ async function main() {
         (item.reasons || []).some((reason) => /Atmospheric clause stayed close|close text overlap/i.test(String(reason)))
       )
     );
+  });
+
+  await runTest("forgetfulness diagnostics focus on query-relevant facts instead of every active workspace detail", () => {
+    const memoryTools = buildMemoryTools();
+    const result = memoryTools.detectForgetfulness({
+      workspace: {
+        characters: [
+          { id: "lyra", name: "Lyra", traits: ["heir"], arcState: { current: "opening the archive" } },
+          { id: "mira", name: "Mira", traits: ["scout"], arcState: { current: "watching the bridge" } },
+        ],
+        worldbooks: [{ id: "archive", title: "Archive", rules: ["Only heirs may enter"] }],
+      },
+      memoryRecords: [
+        {
+          id: "mem_archive",
+          tier: "long_term",
+          stability: "stable",
+          summary: "Lyra's bloodline key opens the archive seal.",
+          subjectIds: ["lyra"],
+          entities: ["Lyra", "archive"],
+          tags: ["archive", "bloodline", "key"],
+        },
+      ],
+      assistantText: "Lyra steadies the bloodline key and the archive answers her at once.",
+      userInput: "How does Lyra open the archive now?",
+      contextInfo: {
+        usedTokens: 1200,
+        maxTokens: 8000,
+        selectedMemoryRecords: [
+          {
+            id: "mem_archive",
+            summary: "Lyra's bloodline key opens the archive seal.",
+            subjectIds: ["lyra"],
+            entities: ["Lyra", "archive"],
+            tags: ["archive", "bloodline", "key"],
+          },
+        ],
+      },
+    });
+
+    assert.equal(result.forgetfulnessState, "normal");
+    assert.equal(result.forgetfulnessSignals.omission.length, 0);
   });
 
   await runTest("memory tools compute schedules and create a non-transcript fallback summary", async () => {
@@ -1442,6 +1576,44 @@ async function main() {
       (item) => Array.isArray(item.sourceMessageRange) && item.sourceMessageRange.join("-") === "1-1"
     );
     assert.ok(firstTurnChunks.length <= 1);
+  });
+
+  await runTest("memory tools compact oversized episodic chunk history to a recent working set", async () => {
+    const memoryTools = buildMemoryTools();
+    const story = {
+      settings: { summaryInterval: 99 },
+      providerId: "",
+      model: "",
+    };
+    const existingChunks = Array.from({ length: 30 }, (_, index) => ({
+      id: `chunk_old_${index + 1}`,
+      type: "memory_episode",
+      text: `Episode beat ${index + 1}`,
+      sourceRole: "assistant",
+      sourceMessageRange: [index + 1, index + 1],
+      kind: "plot_checkpoint",
+      scope: "plot",
+      importance: "medium",
+      stability: "volatile",
+      confidence: 0.6,
+      createdAt: `2026-03-23T00:${String(index).padStart(2, "0")}:00.000Z`,
+    }));
+
+    const update = await memoryTools.generateMemoryUpdate({
+      story,
+      fullMessages: [
+        { role: "user", content: "Continue." },
+        { role: "assistant", content: "A fresh scene beat lands in the archive chamber." },
+      ],
+      memoryRecords: [],
+      memoryChunks: existingChunks,
+      workspace: { characters: [], worldbooks: [], styles: [] },
+      summaryTriggers: [],
+    });
+
+    assert.ok(update.chunks.length <= 24);
+    assert.ok(update.chunks.some((item) => item.id === update.episodicChunks[0].id));
+    assert.ok(!update.chunks.some((item) => item.id === "chunk_old_1"));
   });
 
   await runTest("memory chunk tools fold overlapping mixed and assistant evidence windows from the same beat", async () => {
@@ -1615,6 +1787,47 @@ async function main() {
     assert.ok(result.addedRecords[0].stateFacet);
   });
 
+  await runTest("memory consolidation keeps unrelated canon facts in separate slots", () => {
+    const now = "2026-03-25T00:00:00.000Z";
+    const result = consolidateMemoryRecords(
+      [
+        {
+          id: "mem_char_1",
+          tier: "short_term",
+          kind: "character_update",
+          scope: "character",
+          summary: "Lyra starts trusting Cael.",
+          subjectIds: ["lyra"],
+          tags: ["trust"],
+          keywords: ["lyra", "trust", "cael"],
+          importance: "medium",
+          confidence: 0.82,
+          createdAt: "2026-03-24T00:00:00.000Z",
+        },
+        {
+          id: "mem_char_2",
+          tier: "short_term",
+          kind: "character_update",
+          scope: "character",
+          summary: "Lyra learns her bloodline can open the archive.",
+          subjectIds: ["lyra"],
+          tags: ["bloodline", "archive"],
+          keywords: ["lyra", "bloodline", "archive"],
+          importance: "high",
+          confidence: 0.86,
+          createdAt: "2026-03-24T00:02:00.000Z",
+        },
+      ],
+      {
+        now,
+        makeId: safeId,
+        shortTermThreshold: 2,
+      }
+    );
+
+    assert.equal(result.addedRecords.length, 0);
+  });
+
   await runTest("embedding config normalizes custom mirror hosts", () => {
     assert.equal(normalizeEmbeddingRemoteHost("https://hf-mirror.com"), "https://hf-mirror.com/");
     assert.equal(normalizeEmbeddingConfig({ remoteHost: "https://hf-mirror.com" }).remoteHost, "https://hf-mirror.com/");
@@ -1692,6 +1905,95 @@ async function main() {
     assert.equal(update.summaryRecords[0].embeddingFallbackUsed, true);
     assert.ok(update.summaryChunks.length > 0);
     assert.equal(update.summaryChunks[0].embeddingProvider, "hash_v1");
+  });
+
+  await runTest("memory tools embed consolidated long-term records after summary consolidation", async () => {
+    const { buildMemoryEmbeddingText } = createEmbeddingTools();
+    const memoryTools = createMemoryTools({
+      DEFAULT_SUMMARY_INTERVAL,
+      MEMORY_SUMMARY_CHAR_LIMIT: 160,
+      classifyPressure: () => "low",
+      summarizeText,
+      safeId,
+      getProviderForStory: () => null,
+      decryptSecret: () => "",
+      callOpenAICompatible: async () => {
+        throw new Error("Provider should not be called in smoke tests");
+      },
+      tryParseJsonObject: (value) => {
+        try {
+          return JSON.parse(value);
+        } catch {
+          return null;
+        }
+      },
+      embedTextDetailed: async () => ({
+        vector: [0.4, 0.9],
+        provider: "hash_v1",
+        model: "hash_v1",
+        requestedProvider: "transformers_local",
+        requestedModel: "Xenova/all-MiniLM-L6-v2",
+        fallbackUsed: true,
+        error: "fetch failed",
+      }),
+      buildMemoryEmbeddingText,
+      buildEmbeddingSignature: require("../lib/embeddings").buildEmbeddingSignature,
+      resolveEmbeddingOptions: () => ({
+        mode: "on",
+        provider: "transformers_local",
+        model: "Xenova/all-MiniLM-L6-v2",
+        dimensions: 384,
+        allowFallback: true,
+      }),
+    });
+
+    const existingRecords = Array.from({ length: 7 }, (_, index) => ({
+      id: `mem_rel_${index + 1}`,
+      tier: "short_term",
+      kind: "relationship_update",
+      scope: "relationship",
+      summary: `Lyra and Mira rebuild trust after the archive breach ${index + 1}.`,
+      subjectIds: ["lyra"],
+      objectIds: ["mira"],
+      entities: ["Lyra", "Mira"],
+      tags: ["trust", "archive"],
+      keywords: ["lyra", "mira", "trust", "archive"],
+      importance: "high",
+      confidence: 0.8,
+      createdAt: `2026-03-24T00:0${index}:00.000Z`,
+      canonKey: "relationship:lyra|mira:trust|archive",
+      conflictGroup: "relationship:lyra|mira",
+      stateSlot: "relationship:lyra|mira",
+      stateFacet: "trust|archive",
+    }));
+
+    const update = await memoryTools.generateMemoryUpdate({
+      story: {
+        settings: { summaryInterval: 3 },
+        providerId: "",
+        model: "",
+      },
+      fullMessages: [
+        { role: "user", content: "How do Lyra and Mira change after the archive breach?" },
+        { role: "assistant", content: "Lyra trusts Mira again, and the two reconcile while protecting the archive together." },
+      ],
+      memoryRecords: existingRecords,
+      memoryChunks: [],
+      workspace: {
+        characters: [
+          { id: "lyra", name: "Lyra" },
+          { id: "mira", name: "Mira" },
+        ],
+        worldbooks: [{ id: "archive", title: "Archive" }],
+        styles: [],
+      },
+      summaryTriggers: ["Manual smoke trigger"],
+    });
+
+    assert.equal(update.consolidatedMemoryRecords.length, 1);
+    assert.deepEqual(update.consolidatedMemoryRecords[0].embedding, [0.4, 0.9]);
+    assert.equal(update.consolidatedMemoryRecords[0].embeddingProvider, "hash_v1");
+    assert.equal(update.consolidatedMemoryRecords[0].embeddingSignature, "hash_v1:hash_v1");
   });
 
   await runTest("server config prewarm fails when neural embeddings do not return a usable vector", async () => {
@@ -1817,7 +2119,7 @@ async function main() {
     }
   });
 
-  await runTest("memory rag falls back lexically and can admit vector-enhanced fact matches", () => {
+  await runTest("memory rag falls back lexically, ignores incompatible vector spaces, and can admit vector-enhanced fact matches", () => {
     const retrievalTools = createMemoryRetrievalTools({
       selectRelevantMemoryRecords,
       formatMemoryContext,
@@ -1835,7 +2137,9 @@ async function main() {
         keywords: ["hero", "archive", "gate"],
         importance: "medium",
         embedding: [1, 0],
+        embeddingProvider: "hash_v1",
         embeddingModel: "test-local",
+        embeddingSignature: "hash_v1:hash_v1",
         createdAt: "2026-03-23T00:00:00.000Z",
       },
       {
@@ -1848,7 +2152,9 @@ async function main() {
         keywords: ["signal", "amber", "memory"],
         importance: "high",
         embedding: [0, 1],
+        embeddingProvider: "transformers_local",
         embeddingModel: "test-local",
+        embeddingSignature: "transformers_local:test-local",
         createdAt: "2026-03-23T00:01:00.000Z",
       },
     ];
@@ -1872,11 +2178,15 @@ async function main() {
       messages: [],
       workspace: { characters: [], worldbooks: [], styles: [] },
       queryEmbedding: [0, 1],
+      queryEmbeddingProvider: "transformers_local",
+      queryEmbeddingModel: "test-local",
+      queryEmbeddingSignature: "transformers_local:test-local",
       maxItems: 2,
     });
     assert.equal(hybrid.retrievalMeta.mode, "rag");
     assert.equal(hybrid.retrievalMeta.vectorEnabled, true);
     assert.ok(hybrid.selectedRecords.some((item) => item.id === "mem_b"));
+    assert.ok(!hybrid.selectedRecords.some((item) => item.id === "mem_a"));
   });
 
   await runTest("memory rag retrieves stable facts and evidence chunks together", () => {
@@ -2025,7 +2335,11 @@ async function main() {
       result.selectedEvidenceChunks.map((item) => item.id),
       ["chunk_luzhirong"]
     );
-    assert.ok(result.selectedEvidenceReasons.chunk_luzhirong.some((reason) => reason.includes("Matched subjects")));
+    assert.ok(
+      result.selectedEvidenceReasons.chunk_luzhirong.some(
+        (reason) => reason.includes("Primary subjects") || reason.includes("Context subjects")
+      )
+    );
     assert.ok(!result.selectedEvidenceReasons.chunk_luzhirong.some((reason) => reason.includes("Matched keywords")));
   });
 

@@ -9,7 +9,7 @@ const { createContextTools } = require("./lib/context");
 const { createMemoryTools } = require("./lib/memory");
 const { createChatTools } = require("./lib/chat");
 const { createGroundingCheckTools } = require("./lib/grounding-check");
-const { createEmbeddingTools, normalizeEmbeddingConfig, normalizeEmbeddingMode } = require("./lib/embeddings");
+const { buildEmbeddingSignature, createEmbeddingTools, normalizeEmbeddingConfig, normalizeEmbeddingMode } = require("./lib/embeddings");
 const { createKnowledgeRetrievalTools } = require("./lib/knowledge-retrieval");
 const {
   extractKeywords,
@@ -171,8 +171,13 @@ const {
   selectRelevantMemoryRecords: selectMemoryRecords,
   formatMemoryContext: formatRetrievedMemoryContext,
   getProviderContextWindow,
-  buildQueryEmbedding: ({ userMessage, messages, workspace, embeddingOptions }) =>
-    embedText(buildQueryEmbeddingText({ userMessage, messages, workspace }), embeddingOptions),
+  buildQueryEmbedding: async ({ userMessage, messages, workspace, embeddingOptions }) => {
+    const result = await embedTextDetailed(buildQueryEmbeddingText({ userMessage, messages, workspace }), embeddingOptions);
+    return {
+      ...result,
+      signature: buildEmbeddingSignature(result?.provider, result?.model),
+    };
+  },
   retrieveKnowledgeChunks,
   formatKnowledgeContext,
 });
@@ -213,6 +218,7 @@ const {
   embedText,
   embedTextDetailed,
   buildMemoryEmbeddingText,
+  buildEmbeddingSignature,
   resolveEmbeddingOptions: resolveStoryEmbeddingConfig,
 });
 

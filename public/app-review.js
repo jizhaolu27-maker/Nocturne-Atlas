@@ -215,6 +215,31 @@ window.createReviewTools = function createReviewTools({
     return "lexical fallback";
   }
 
+  function formatRetrievalRoute(route) {
+    const normalized = String(route || "").trim().toLowerCase();
+    if (normalized === "memory_heavy") {
+      return "memory-heavy";
+    }
+    if (normalized === "knowledge_heavy") {
+      return "knowledge-heavy";
+    }
+    if (normalized === "balanced") {
+      return "balanced";
+    }
+    return normalized || "unknown";
+  }
+
+  function formatRetrievalFocusSource(source) {
+    const normalized = String(source || "").trim().toLowerCase();
+    if (normalized === "current_input") {
+      return "current user input";
+    }
+    if (normalized === "recent_turns") {
+      return "recent turns";
+    }
+    return "no explicit focus";
+  }
+
   function getRetrievalSourceMeta(reasons) {
     const rows = Array.isArray(reasons) ? reasons.filter(Boolean) : [];
     const hasVector = rows.some((item) => /vector|\u5411\u91cf/i.test(String(item)));
@@ -481,6 +506,9 @@ window.createReviewTools = function createReviewTools({
     const snapshot = diagnostics.latestSnapshot || null;
     const requestMeta = snapshot?.requestMeta || diagnostics.requestMeta || null;
     const preview = diagnostics.currentContextPreview || null;
+    const retrievalPlan = preview?.retrievalPlan || diagnostics.retrievalPlan || snapshot?.retrievalPlan || null;
+    const retrievalFusionMeta =
+      preview?.retrievalFusionMeta || diagnostics.retrievalFusionMeta || snapshot?.retrievalFusionMeta || null;
     const retrievalMeta = preview?.memoryRetrievalMeta || diagnostics.memoryRetrievalMeta || snapshot?.memoryRetrievalMeta || null;
     const knowledgeRetrievalMeta =
       preview?.knowledgeRetrievalMeta || diagnostics.knowledgeRetrievalMeta || snapshot?.knowledgeRetrievalMeta || null;
@@ -510,6 +538,46 @@ window.createReviewTools = function createReviewTools({
           <div>Prompt messages: ${escapeHtml(String(requestMeta.promptMessages || 0))}</div>
           <div>Output chars: ${escapeHtml(String(requestMeta.completionChars || 0))}</div>
           <div>Summaries: ${escapeHtml(String(snapshot?.generatedSummaryCount || diagnostics.generatedSummaryCount || 0))} / Proposals: ${escapeHtml(String(snapshot?.generatedProposalCount || diagnostics.generatedProposalCount || 0))}</div>
+        </article>
+      `);
+    }
+    if (retrievalPlan) {
+      const routeTone =
+        retrievalPlan.route === "knowledge_heavy"
+          ? "hybrid"
+          : retrievalPlan.route === "memory_heavy"
+            ? "neutral"
+            : "neutral";
+      technicalRows.push(`
+        <article class="diagnostic-item">
+          <strong>Retrieval Routing</strong>
+          ${renderDiagnosticBadges([
+            { label: `route: ${formatRetrievalRoute(retrievalPlan.route)}`, tone: routeTone },
+            { label: `focus: ${formatRetrievalFocusSource(retrievalPlan.focusSource)}`, tone: "neutral" },
+          ])}
+          <span>${escapeHtml(`Memory score ${retrievalPlan.scores?.memory || 0} / knowledge score ${retrievalPlan.scores?.knowledge || 0} / scene score ${retrievalPlan.scores?.scene || 0}`)}</span>
+          <div>${escapeHtml(`Budgets -> memory facts ${retrievalPlan.budgets?.memoryItems || 0} / memory evidence ${retrievalPlan.budgets?.memoryEvidenceItems || 0} / knowledge chunks ${retrievalPlan.budgets?.knowledgeItems || 0}`)}</div>
+          <div>${escapeHtml(`Entity focus ${retrievalPlan.scores?.entityFocus || 0} / world focus ${retrievalPlan.scores?.worldFocus || 0} / style focus ${retrievalPlan.scores?.styleFocus || 0}`)}</div>
+          ${(retrievalPlan.reasons || []).map((item) => `<div>${escapeHtml(item)}</div>`).join("")}
+        </article>
+      `);
+    }
+    if (retrievalFusionMeta) {
+      technicalRows.push(`
+        <article class="diagnostic-item">
+          <strong>Retrieval Fusion</strong>
+          ${renderDiagnosticBadges([
+            { label: `route: ${formatRetrievalRoute(retrievalFusionMeta.route)}`, tone: retrievalFusionMeta.route === "knowledge_heavy" ? "hybrid" : "neutral" },
+            { label: `budget ${retrievalFusionMeta.totalBudget || 0}`, tone: "neutral" },
+          ])}
+          <span>${escapeHtml(`Candidates ${retrievalFusionMeta.totalCandidateCount || 0} / selected ${retrievalFusionMeta.totalSelectedCount || 0}`)}</span>
+          <div>${escapeHtml(`Family budgets -> facts ${retrievalFusionMeta.familyBudgets?.factBudget || 0} / evidence ${retrievalFusionMeta.familyBudgets?.evidenceBudget || 0} / knowledge ${retrievalFusionMeta.familyBudgets?.knowledgeBudget || 0}`)}</div>
+          <div>${escapeHtml(`Selected -> facts ${retrievalFusionMeta.selectedCounts?.memoryFacts || 0} / evidence ${retrievalFusionMeta.selectedCounts?.memoryEvidence || 0} / knowledge ${retrievalFusionMeta.selectedCounts?.knowledge || 0}`)}</div>
+          ${
+            Array.isArray(retrievalFusionMeta.topSources) && retrievalFusionMeta.topSources.length
+              ? `<div>${escapeHtml(`Top fused sources: ${retrievalFusionMeta.topSources.map((item) => `${item.family}:${item.id} (${item.score})`).join(" / ")}`)}</div>`
+              : ""
+          }
         </article>
       `);
     }
@@ -588,15 +656,31 @@ window.createReviewTools = function createReviewTools({
     }
     const transientMemoryCandidate =
       snapshot?.transientMemoryCandidate || diagnostics.transientMemoryCandidate || null;
-    if ((snapshot?.generatedSummaryCount || diagnostics.generatedSummaryCount || 0) > 0) {
-      const generatedSummaryCount = snapshot?.generatedSummaryCount || diagnostics.generatedSummaryCount || 0;
-      const generatedChunkCount = snapshot?.generatedChunkCount || diagnostics.generatedChunkCount || 0;
+    const generatedSummaryCount = snapshot?.generatedSummaryCount || diagnostics.generatedSummaryCount || 0;
+    const generatedEpisodicChunkCount =
+      snapshot?.generatedEpisodicChunkCount || diagnostics.generatedEpisodicChunkCount || 0;
+    const generatedSummaryChunkCount =
+      snapshot?.generatedSummaryChunkCount || diagnostics.generatedSummaryChunkCount || 0;
+    if (generatedSummaryCount > 0 || generatedEpisodicChunkCount > 0 || generatedSummaryChunkCount > 0) {
       highlightRows.push(`
         <article class="diagnostic-item">
           <strong>Memory Writes</strong>
           ${renderDiagnosticBadges([{ label: "written to memory", tone: "hybrid" }])}
-          <span>${escapeHtml(`${generatedSummaryCount} formal memory record(s) were written this turn`)}</span>
-          ${generatedChunkCount ? `<div>${escapeHtml(`${generatedChunkCount} memory evidence chunk(s) were also indexed for retrieval`)}</div>` : ""}
+          ${
+            generatedSummaryCount
+              ? `<span>${escapeHtml(`${generatedSummaryCount} formal memory record(s) were written this turn`)}</span>`
+              : `<span>${escapeHtml("No formal summary record was written this turn.")}</span>`
+          }
+          ${
+            generatedEpisodicChunkCount
+              ? `<div>${escapeHtml(`${generatedEpisodicChunkCount} episodic memory chunk(s) were indexed from the latest turn`)}</div>`
+              : ""
+          }
+          ${
+            generatedSummaryChunkCount
+              ? `<div>${escapeHtml(`${generatedSummaryChunkCount} summary-linked evidence chunk(s) were also indexed`)}</div>`
+              : ""
+          }
         </article>
       `);
     } else if (transientMemoryCandidate?.summary) {
@@ -627,8 +711,28 @@ window.createReviewTools = function createReviewTools({
           ${renderDiagnosticBadges(retrievalBadges)}
           <span>${escapeHtml(`Embedding candidates ${retrievalMeta.vectorCandidateCount || 0} / selected ${retrievalMeta.vectorSelectedCount || 0}`)}</span>
           ${
+            typeof retrievalMeta.canonicalCandidateCount === "number" || typeof retrievalMeta.canonicalSelectedCount === "number"
+              ? `<div>${escapeHtml(`Canon facts ${retrievalMeta.canonicalCandidateCount || 0} / selected ${retrievalMeta.canonicalSelectedCount || 0} / budget ${retrievalMeta.canonicalBudget || 0}`)}</div>`
+              : ""
+          }
+          ${
+            typeof retrievalMeta.recentCandidateCount === "number" || typeof retrievalMeta.recentSelectedCount === "number"
+              ? `<div>${escapeHtml(`Recent facts ${retrievalMeta.recentCandidateCount || 0} / selected ${retrievalMeta.recentSelectedCount || 0} / budget ${retrievalMeta.recentBudget || 0}`)}</div>`
+              : ""
+          }
+          ${
             typeof retrievalMeta.evidenceCandidateCount === "number" || typeof retrievalMeta.evidenceSelectedCount === "number"
               ? `<div>${escapeHtml(`Evidence candidates ${retrievalMeta.evidenceCandidateCount || 0} / selected ${retrievalMeta.evidenceSelectedCount || 0}`)}</div>`
+              : ""
+          }
+          ${
+            typeof retrievalMeta.episodicCandidateCount === "number" || typeof retrievalMeta.episodicSelectedCount === "number"
+              ? `<div>${escapeHtml(`Episodic evidence ${retrievalMeta.episodicCandidateCount || 0} / selected ${retrievalMeta.episodicSelectedCount || 0} / budget ${retrievalMeta.episodicBudget || 0}`)}</div>`
+              : ""
+          }
+          ${
+            typeof retrievalMeta.supportCandidateCount === "number" || typeof retrievalMeta.supportSelectedCount === "number"
+              ? `<div>${escapeHtml(`Fact-support evidence ${retrievalMeta.supportCandidateCount || 0} / selected ${retrievalMeta.supportSelectedCount || 0} / budget ${retrievalMeta.supportBudget || 0}`)}</div>`
               : ""
           }
           ${
@@ -636,7 +740,7 @@ window.createReviewTools = function createReviewTools({
               ? `<div>${escapeHtml(`Contested memory candidates ${retrievalMeta.contestedCandidateCount || 0}`)}</div>`
               : ""
           }
-          ${retrievalMeta.mode === "rag" ? `<div>${escapeHtml("Memory RAG keeps stable memory facts in prompt and injects retrieved evidence chunks when they are relevant.")}</div>` : ""}
+          ${retrievalMeta.mode === "rag" ? `<div>${escapeHtml("Memory RAG now budgets canon facts, recent facts, and episodic evidence separately so recall stays balanced instead of collapsing into one memory tier.")}</div>` : ""}
           ${retrievalMeta.fallbackReason ? `<div>${escapeHtml(`Fallback: ${retrievalMeta.fallbackReason}`)}</div>` : ""}
         </article>
       `);
@@ -659,6 +763,12 @@ window.createReviewTools = function createReviewTools({
           tone: knowledgeRetrievalMeta.cachedVectorCount ? "vector" : "neutral",
         });
       }
+      if (knowledgeRetrievalMeta.indexSource) {
+        knowledgeBadges.push({
+          label: `index ${knowledgeRetrievalMeta.indexSource}`,
+          tone: knowledgeRetrievalMeta.indexSource === "persisted" ? "hybrid" : "neutral",
+        });
+      }
       technicalRows.push(`
         <article class="diagnostic-item">
           <strong>Knowledge Retrieval</strong>
@@ -666,6 +776,7 @@ window.createReviewTools = function createReviewTools({
           <span>${escapeHtml(`Knowledge chunks ${knowledgeRetrievalMeta.chunkCount || 0} / embedding candidates ${knowledgeRetrievalMeta.vectorCandidateCount || 0} / selected ${knowledgeRetrievalMeta.vectorSelectedCount || 0}`)}</span>
           ${knowledgeRetrievalMeta.vectorFailure ? `<div>${escapeHtml(`Embedding note: ${knowledgeRetrievalMeta.vectorFailure}`)}</div>` : ""}
           ${knowledgeRetrievalMeta.mode === "rag" ? `<div>${escapeHtml("Knowledge RAG keeps only light anchors in prompt and lets retrieved knowledge chunks carry the detail.")}</div>` : ""}
+          ${knowledgeRetrievalMeta.indexSource ? `<div>${escapeHtml(`Knowledge index source: ${knowledgeRetrievalMeta.indexSource}${knowledgeRetrievalMeta.indexRefreshed ? " (refreshed this turn)" : ""}`)}</div>` : ""}
           ${knowledgeRetrievalMeta.fallbackReason ? `<div>${escapeHtml(`Fallback: ${knowledgeRetrievalMeta.fallbackReason}`)}</div>` : ""}
         </article>
       `);
@@ -722,9 +833,10 @@ window.createReviewTools = function createReviewTools({
         ...preview.selectedMemoryEvidence.map(
           (item) => `
             <article class="diagnostic-item">
-              <strong>Retrieved Memory Evidence / ${escapeHtml(item.sourceRole || "unknown source")}</strong>
+              <strong>Retrieved Memory Evidence / ${escapeHtml(item.type === "memory_episode" ? "episodic chunk" : item.sourceRole || "unknown source")}</strong>
               ${renderDiagnosticBadges([
                 { label: formatMemoryScope(item.scope), tone: "neutral" },
+                item.type === "memory_episode" ? { label: "turn-level memory", tone: "hybrid" } : null,
                 getRetrievalSourceMeta(item.reasons || []),
                 getSemanticCandidateMeta(item.reasons || []),
               ])}

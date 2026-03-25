@@ -67,6 +67,7 @@ const {
   getStoryWorkspaceDir,
   getStoryMemoryFile,
   getStoryMemoryChunkFile,
+  getStoryKnowledgeChunkFile,
   getStoryKnowledgeEmbeddingFile,
   getStoryProposalFile,
   getStorySnapshotFile,
@@ -126,6 +127,8 @@ const {
   embedText,
   embedTextDetailed,
   extractKeywords,
+  loadKnowledgeChunkIndex: (storyId) => readJsonLines(getStoryKnowledgeChunkFile(storyId)),
+  saveKnowledgeChunkIndex: (storyId, value) => writeJsonLines(getStoryKnowledgeChunkFile(storyId), value),
   loadKnowledgeEmbeddingCache: (storyId) => readJson(getStoryKnowledgeEmbeddingFile(storyId), {}),
   saveKnowledgeEmbeddingCache: (storyId, value) => writeJson(getStoryKnowledgeEmbeddingFile(storyId), value),
 });
@@ -373,8 +376,6 @@ function initializeData() {
         theme: "dark",
         lastOpenedStoryId: "",
         globalSystemPrompt: DEFAULT_GLOBAL_SYSTEM_PROMPT,
-        memoryRetrievalMode: "rag",
-        knowledgeRetrievalMode: "rag",
         localEmbedding: {
           mode: "off",
           provider: "transformers_local",

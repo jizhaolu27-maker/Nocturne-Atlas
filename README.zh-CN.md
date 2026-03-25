@@ -1,4 +1,4 @@
-# Nocturne Atlas
+﻿# Nocturne Atlas
 
 [English README](./README.md)
 
@@ -209,13 +209,30 @@ lib/providers.js                  Provider 工具与 OpenAI 兼容传输
 lib/story-store.js                Story、Library、JSON、JSONL 存储工具
 lib/workspace.js                  Story workspace 同步与加载
 lib/context.js                    上下文块组装与 prompt 结构控制
-lib/chat.js                       聊天上下文、流式输出与 revise 流程
-lib/memory.js                     记忆编排与遗忘风险检查
-lib/memory-engine.js              lexical 记忆打分与格式化工具
-lib/memory-retrieval.js           Memory-RAG 记忆检索编排与回退选择
+lib/chat.js                       聊天编排、流式接口、revise 流程与预览组装
+lib/chat-context.js               Prompt 解析、workspace 加载与聊天上下文组装
+lib/chat-grounding.js             Grounding 输入整理与保守重写修复
+lib/chat-revise.js                revise 回滚、proposal 撤销与 workspace 恢复
+lib/chat-turn.js                  聊天回合落盘、diagnostics snapshot 与持久化流程
+lib/memory.js                     记忆编排与记忆模块组合入口
+lib/memory-summary.js             Summary 触发、候选提取与模型/回退总结
+lib/memory-chunks.js              Episodic/evidence chunk 生成与去重合并
+lib/memory-forgetfulness.js       遗忘信号与 workspace 冲突检测
+lib/memory-query.js               记忆检索查询构造、关键词提取与实体聚焦工具
+lib/memory-lexical.js             lexical 记忆召回、打分与格式化工具
+lib/memory-engine.js              记忆查询与 lexical 工具的兼容导出层
+lib/memory-retrieval.js           Memory-RAG 编排与分层预算合并
+lib/memory-retrieval-helpers.js   检索排序、多样性与预算分配共享工具
+lib/memory-retrieval-records.js   canon/近期事实选择与 contested memory 工具
+lib/memory-retrieval-evidence.js  episodic/support 证据片段选择工具
 lib/memory-vector.js              本地记忆向量打分工具
+lib/retrieval-plan.js             memory 与 knowledge 联合路由和检索预算工具
+lib/retrieval-fusion.js           跨源检索重排与最终 prompt 选择工具
 lib/embeddings.js                 本地 embedding 生成工具
-lib/knowledge-retrieval.js        Knowledge-RAG 切片、检索与 lexical 回退工具
+lib/knowledge-query.js            知识检索查询聚焦、实体匹配与 anchor hint 工具
+lib/knowledge-index.js            知识 chunk 构建与持久化索引工具
+lib/knowledge-select.js           知识语义/lexical 选择与 embedding cache 工具
+lib/knowledge-retrieval.js        Knowledge-RAG 的索引、查询、选择与格式化组合层
 lib/memory-consolidation.js       长期记忆整合工具
 lib/proposals.js                  提案生成与审阅工具
 public/index.html                 主界面结构
@@ -243,3 +260,4 @@ test/smoke.js                     零依赖 smoke 测试
 **Nocturne Atlas** 使用 `MIT` License。
 
 详见 [LICENSE](./LICENSE)。
+

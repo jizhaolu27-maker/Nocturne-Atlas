@@ -209,13 +209,30 @@ lib/providers.js                  Provider helpers and OpenAI-compatible transpo
 lib/story-store.js                Story, library, config, JSON, and JSONL storage helpers
 lib/workspace.js                  Story workspace sync and loading helpers
 lib/context.js                    Context block assembly and prompt-shaping helpers
-lib/chat.js                       Chat context building, streaming, and revise helpers
-lib/memory.js                     Memory orchestration and forgetfulness checks
-lib/memory-engine.js              Lexical memory scoring and formatting helpers
-lib/memory-retrieval.js           Memory-RAG retrieval orchestration and fallback selection
+lib/chat.js                       Chat orchestration, streaming endpoints, revise flow, and story preview helpers
+lib/chat-context.js               Prompt resolution, workspace loading, and chat context assembly
+lib/chat-grounding.js             Grounding input shaping and conservative auto-repair helpers
+lib/chat-revise.js                Revise rollback, proposal undo, and workspace restore helpers
+lib/chat-turn.js                  Chat turn finalization, diagnostics snapshots, and persistence helpers
+lib/memory.js                     Memory orchestration and memory module composition
+lib/memory-summary.js             Summary triggers, candidate extraction, and model/fallback summaries
+lib/memory-chunks.js              Episodic/evidence chunk generation and chunk dedupe helpers
+lib/memory-forgetfulness.js       Forgetfulness signals and workspace conflict detection helpers
+lib/memory-query.js               Memory retrieval query construction, keyword extraction, and entity-focus helpers
+lib/memory-lexical.js             Lexical memory recall, scoring, and prompt formatting helpers
+lib/memory-engine.js              Compatibility export layer for memory query and lexical helpers
+lib/memory-retrieval.js           Memory-RAG orchestration and layered budget merging
+lib/memory-retrieval-helpers.js   Shared retrieval ranking, novelty, and layer-budget helpers
+lib/memory-retrieval-records.js   Canon/recent fact selection and contested-memory helpers
+lib/memory-retrieval-evidence.js  Episodic/support evidence selection helpers
 lib/memory-vector.js              Local memory vector scoring helpers
+lib/retrieval-plan.js             Joint memory-vs-knowledge routing and retrieval budget helpers
+lib/retrieval-fusion.js           Cross-source retrieval reranking and final prompt-selection helpers
 lib/embeddings.js                 Local embedding generation helpers
-lib/knowledge-retrieval.js        Knowledge-RAG chunking, retrieval, and lexical fallback helpers
+lib/knowledge-query.js            Knowledge query focus, entity matching, and anchor-hint helpers
+lib/knowledge-index.js            Knowledge chunk building and persisted chunk-index helpers
+lib/knowledge-select.js           Knowledge semantic/lexical selection and embedding-cache helpers
+lib/knowledge-retrieval.js        Knowledge-RAG composition layer for index, query, selection, and formatting
 lib/memory-consolidation.js       Long-term memory consolidation helpers
 lib/proposals.js                  Proposal generation and review helpers
 public/index.html                 Main browser UI

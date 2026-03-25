@@ -326,6 +326,34 @@ async function main() {
     assert.ok(result.selectedChunks[0].text.includes("Eira="));
   });
 
+  await runTest("knowledge traits chunks keep compact entity labels instead of full prose", () => {
+    const { buildKnowledgeChunks } = createKnowledgeRetrievalTools({
+      extractKeywords: require("../lib/memory-engine").extractKeywords,
+    });
+
+    const chunks = buildKnowledgeChunks({
+      characters: [
+        {
+          id: "xiao",
+          name: "萧令仪",
+          traits: [
+            "表层性格：复古克己，端庄守礼，待人温和有度，礼数周全。",
+            "真实性格：本性淡漠至极，无情道大成之后几乎不会产生喜怒哀乐。",
+          ],
+        },
+      ],
+      worldbooks: [],
+      styles: [],
+    }).filter((item) => item.chunkType === "traits");
+
+    assert.ok(chunks.length > 0);
+    assert.ok(chunks.every((item) => (item.entities || []).includes("萧令仪")));
+    assert.ok(chunks.some((item) => (item.entities || []).includes("表层性格")));
+    assert.ok(chunks.some((item) => (item.entities || []).includes("真实性格")));
+    assert.ok(chunks.every((item) => !(item.entities || []).some((entity) => String(entity).includes("复古克己"))));
+    assert.ok(chunks.every((item) => !(item.entities || []).some((entity) => String(entity).includes("无情道大成"))));
+  });
+
   await runTest("context tools lean knowledge anchors in knowledge rag mode", async () => {
     const contextTools = createContextTools({
       DEFAULT_CONTEXT_BLOCKS,
@@ -1029,6 +1057,36 @@ async function main() {
     assert.ok(result.notes.some((item) => /under-grounded|contested/i.test(item)));
   });
 
+  await runTest("grounding check accepts atmospheric clauses when retrieved evidence closely matches them", () => {
+    const { evaluateAssistantGrounding } = createGroundingCheckTools({ summarizeText });
+    const result = evaluateAssistantGrounding({
+      assistantText:
+        "晨光透过素色纱帘，落在白舟渡的眼睑上。她在萧令仪洞府的玉榻上醒来。",
+      selectedKnowledgeChunks: [
+        {
+          text: "Character: 萧令仪\nTraits: 萧令仪习惯用规则和礼节照顾身边的人。",
+        },
+      ],
+      selectedMemoryRecords: [],
+      selectedMemoryEvidence: [
+        {
+          text:
+            "assistant: 晨光透过洞府门口垂下的素色纱帘，落在白舟渡的眼睑上。她在萧令仪洞府的玉榻上醒来，意识缓慢上浮。",
+          subjectIds: ["xiao"],
+        },
+      ],
+      contestedMemoryRecords: [],
+    });
+
+    assert.ok(result.supportedClauseCount >= 1);
+    assert.equal(result.unsupportedClauseCount, 0);
+    assert.ok(
+      result.supportedClauses.some((item) =>
+        (item.reasons || []).some((reason) => /Atmospheric clause stayed close|close text overlap/i.test(String(reason)))
+      )
+    );
+  });
+
   await runTest("memory tools compute schedules and create a non-transcript fallback summary", async () => {
     const memoryTools = buildMemoryTools();
     const story = {
@@ -1094,7 +1152,40 @@ async function main() {
     assert.ok(update.episodicChunks.every((item) => !item.canonKey && !item.conflictGroup));
     assert.ok(update.episodicChunks.every((item) => item.kind === "plot_checkpoint"));
     assert.ok(update.episodicChunks.every((item) => item.stability === "volatile"));
+    assert.ok(update.episodicChunks.every((item) => Array.isArray(item.entities) && item.entities.length === 0));
+    assert.ok(update.episodicChunks.every((item) => Array.isArray(item.tags) && item.tags.length === 0));
     assert.ok(update.chunks.length >= update.episodicChunks.length);
+  });
+
+  await runTest("memory tools avoid near-duplicate episodic chunks from the same source range", async () => {
+    const memoryTools = buildMemoryTools();
+    const story = {
+      settings: { summaryInterval: 3 },
+      providerId: "",
+      model: "",
+    };
+    const fullMessages = [
+      { role: "user", content: "从大师姐的洞府醒来，昨晚白白和大师姐探讨修改探讨了很久。" },
+      {
+        role: "assistant",
+        content:
+          "从大师姐的洞府醒来，昨晚白白和大师姐探讨修改探讨了很久。晨光透过素色纱帘，落在白舟渡眼睑上。",
+      },
+    ];
+
+    const update = await memoryTools.generateMemoryUpdate({
+      story,
+      fullMessages,
+      memoryRecords: [],
+      memoryChunks: [],
+      workspace: { characters: [], worldbooks: [], styles: [] },
+      summaryTriggers: [],
+    });
+
+    const firstTurnChunks = update.episodicChunks.filter(
+      (item) => Array.isArray(item.sourceMessageRange) && item.sourceMessageRange.join("-") === "1-1"
+    );
+    assert.ok(firstTurnChunks.length <= 1);
   });
 
   await runTest("memory tools write windowed evidence chunks with tighter source ranges", async () => {

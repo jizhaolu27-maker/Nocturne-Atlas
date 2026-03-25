@@ -10,7 +10,7 @@ It is built for writers who want more than a single chat box. Each story keeps i
 
 - Per-story isolated workspaces for characters, worldbooks, and style profiles
 - Immutable source library assets plus story-local working copies
-- Streaming chat with stop control and last-turn revise
+- Streaming chat with stop control and rollback-first last-turn revise
 - Memory checkpoints stored as readable local JSONL
 - Proposal-based canon updates instead of silent auto-merges
 - Diagnostics for context pressure, retrieval behavior, prompt sources, and forgetfulness risk

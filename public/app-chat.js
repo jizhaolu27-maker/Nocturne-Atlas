@@ -63,6 +63,19 @@ Preparing the reply...
     els.chatLog.scrollTop = els.chatLog.scrollHeight;
   }
 
+  function setChatPreparing(isPreparing) {
+    els.chatInput.disabled = isPreparing;
+    els.chatSendBtn.disabled = isPreparing;
+    els.chatStopBtn.disabled = true;
+    if (!isPreparing) {
+      return;
+    }
+    state.pendingProposalPipeline = null;
+    state.currentProposalTriggers = [];
+    els.chatStatus.className = "chat-status busy";
+    els.chatStatus.textContent = "Rewinding the latest turn to the previous state...";
+  }
+
   function updateStreamingAssistant(text) {
     const pending = els.chatLog.querySelector(".message.assistant.pending");
     if (!pending) {
@@ -126,6 +139,24 @@ Preparing the reply...
     return null;
   }
 
+  async function runFreshChatTurn(message) {
+    setChatPending(true, message);
+    try {
+      const payload = await streamChat(message);
+      if (payload) {
+        state.pendingProposalPipeline = payload.diagnostics?.proposalPipeline || null;
+        state.currentProposalTriggers = payload.diagnostics?.proposalTriggers || [];
+        renderChatStatus();
+        await loadStory(state.activeStoryId, { preserveTransientDiagnostics: true });
+      }
+      return payload;
+    } finally {
+      state.chatAbortController = null;
+      setChatPending(false);
+      renderChatStatus();
+    }
+  }
+
   async function sendChat(event) {
     event.preventDefault();
     if (!state.activeStoryId) {
@@ -138,24 +169,13 @@ Preparing the reply...
     }
     els.chatInput.value = "";
     syncChatInputHeight({ reset: true });
-    setChatPending(true, message);
     try {
-      const payload = await streamChat(message);
-      if (payload) {
-        state.pendingProposalPipeline = payload.diagnostics?.proposalPipeline || null;
-        state.currentProposalTriggers = payload.diagnostics?.proposalTriggers || [];
-        renderChatStatus();
-        await loadStory(state.activeStoryId, { preserveTransientDiagnostics: true });
-      }
+      await runFreshChatTurn(message);
     } catch (error) {
       if (error.name !== "AbortError") {
         alert(error.message);
         await loadStory(state.activeStoryId);
       }
-    } finally {
-      state.chatAbortController = null;
-      setChatPending(false);
-      renderChatStatus();
     }
   }
 
@@ -184,19 +204,26 @@ Preparing the reply...
       alert("Input cannot be empty.");
       return;
     }
-    setChatPending(true, nextMessage);
     try {
-      await api(`/api/stories/${state.activeStoryId}/chat/revise-last`, {
+      setChatPreparing(true);
+      await api(`/api/stories/${state.activeStoryId}/chat/revise-last/prepare`, {
         method: "POST",
-        body: JSON.stringify({ message: nextMessage }),
       });
       await loadStory(state.activeStoryId);
     } catch (error) {
-      alert(error.message);
-      await loadStory(state.activeStoryId);
-    } finally {
-      setChatPending(false);
+      setChatPreparing(false);
       renderChatStatus();
+      alert(error.message);
+      await loadStory(state.activeStoryId).catch(() => {});
+      return;
+    }
+    try {
+      await runFreshChatTurn(nextMessage);
+    } catch (error) {
+      if (error.name !== "AbortError") {
+        alert(error.message);
+        await loadStory(state.activeStoryId);
+      }
     }
   }
 

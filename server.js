@@ -320,6 +320,7 @@ function getProviderContextWindow(story) {
 const {
   handleChat,
   handleChatStream,
+  prepareReviseLastExchange,
   reviseLastExchange,
   buildStoryPreview,
 } = createChatTools({
@@ -460,6 +461,7 @@ const {
   syncStoryWorkspace,
   handleChat,
   handleChatStream,
+  prepareReviseLastExchange,
   reviseLastExchange,
   buildStoryPreview,
   reviewProposal,

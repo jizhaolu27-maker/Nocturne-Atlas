@@ -1218,7 +1218,7 @@ async function main() {
 
     const update = await memoryTools.generateMemoryUpdate({
       story: {
-        settings: { summaryInterval: 3, localEmbeddingMode: "inherit" },
+        settings: { summaryInterval: 3 },
         providerId: "",
         model: "",
       },
@@ -1358,6 +1358,7 @@ async function main() {
       assert.equal("memoryRetrievalMode" in appConfig, false);
       assert.equal("knowledgeRetrievalMode" in nextSettings, false);
       assert.equal("memoryRetrievalMode" in nextSettings, false);
+      assert.equal("localEmbeddingMode" in nextSettings, false);
     } finally {
       fs.rmSync(rootDir, { recursive: true, force: true });
     }

@@ -149,18 +149,18 @@ After cloning:
 
 ## Configuration Model
 
-There are two levels of settings:
+Story generation settings are mainly story-local, while local embeddings now run from one app-wide switch.
 
-- Global defaults
-  Apply to all stories unless a story overrides them
-- Story overrides
-  Let one story use a different provider or embedding mode
-
-This applies to:
+Story-level settings include:
 
 - provider/model choice
 - reasoning effort
-- local embedding mode
+- temperature and max tokens
+
+App-level retrieval runtime settings include:
+
+- global local embeddings
+- local embedding mirror host
 
 ## Providers
 

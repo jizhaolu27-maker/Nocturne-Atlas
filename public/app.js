@@ -69,7 +69,6 @@ const els = {
   storyConfigModel: document.getElementById("story-config-model"),
   storyConfigContextBlocks: document.getElementById("story-config-context-blocks"),
   storyConfigSummaryInterval: document.getElementById("story-config-summary-interval"),
-  storyConfigLocalEmbeddingMode: document.getElementById("story-config-local-embedding-mode"),
   storyConfigTemperature: document.getElementById("story-config-temperature"),
   storyConfigReasoningEffort: document.getElementById("story-config-reasoning-effort"),
   storyConfigMaxCompletion: document.getElementById("story-config-max-completion"),
@@ -366,7 +365,6 @@ function renderEmptyState() {
   els.storyConfigModel.value = "";
   els.storyConfigContextBlocks.value = 20;
   els.storyConfigSummaryInterval.value = 20;
-  els.storyConfigLocalEmbeddingMode.value = "inherit";
   els.storyConfigTemperature.value = 1;
   els.storyConfigReasoningEffort.value = "inherit";
   els.storyConfigMaxCompletion.value = 120000;
@@ -427,7 +425,6 @@ function renderStory() {
   els.storyConfigModel.value = story.model || "";
   els.storyConfigContextBlocks.value = story.settings?.contextBlocks ?? 20;
   els.storyConfigSummaryInterval.value = story.settings?.summaryInterval ?? 20;
-  els.storyConfigLocalEmbeddingMode.value = story.settings?.localEmbeddingMode || "inherit";
   els.storyConfigTemperature.value = story.settings?.temperature ?? 1;
   els.storyConfigReasoningEffort.value = story.settings?.reasoningEffort || "inherit";
   els.storyConfigMaxCompletion.value = story.settings?.maxCompletionTokens ?? 120000;
@@ -502,7 +499,6 @@ function collectStoryPayload() {
     settings: {
       contextBlocks: parseNumberInput(els.storyConfigContextBlocks.value, 20),
       summaryInterval: parseNumberInput(els.storyConfigSummaryInterval.value, 20),
-      localEmbeddingMode: els.storyConfigLocalEmbeddingMode.value || "inherit",
       temperature: parseNumberInput(els.storyConfigTemperature.value, 1),
       reasoningEffort: els.storyConfigReasoningEffort.value || "inherit",
       maxCompletionTokens: parseNumberInput(els.storyConfigMaxCompletion.value, 120000),

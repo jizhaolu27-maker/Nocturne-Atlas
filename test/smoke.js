@@ -269,9 +269,40 @@ async function main() {
     assert.ok(query.keywords.includes("mira"));
     assert.ok(query.matchedEntries.some((item) => item.id === "mira"));
     assert.ok(query.matchedEntries.some((item) => item.id === "city"));
+    assert.ok(query.primaryMatchedEntries.some((item) => item.id === "mira"));
+    assert.ok(query.primaryMatchedEntries.some((item) => item.id === "city"));
     assert.ok(query.embeddingText.includes("Current ask:"));
     assert.ok(query.embeddingText.includes("Focus cues:"));
+    assert.ok(query.embeddingText.includes("Primary focus:"));
     assert.ok(query.embeddingText.includes("Entity focus:"));
+  });
+
+  await runTest("knowledge query keeps primary focus on the current ask over stale recent history", async () => {
+    const { buildKnowledgeQuery } = createKnowledgeRetrievalTools({
+      extractKeywords: require("../lib/memory-engine").extractKeywords,
+    });
+
+    const query = buildKnowledgeQuery({
+      userMessage: "Continue with Bai meeting Yian on the path.",
+      messages: [
+        { role: "assistant", content: "Earlier, Bai woke in Eira's cave and noticed Eira still studying the array map." },
+        { role: "user", content: "What was Eira doing with the array map?" },
+      ],
+      workspace: {
+        characters: [
+          { id: "bai", name: "Bai", core: { role: "Lead" } },
+          { id: "yian", name: "Yian", core: { role: "Youngest disciple" } },
+          { id: "eira", name: "Eira", core: { role: "First senior sister" } },
+        ],
+        worldbooks: [],
+        styles: [],
+      },
+    });
+
+    assert.ok(query.matchedEntries.some((item) => item.id === "eira"));
+    assert.ok(query.primaryMatchedEntries.some((item) => item.id === "bai"));
+    assert.ok(query.primaryMatchedEntries.some((item) => item.id === "yian"));
+    assert.ok(!query.primaryMatchedEntries.some((item) => item.id === "eira"));
   });
 
   await runTest("knowledge retrieval prefers the exact relationship-target chunk", async () => {
@@ -324,6 +355,51 @@ async function main() {
 
     assert.equal(result.selectedChunks.length, 1);
     assert.ok(result.selectedChunks[0].text.includes("Eira="));
+  });
+
+  await runTest("knowledge retrieval favors the current-turn pair over stale history carryover", async () => {
+    const { retrieveKnowledgeChunks } = createKnowledgeRetrievalTools({
+      extractKeywords: require("../lib/memory-engine").extractKeywords,
+    });
+
+    const workspace = {
+      characters: [
+        {
+          id: "yian",
+          name: "Yian",
+          relationships: {
+            Eira: "treats Eira as someone important to Bai, stays polite around her, and watches her quietly for any shift in Bai's attention",
+            Ava: "borrows herb notes from Ava and returns them without a crease",
+            Cid: "thinks Cid smells like ink and lamp smoke",
+            Dax: "waves at Dax whenever the watchtower bells ring",
+            Bai: "clings to Bai with bright trust, waits on the path for her, and always asks whether Bai will still check tonight's lessons",
+          },
+        },
+        { id: "bai", name: "Bai", core: { role: "Lead" } },
+        { id: "eira", name: "Eira", core: { role: "First senior sister" } },
+        { id: "ava", name: "Ava", core: { role: "Archivist" } },
+        { id: "cid", name: "Cid", core: { role: "Quartermaster" } },
+        { id: "dax", name: "Dax", core: { role: "Watcher" } },
+      ],
+      worldbooks: [],
+      styles: [],
+    };
+
+    const result = await retrieveKnowledgeChunks({
+      story: { id: "knowledge_current_pair_priority" },
+      workspace,
+      userMessage: "Continue with Bai meeting Yian on the path.",
+      messages: [
+        { role: "assistant", content: "Earlier, Bai woke in Eira's cave and saw Eira still studying the unfinished array map." },
+        { role: "user", content: "What was Eira thinking back then?" },
+      ],
+      embeddingOptions: { mode: "off" },
+      maxItems: 1,
+    });
+
+    assert.equal(result.selectedChunks.length, 1);
+    assert.equal(result.selectedChunks[0].sourceId, "yian");
+    assert.ok(result.selectedChunks[0].text.includes("Bai="));
   });
 
   await runTest("knowledge traits chunks keep compact entity labels instead of full prose", () => {

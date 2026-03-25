@@ -314,6 +314,36 @@ async function main() {
     assert.ok(!keywords.includes("\u533a\u7684\u96e8\u662f"));
   });
 
+  await runTest("diagnostic term selection rejects weak two-character Chinese fragments", () => {
+    const { selectDiagnosticTerms } = require("../lib/text-utils");
+    const shown = selectDiagnosticTerms(
+      [
+        "\u9646\u77e5\u7ed2",
+        "\u53bb\u5c31",
+        "\u5979\u4e0d",
+        "\u5c0f\u591c",
+        "\u5c0f\u59d0",
+        "\u4e0d\u4f1a",
+        "\u65e5\u672c",
+        "\u65b0\u5bbf",
+        "\u795e\u660e",
+        "\u96e8\u591c",
+      ],
+      10
+    );
+
+    assert.ok(shown.includes("\u9646\u77e5\u7ed2"));
+    assert.ok(shown.includes("\u65e5\u672c"));
+    assert.ok(shown.includes("\u65b0\u5bbf"));
+    assert.ok(shown.includes("\u795e\u660e"));
+    assert.ok(shown.includes("\u96e8\u591c"));
+    assert.ok(!shown.includes("\u53bb\u5c31"));
+    assert.ok(!shown.includes("\u5979\u4e0d"));
+    assert.ok(!shown.includes("\u5c0f\u591c"));
+    assert.ok(!shown.includes("\u5c0f\u59d0"));
+    assert.ok(!shown.includes("\u4e0d\u4f1a"));
+  });
+
   await runTest("runtime memory normalization refreshes legacy keyword slices lazily", () => {
     const normalized = normalizeRuntimeMemoryState({
       memoryRecords: [

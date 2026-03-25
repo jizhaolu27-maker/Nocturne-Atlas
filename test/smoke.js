@@ -300,6 +300,20 @@ async function main() {
     assert.ok(!keywords.includes("\u5934\u6361\u5230\u4e86\u4e00\u4f4d"));
   });
 
+  await runTest("memory keyword extraction filters weak Chinese filler terms and broken fragments", () => {
+    const extractKeywords = require("../lib/memory-engine").extractKeywords;
+    const keywords = extractKeywords(
+      "\u9646\u77e5\u7ed2\u662f\u90a3\u79cd\u8ba9\u4eba\u4e00\u773c\u671b\u53bb\u5c31\u4f1a\u5fc3\u751f\u601c\u60dc\u7684\u5973\u5b69\uff0c\u4e1c\u4eac\u65b0\u5bbf\u533a\u7684\u96e8\u662f\u7070\u84dd\u8272\u7684\u96e8"
+    );
+
+    assert.ok(keywords.includes("\u9646\u77e5\u7ed2"));
+    assert.ok(keywords.includes("\u4e1c\u4eac"));
+    assert.ok(keywords.includes("\u65b0\u5bbf"));
+    assert.ok(!keywords.includes("\u90a3\u79cd"));
+    assert.ok(!keywords.includes("\u5973\u5b69"));
+    assert.ok(!keywords.includes("\u533a\u7684\u96e8\u662f"));
+  });
+
   await runTest("runtime memory normalization refreshes legacy keyword slices lazily", () => {
     const normalized = normalizeRuntimeMemoryState({
       memoryRecords: [
@@ -452,6 +466,40 @@ async function main() {
     assert.equal(result.selectedChunks.length, 1);
     assert.equal(result.selectedChunks[0].sourceId, "yian");
     assert.ok(result.selectedChunks[0].text.includes("Bai="));
+  });
+
+  await runTest("knowledge diagnostics hide weak keyword fillers in reason text", async () => {
+    const { retrieveKnowledgeChunks } = createKnowledgeRetrievalTools({
+      extractKeywords: require("../lib/memory-engine").extractKeywords,
+    });
+
+    const workspace = {
+      characters: [
+        {
+          id: "lu_zhirong_001",
+          name: "\u9646\u77e5\u7ed2",
+          notes:
+            "\u9646\u77e5\u7ed2\u662f\u90a3\u79cd\u8ba9\u4eba\u4e00\u773c\u671b\u53bb\u5c31\u4f1a\u5fc3\u751f\u601c\u60dc\u7684\u5973\u5b69\uff0c\u5979\u4f4f\u5728\u5b66\u6821\u9644\u8fd1\u4e00\u95f4\u8001\u65e7\u516c\u5bd3\u7684\u4e8c\u697c\uff0c\u7a97\u53f0\u4e0a\u517b\u7740\u4e00\u76c6\u603b\u4e5f\u517b\u4e0d\u6d3b\u7684\u7ee3\u7403\u82b1\u3002",
+        },
+      ],
+      worldbooks: [],
+      styles: [],
+    };
+
+    const result = await retrieveKnowledgeChunks({
+      story: { id: "knowledge_reason_terms_clean" },
+      workspace,
+      userMessage: "\u9646\u77e5\u7ed2\u73b0\u5728\u662f\u4ec0\u4e48\u72b6\u6001\uff1f",
+      messages: [],
+      embeddingOptions: { mode: "off" },
+      maxItems: 1,
+    });
+
+    assert.equal(result.selectedChunks.length, 1);
+    const reasonText = (result.selectedChunks[0].reasons || []).join(" | ");
+    assert.ok(reasonText.includes("\u9646\u77e5\u7ed2"));
+    assert.ok(!reasonText.includes("\u90a3\u79cd"));
+    assert.ok(!reasonText.includes("\u5973\u5b69"));
   });
 
   await runTest("knowledge traits chunks keep compact entity labels instead of full prose", () => {
@@ -1893,6 +1941,45 @@ async function main() {
     );
     assert.ok(result.selectedEvidenceReasons.chunk_luzhirong.some((reason) => reason.includes("Matched subjects")));
     assert.ok(!result.selectedEvidenceReasons.chunk_luzhirong.some((reason) => reason.includes("Matched keywords")));
+  });
+
+  await runTest("memory evidence diagnostics hide weak keyword fragments even when better keyword hits exist", () => {
+    const retrievalTools = createMemoryRetrievalTools({
+      selectRelevantMemoryRecords,
+      formatMemoryContext,
+      isVectorSearchEnabled: () => false,
+    });
+
+    const result = retrievalTools.selectRelevantMemoryRecords([], {
+      userMessage: "\u4e1c\u4eac\u65b0\u5bbf\u7684\u9646\u77e5\u7ed2\u600e\u4e48\u4e86\uff1f",
+      messages: [],
+      workspace: {
+        characters: [{ id: "lu_zhirong_001", name: "\u9646\u77e5\u7ed2" }],
+        worldbooks: [],
+        styles: [],
+      },
+      memoryChunks: [
+        {
+          id: "chunk_luzhirong_keywords",
+          type: "memory_episode",
+          text: "\u4e1c\u4eac\u65b0\u5bbf\u533a\u7684\u96e8\uff0c\u662f\u90a3\u79cd\u4f1a\u628a\u4e00\u5207\u989c\u8272\u90fd\u6d17\u6210\u7070\u84dd\u7684\u96e8\u3002\u9646\u77e5\u7ed2\u6491\u7740\u4e00\u628a\u900f\u660e\u5851\u6599\u4f1e\uff0c\u7ad9\u5728\u5deb\u53e3\u7684\u5c3d\u5934\u3002",
+          scope: "character",
+          subjectIds: ["lu_zhirong_001"],
+          entities: ["\u9646\u77e5\u7ed2"],
+          keywords: ["\u4e1c\u4eac", "\u65b0\u5bbf", "\u533a\u7684\u96e8\u662f", "\u90a3\u79cd"],
+          importance: "medium",
+          confidence: 0.68,
+          createdAt: "2026-03-23T00:00:00.000Z",
+        },
+      ],
+      maxItems: 1,
+      maxEvidenceItems: 1,
+    });
+
+    const reasonText = (result.selectedEvidenceReasons.chunk_luzhirong_keywords || []).join(" | ");
+    assert.ok(reasonText.includes("Matched keywords: \u4e1c\u4eac, \u65b0\u5bbf"));
+    assert.ok(!reasonText.includes("\u533a\u7684\u96e8\u662f"));
+    assert.ok(!reasonText.includes("\u90a3\u79cd"));
   });
 
   await runTest("memory rag can promote evidence-backed facts into the final fact set", () => {

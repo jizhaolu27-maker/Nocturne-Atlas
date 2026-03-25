@@ -344,6 +344,26 @@ async function main() {
     assert.ok(!shown.includes("\u4e0d\u4f1a"));
   });
 
+  await runTest("diagnostic term selection rejects weak three-character Chinese fragments", () => {
+    const { selectDiagnosticTerms } = require("../lib/text-utils");
+    const shown = selectDiagnosticTerms(
+      [
+        "\u6761\u8857\u53bb",
+        "\u5979\u4e0d\u7231",
+        "\u4fbf\u5229\u5e97",
+        "\u6b4c\u821e\u4f0e",
+        "\u5c0f\u591c\u706f",
+      ],
+      10
+    );
+
+    assert.ok(!shown.includes("\u6761\u8857\u53bb"));
+    assert.ok(!shown.includes("\u5979\u4e0d\u7231"));
+    assert.ok(shown.includes("\u4fbf\u5229\u5e97"));
+    assert.ok(shown.includes("\u6b4c\u821e\u4f0e"));
+    assert.ok(shown.includes("\u5c0f\u591c\u706f"));
+  });
+
   await runTest("runtime memory normalization refreshes legacy keyword slices lazily", () => {
     const normalized = normalizeRuntimeMemoryState({
       memoryRecords: [
@@ -399,6 +419,34 @@ async function main() {
     assert.ok(query.primaryMatchedEntries.some((item) => item.id === "bai"));
     assert.ok(query.primaryMatchedEntries.some((item) => item.id === "yian"));
     assert.ok(!query.primaryMatchedEntries.some((item) => item.id === "eira"));
+  });
+
+  await runTest("knowledge query treats Chinese question-like asks as the primary focus", async () => {
+    const { buildKnowledgeQuery } = createKnowledgeRetrievalTools({
+      extractKeywords: require("../lib/memory-engine").extractKeywords,
+    });
+
+    const query = buildKnowledgeQuery({
+      userMessage: "继续写陆知绒和神侍少女回公寓之后会聊什么？",
+      messages: [
+        { role: "assistant", content: "Earlier, Lu Zhirong saw the shrine maiden in the rain outside the alley." },
+        { role: "user", content: "Why was the alley so quiet?" },
+      ],
+      workspace: {
+        characters: [
+          { id: "lu_zhirong_001", name: "陆知绒", core: { role: "Lead" } },
+          { id: "shrine_maiden_001", name: "神侍少女", core: { role: "Stray shrine maiden" } },
+          { id: "rain_guard_001", name: "雨巷保安", core: { role: "Minor NPC" } },
+        ],
+        worldbooks: [],
+        styles: [],
+      },
+    });
+
+    assert.ok(query.primaryFocusClauses.some((item) => item.includes("陆知绒")));
+    assert.ok(query.primaryMatchedEntries.some((item) => item.id === "lu_zhirong_001"));
+    assert.ok(query.primaryMatchedEntries.some((item) => item.id === "shrine_maiden_001"));
+    assert.ok(!query.primaryMatchedEntries.some((item) => item.id === "rain_guard_001"));
   });
 
   await runTest("knowledge retrieval prefers the exact relationship-target chunk", async () => {
@@ -1258,6 +1306,8 @@ async function main() {
     assert.ok(result.unsupportedClauseCount >= 1);
     assert.ok(result.supportedClauses[0]?.supportRefs?.length >= 1);
     assert.equal(result.supportedClauses[0]?.supportRefs?.[0]?.sourceType, "knowledge");
+    assert.equal(result.supportedClauses[0]?.supportType, "knowledge");
+    assert.equal(result.supportedClauses[0]?.primarySupportRef?.sourceType, "knowledge");
     assert.ok(result.contestedClauses[0]?.supportRefs?.some((item) => item.sourceType === "memory_fact"));
     assert.equal(result.contestedClauses[0]?.contestedSupportRefs?.[0]?.sourceType, "contested_memory");
     assert.ok(result.notes.some((item) => /under-grounded|contested/i.test(item)));
@@ -1506,9 +1556,13 @@ async function main() {
     assert.equal(update.summaryRecords.length, 1);
     assert.ok(update.summaryRecords[0].conflictGroup);
     assert.ok(update.summaryRecords[0].canonKey);
+    assert.ok(update.summaryRecords[0].stateSlot);
+    assert.ok(update.summaryRecords[0].stateFacet);
     assert.ok(update.summaryChunks.length > 0);
     assert.equal(update.summaryChunks[0].conflictGroup, update.summaryRecords[0].conflictGroup);
     assert.equal(update.summaryChunks[0].canonKey, update.summaryRecords[0].canonKey);
+    assert.equal(update.summaryChunks[0].stateSlot, update.summaryRecords[0].stateSlot);
+    assert.equal(update.summaryChunks[0].stateFacet, update.summaryRecords[0].stateFacet);
   });
 
   await runTest("memory consolidation carries canon keys and conflict groups into long-term records", () => {
@@ -1557,6 +1611,8 @@ async function main() {
     assert.equal(result.addedRecords[0].tier, "long_term");
     assert.ok(result.addedRecords[0].conflictGroup);
     assert.ok(result.addedRecords[0].canonKey);
+    assert.equal(result.addedRecords[0].stateSlot, "relationship:lyra|mira");
+    assert.ok(result.addedRecords[0].stateFacet);
   });
 
   await runTest("embedding config normalizes custom mirror hosts", () => {
@@ -1996,7 +2052,7 @@ async function main() {
           scope: "character",
           subjectIds: ["lu_zhirong_001"],
           entities: ["\u9646\u77e5\u7ed2"],
-          keywords: ["\u4e1c\u4eac", "\u65b0\u5bbf", "\u533a\u7684\u96e8\u662f", "\u90a3\u79cd"],
+          keywords: ["\u4e1c\u4eac", "\u65b0\u5bbf", "\u533a\u7684\u96e8\u662f", "\u90a3\u79cd", "\u6761\u8857\u53bb"],
           importance: "medium",
           confidence: 0.68,
           createdAt: "2026-03-23T00:00:00.000Z",
@@ -2010,6 +2066,7 @@ async function main() {
     assert.ok(reasonText.includes("Matched keywords: \u4e1c\u4eac, \u65b0\u5bbf"));
     assert.ok(!reasonText.includes("\u533a\u7684\u96e8\u662f"));
     assert.ok(!reasonText.includes("\u90a3\u79cd"));
+    assert.ok(!reasonText.includes("\u6761\u8857\u53bb"));
   });
 
   await runTest("memory rag can promote evidence-backed facts into the final fact set", () => {

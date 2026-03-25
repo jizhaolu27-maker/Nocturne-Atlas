@@ -8,6 +8,7 @@ const { createStoryStore } = require("../lib/story-store");
 const { createWorkspaceTools } = require("../lib/workspace");
 const { createContextTools } = require("../lib/context");
 const { createMemoryTools } = require("../lib/memory");
+const { createMemoryChunkTools } = require("../lib/memory-chunks");
 const { consolidateMemoryRecords } = require("../lib/memory-consolidation");
 const {
   createEmbeddingTools,
@@ -1315,6 +1316,51 @@ async function main() {
     assert.ok(firstTurnChunks.length <= 1);
   });
 
+  await runTest("memory chunk tools fold overlapping mixed and assistant evidence windows from the same beat", async () => {
+    const { extractKeywords } = require("../lib/memory-engine");
+    const chunkTools = createMemoryChunkTools({
+      summarizeText,
+      safeId,
+      extractKeywords,
+      resolveEmbeddingOptions: () => ({ mode: "off" }),
+      buildMemoryEmbeddingText: () => "",
+      stripLeadingDialogueMarker: (value) => String(value || "").replace(/^[^:]+:\s*/, ""),
+      isProbablyDialogueClause: () => false,
+      looksLikeSummaryFact: (value) => /archive|bloodline|seal|key/i.test(String(value || "")),
+      looksLikeUserIntentClause: (value) => /\?$/.test(String(value || "").trim()),
+    });
+
+    const assistantText =
+      "Lyra presses the bloodline key into the archive seal and feels the chamber answer around her at once. " +
+      "Dust wakes in the rafters, the iron rings along the vault begin to hum, and a hidden light rolls across the floor " +
+      "like water finding an old channel. The seal only yields after the key turns fully, and the whole chamber seems to " +
+      "remember her name the moment the lock gives way.";
+    const chunks = await chunkTools.buildMemoryEvidenceChunks({
+      story: {},
+      messages: [
+        { role: "user", content: "How does Lyra finally open the archive seal?" },
+        { role: "assistant", content: assistantText },
+      ],
+      record: {
+        id: "mem_archive",
+        summary: "Lyra opens the archive with her bloodline key.",
+        scope: "plot",
+        kind: "plot_checkpoint",
+        importance: "high",
+        confidence: 0.84,
+        entities: ["Lyra", "archive"],
+        tags: ["archive", "bloodline", "key"],
+        subjectIds: ["lyra"],
+      },
+      maxItems: 4,
+    });
+
+    const sealOpeningChunks = chunks.filter((item) => /bloodline key into the archive seal/i.test(item.text));
+
+    assert.equal(sealOpeningChunks.length, 1);
+    assert.equal(sealOpeningChunks[0].sourceMessageRange.join("-"), "1-2");
+  });
+
   await runTest("memory tools write windowed evidence chunks with tighter source ranges", async () => {
     const memoryTools = buildMemoryTools();
     const story = {
@@ -1680,8 +1726,12 @@ async function main() {
       maxItems: 2,
     });
     assert.equal(lexicalOnly.retrievalMeta.mode, "rag");
-    assert.equal(lexicalOnly.retrievalMeta.activeMode, "rag");
+    assert.equal(lexicalOnly.retrievalMeta.activeMode, "lexical");
     assert.equal(lexicalOnly.retrievalMeta.vectorEnabled, false);
+    assert.deepEqual(
+      lexicalOnly.selectedRecords.map((item) => item.id),
+      ["mem_a"]
+    );
 
     const hybrid = retrievalTools.selectRelevantMemoryRecords(records, {
       userMessage: "What does the signal reveal?",
@@ -1755,6 +1805,94 @@ async function main() {
     assert.ok(result.selectedRecords.some((item) => item.id === "mem_truth"));
     assert.ok(result.selectedEvidenceChunks.some((item) => item.id === "chunk_truth"));
     assert.equal(result.retrievalMeta.evidenceSelectedCount, 1);
+  });
+
+  await runTest("memory lexical recall ignores self-derived keyword matches on unrelated records", () => {
+    const result = selectRelevantMemoryRecords(
+      [
+        {
+          id: "mem_archive",
+          tier: "long_term",
+          kind: "plot_checkpoint",
+          scope: "plot",
+          summary: "Lyra opens the archive with her bloodline key.",
+          entities: ["Lyra", "archive"],
+          keywords: ["lyra", "archive", "bloodline", "key"],
+          tags: ["archive", "bloodline"],
+          importance: "high",
+          stability: "stable",
+          confidence: 0.92,
+          createdAt: "2026-03-23T00:00:00.000Z",
+        },
+        {
+          id: "mem_rain",
+          tier: "short_term",
+          kind: "plot_checkpoint",
+          scope: "plot",
+          summary: "Rain runs down the market awnings while a nameless girl waits alone.",
+          entities: ["nameless girl"],
+          keywords: ["rain", "market", "awnings"],
+          tags: ["rain"],
+          importance: "medium",
+          confidence: 0.61,
+          createdAt: "2026-03-23T00:01:00.000Z",
+        },
+      ],
+      {
+        userMessage: "How does Lyra open the archive?",
+        messages: [],
+        workspace: { characters: [], worldbooks: [], styles: [] },
+        maxItems: 2,
+      }
+    );
+
+    assert.deepEqual(
+      result.selectedRecords.map((item) => item.id),
+      ["mem_archive"]
+    );
+    assert.ok(result.reasonsById.mem_archive.some((reason) => reason.includes("Matched keywords")));
+    assert.equal(result.reasonsById.mem_rain, undefined);
+  });
+
+  await runTest("memory evidence diagnostics only report keywords that overlap the query", () => {
+    const retrievalTools = createMemoryRetrievalTools({
+      selectRelevantMemoryRecords,
+      formatMemoryContext,
+      isVectorSearchEnabled: () => false,
+    });
+
+    const result = retrievalTools.selectRelevantMemoryRecords([], {
+      userMessage: "陆知绒现在怎么样？",
+      messages: [],
+      workspace: {
+        characters: [{ id: "lu_zhirong_001", name: "陆知绒" }],
+        worldbooks: [],
+        styles: [],
+      },
+      memoryChunks: [
+        {
+          id: "chunk_luzhirong",
+          type: "memory_episode",
+          text: "雨下得像是要把整个东京都浇进地底，但陆知绒还是停下来看向街角的少女。",
+          scope: "character",
+          subjectIds: ["lu_zhirong_001"],
+          entities: ["陆知绒"],
+          keywords: ["雨下", "像是", "要把"],
+          importance: "medium",
+          confidence: 0.68,
+          createdAt: "2026-03-23T00:00:00.000Z",
+        },
+      ],
+      maxItems: 1,
+      maxEvidenceItems: 1,
+    });
+
+    assert.deepEqual(
+      result.selectedEvidenceChunks.map((item) => item.id),
+      ["chunk_luzhirong"]
+    );
+    assert.ok(result.selectedEvidenceReasons.chunk_luzhirong.some((reason) => reason.includes("Matched subjects")));
+    assert.ok(!result.selectedEvidenceReasons.chunk_luzhirong.some((reason) => reason.includes("Matched keywords")));
   });
 
   await runTest("memory rag can promote evidence-backed facts into the final fact set", () => {

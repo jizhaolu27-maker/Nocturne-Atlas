@@ -9,6 +9,9 @@ window.createChatTools = function createChatTools({
 }) {
   const MIN_CHAT_INPUT_HEIGHT = 96;
   const MAX_CHAT_INPUT_HEIGHT = 240;
+  let pendingAssistantText = "";
+  let pendingAssistantSubmittedText = "";
+  let pendingAssistantRenderFrame = 0;
 
   function syncChatInputHeight({ reset = false } = {}) {
     if (!els.chatInput) {
@@ -32,6 +35,41 @@ window.createChatTools = function createChatTools({
   els.chatInput.addEventListener("keydown", handleChatInputKeydown);
   requestAnimationFrame(() => syncChatInputHeight({ reset: true }));
 
+  function cancelPendingAssistantRender() {
+    if (pendingAssistantRenderFrame) {
+      cancelAnimationFrame(pendingAssistantRenderFrame);
+      pendingAssistantRenderFrame = 0;
+    }
+  }
+
+  function getPendingAssistantNode() {
+    return els.chatLog.querySelector(".message.assistant.pending");
+  }
+
+  function buildPendingAssistantPlaceholder() {
+    const parts = ["Preparing the reply..."];
+    if (pendingAssistantSubmittedText) {
+      parts.push(`Current user input: ${pendingAssistantSubmittedText}`);
+    }
+    return renderMarkdownSafe(parts.join("\n\n"));
+  }
+
+  function renderPendingAssistantNow() {
+    pendingAssistantRenderFrame = 0;
+    const pending = getPendingAssistantNode();
+    if (!pending) {
+      return;
+    }
+    const renderedContent = pendingAssistantText
+      ? renderMarkdownSafe(pendingAssistantText)
+      : buildPendingAssistantPlaceholder();
+    pending.innerHTML = `
+      <div class="message-role">assistant / streaming</div>
+      <div class="message-content">${renderedContent}</div>
+    `;
+    els.chatLog.scrollTop = els.chatLog.scrollHeight;
+  }
+
   function setChatPending(isPending, submittedText = "") {
     state.isStreamingChat = isPending;
     els.chatInput.disabled = isPending;
@@ -44,23 +82,23 @@ window.createChatTools = function createChatTools({
     els.chatStatus.className = `chat-status ${isPending ? "busy" : ""}`.trim();
     els.chatStatus.textContent = isPending ? "AI received the request and is preparing the reply." : "";
 
-    const existing = els.chatLog.querySelector(".message.assistant.pending");
+    const existing = getPendingAssistantNode();
     if (!isPending) {
+      cancelPendingAssistantRender();
+      pendingAssistantText = "";
+      pendingAssistantSubmittedText = "";
       existing?.remove();
       return;
     }
     if (existing) {
       return;
     }
+    pendingAssistantText = "";
+    pendingAssistantSubmittedText = String(submittedText || "").trim();
     const pending = document.createElement("div");
     pending.className = "message assistant pending";
-    pending.innerHTML = `
-      <div class="meta">assistant</div>
-      AI received the request${submittedText ? `: ${escapeHtml(submittedText)}` : ""}
-Preparing the reply...
-    `;
     els.chatLog.appendChild(pending);
-    els.chatLog.scrollTop = els.chatLog.scrollHeight;
+    renderPendingAssistantNow();
   }
 
   function setChatPreparing(isPreparing) {
@@ -77,12 +115,11 @@ Preparing the reply...
   }
 
   function updateStreamingAssistant(text) {
-    const pending = els.chatLog.querySelector(".message.assistant.pending");
-    if (!pending) {
+    pendingAssistantText = String(text || "");
+    if (pendingAssistantRenderFrame) {
       return;
     }
-    pending.innerHTML = `<div class="meta">assistant</div>${escapeHtml(text || "Generating reply...")}`;
-    els.chatLog.scrollTop = els.chatLog.scrollHeight;
+    pendingAssistantRenderFrame = requestAnimationFrame(renderPendingAssistantNow);
   }
 
   async function streamChat(message) {

@@ -274,6 +274,58 @@ async function main() {
     assert.ok(query.embeddingText.includes("Entity focus:"));
   });
 
+  await runTest("knowledge retrieval prefers the exact relationship-target chunk", async () => {
+    const { retrieveKnowledgeChunks, buildKnowledgeChunks } = createKnowledgeRetrievalTools({
+      extractKeywords: require("../lib/memory-engine").extractKeywords,
+    });
+
+    const workspace = {
+      characters: [
+        {
+          id: "bai",
+          name: "Bai",
+          relationships: {
+            Ava: "trusted co-strategist during the archive campaign who quietly rewrites Bai's battle plans every dawn",
+            Bea: "older rival who needles Bai in public and only offers help when nobody else is looking",
+            Cid: "patient quartermaster who keeps Bai supplied with contraband maps and forged gate sigils",
+            Dax: "tower watcher who reports every bell change before Bai ever hears the city alarms",
+            Eira: "first senior sister whose rule-bound care leaves Bai both flustered and oddly comforted",
+          },
+        },
+        { id: "ava", name: "Ava", core: { role: "strategist" } },
+        { id: "bea", name: "Bea", core: { role: "rival" } },
+        { id: "cid", name: "Cid", core: { role: "quartermaster" } },
+        { id: "dax", name: "Dax", core: { role: "watcher" } },
+        { id: "eira", name: "Eira", core: { role: "first senior sister" } },
+      ],
+      worldbooks: [],
+      styles: [],
+    };
+
+    const relationshipChunks = buildKnowledgeChunks(workspace).filter(
+      (item) => item.sourceId === "bai" && item.chunkType === "relationships"
+    );
+    assert.ok(relationshipChunks.length >= 2);
+    assert.ok(relationshipChunks.some((item) => item.text.includes("Eira=")));
+    assert.ok(
+      relationshipChunks
+        .filter((item) => !item.text.includes("Eira="))
+        .every((item) => !(item.entities || []).includes("Eira"))
+    );
+
+    const result = await retrieveKnowledgeChunks({
+      story: { id: "knowledge_exact_relationship" },
+      workspace,
+      userMessage: "How does Bai deal with Eira now?",
+      messages: [{ role: "assistant", content: "Bai wakes in Eira's cave and tries to pretend the overnight stay meant nothing." }],
+      embeddingOptions: { mode: "off" },
+      maxItems: 1,
+    });
+
+    assert.equal(result.selectedChunks.length, 1);
+    assert.ok(result.selectedChunks[0].text.includes("Eira="));
+  });
+
   await runTest("context tools lean knowledge anchors in knowledge rag mode", async () => {
     const contextTools = createContextTools({
       DEFAULT_CONTEXT_BLOCKS,
@@ -1039,6 +1091,9 @@ async function main() {
     assert.ok(update.episodicChunks.length > 0);
     assert.ok(update.episodicChunks.every((item) => item.type === "memory_episode"));
     assert.ok(update.episodicChunks.every((item) => !item.linkedRecordId));
+    assert.ok(update.episodicChunks.every((item) => !item.canonKey && !item.conflictGroup));
+    assert.ok(update.episodicChunks.every((item) => item.kind === "plot_checkpoint"));
+    assert.ok(update.episodicChunks.every((item) => item.stability === "volatile"));
     assert.ok(update.chunks.length >= update.episodicChunks.length);
   });
 

@@ -24,6 +24,7 @@ const { createChatTools } = require("../lib/chat");
 const { createProviderTools } = require("../lib/providers");
 const { createServerConfigTools } = require("../lib/server-config");
 const { createGroundingCheckTools } = require("../lib/grounding-check");
+const { MEMORY_KEYWORD_VERSION, normalizeRuntimeMemoryState } = require("../lib/memory-runtime");
 
 const DEFAULT_CONTEXT_BLOCKS = 6;
 const DEFAULT_SUMMARY_INTERVAL = 4;
@@ -275,6 +276,56 @@ async function main() {
     assert.ok(query.embeddingText.includes("Focus cues:"));
     assert.ok(query.embeddingText.includes("Primary focus:"));
     assert.ok(query.embeddingText.includes("Entity focus:"));
+  });
+
+  await runTest("memory keyword extraction keeps readable Chinese terms instead of raw sentence slices", () => {
+    const extractKeywords = require("../lib/memory-engine").extractKeywords;
+    const keywords = extractKeywords(
+      "\u9646\u77e5\u7ed2\u5c0f\u59d0\u5728\u65e5\u672c\u7684\u66b4\u96e8\u8857\u5934\u6361\u5230\u4e86\u4e00\u4f4d\u5f88\u6f02\u4eae\u7684\u795e\u4f8d\u5c11\u5973\uff0c\u800c\u4e14\u662f\u7b2c\u4e00\u6b21\u51fa\u6765\u63a5\u5ba2"
+    );
+
+    assert.ok(
+      keywords.includes("\u9646\u77e5\u7ed2") || keywords.includes("\u9646\u77e5\u7ed2\u5c0f\u59d0")
+    );
+    assert.ok(keywords.includes("\u65e5\u672c"));
+    assert.ok(keywords.includes("\u66b4\u96e8"));
+    assert.ok(keywords.includes("\u8857\u5934"));
+    assert.ok(
+      keywords.includes("\u795e\u4f8d\u5c11\u5973") ||
+        (keywords.includes("\u795e\u4f8d") && keywords.includes("\u5c11\u5973"))
+    );
+    assert.ok(!keywords.includes("\u9646\u77e5\u7ed2\u5c0f\u59d0\u5728"));
+    assert.ok(!keywords.includes("\u65e5\u672c\u7684\u66b4\u96e8\u8857"));
+    assert.ok(!keywords.includes("\u5934\u6361\u5230\u4e86\u4e00\u4f4d"));
+  });
+
+  await runTest("runtime memory normalization refreshes legacy keyword slices lazily", () => {
+    const normalized = normalizeRuntimeMemoryState({
+      memoryRecords: [
+        {
+          id: "mem_legacy",
+          summary:
+            "\u9646\u77e5\u7ed2\u5728\u65e5\u672c\u7684\u66b4\u96e8\u8857\u5934\u6361\u5230\u4e86\u4e00\u4f4d\u795e\u4f8d\u5c11\u5973",
+          keywords: ["\u9646\u77e5\u7ed2\u5728", "\u65e5\u672c\u7684\u66b4\u96e8\u8857"],
+        },
+      ],
+      memoryChunks: [
+        {
+          id: "chunk_legacy",
+          text:
+            "\u9646\u77e5\u7ed2\u5c0f\u59d0\u5728\u65e5\u672c\u7684\u66b4\u96e8\u8857\u5934\u6361\u5230\u4e86\u4e00\u4f4d\u5f88\u6f02\u4eae\u7684\u795e\u4f8d\u5c11\u5973",
+          keywords: ["\u9646\u77e5\u7ed2\u5c0f\u59d0\u5728", "\u65e5\u672c\u7684\u66b4\u96e8\u8857"],
+        },
+      ],
+    });
+
+    assert.equal(normalized.changed, true);
+    assert.equal(normalized.memoryRecords[0].keywordVersion, MEMORY_KEYWORD_VERSION);
+    assert.equal(normalized.memoryChunks[0].keywordVersion, MEMORY_KEYWORD_VERSION);
+    assert.ok(normalized.memoryRecords[0].keywords.includes("\u9646\u77e5\u7ed2"));
+    assert.ok(normalized.memoryChunks[0].keywords.includes("\u795e\u4f8d") || normalized.memoryChunks[0].keywords.includes("\u795e\u4f8d\u5c11\u5973"));
+    assert.ok(!normalized.memoryRecords[0].keywords.includes("\u9646\u77e5\u7ed2\u5728"));
+    assert.ok(!normalized.memoryChunks[0].keywords.includes("\u65e5\u672c\u7684\u66b4\u96e8\u8857"));
   });
 
   await runTest("knowledge query keeps primary focus on the current ask over stale recent history", async () => {
@@ -2259,10 +2310,13 @@ async function main() {
     assert.equal(saveCount, 1);
     assert.equal(first.retrievalMeta.indexSource, "created");
     assert.equal(first.retrievalMeta.indexRefreshed, true);
+    assert.equal(first.retrievalMeta.indexVersion, retrievalTools.indexVersion);
     assert.ok(savedChunks.length > 0);
     assert.ok(savedChunks.every((item) => item.workspaceHash));
+    assert.ok(savedChunks.every((item) => item.indexVersion === retrievalTools.indexVersion));
     assert.equal(second.retrievalMeta.indexSource, "persisted");
     assert.equal(second.retrievalMeta.indexRefreshed, false);
+    assert.equal(second.retrievalMeta.indexVersion, retrievalTools.indexVersion);
     assert.ok(second.selectedChunks.length > 0);
   });
 

@@ -1760,14 +1760,26 @@ textarea {
     height: auto;
     max-height: calc(100dvh - var(--mobile-nav-h));
     border-radius: 0;
+    visibility: hidden;
+    pointer-events: none;
   }
 
   .sidebar {
     width: min(100vw, 390px);
   }
 
+  .app-shell.sidebar-open .sidebar {
+    visibility: visible;
+    pointer-events: auto;
+  }
+
   .right-panel {
     width: 100vw;
+  }
+
+  .app-shell.right-open .right-panel {
+    visibility: visible;
+    pointer-events: auto;
   }
 
   .sidebar-overlay {

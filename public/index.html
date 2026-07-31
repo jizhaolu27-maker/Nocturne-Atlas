@@ -360,6 +360,12 @@
                 </div>
                 <label>JSON Data<textarea id="library-json-editor"
                     style="font-family: var(--font-mono); font-size: 11px; min-height: 120px;"></textarea></label>
+                <div class="library-ai-generator">
+                  <label>AI Draft Description<textarea id="library-ai-description" rows="3"
+                      placeholder="Describe the character, worldbook, or writing style you want..."></textarea></label>
+                  <button id="library-ai-generate-btn" class="ghost" type="button">Generate AI Draft</button>
+                  <div id="library-ai-status" class="provider-test-result" aria-live="polite"></div>
+                </div>
                 <div class="actions-row">
                   <button id="save-library-btn" type="button">Save</button>
                   <button id="new-library-btn" class="ghost" type="button">New</button>

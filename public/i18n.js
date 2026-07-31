@@ -75,6 +75,10 @@
     Type: "类型",
     Entry: "条目",
     "JSON Data": "JSON 数据",
+    "AI Draft Description": "AI 草稿描述",
+    "Describe the character, worldbook, or writing style you want...": "描述你想要的角色、世界书或文风……",
+    "Generate AI Draft": "生成 AI 草稿",
+    "New entry": "新建条目",
     Proposals: "提案",
     "Review AI-generated changes before applying.": "应用 AI 生成的变更前先进行审阅。",
     "Pending changes": "待处理变更",
@@ -98,10 +102,12 @@
       const node = walker.currentNode;
       if (!original.has(node)) original.set(node, node.nodeValue);
       const raw = original.get(node);
-      const trimmed = raw.trim();
+      const current = node.nodeValue;
+      const source = language === "zh" ? raw : current;
+      const trimmed = source.trim();
       if (!trimmed) continue;
       const translated = language === "zh" ? translations[trimmed] : reverse[trimmed];
-      if (translated) node.nodeValue = raw.replace(trimmed, translated);
+      if (translated) node.nodeValue = source.replace(trimmed, translated);
     }
     for (const element of root.querySelectorAll?.("[placeholder], [title], [aria-label]") || []) {
       for (const attr of ["placeholder", "title", "aria-label"]) {

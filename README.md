@@ -176,6 +176,8 @@ You can configure:
 
 Provider keys are stored locally and encrypted at rest.
 
+In the Library Editor, choose Characters, Worldbooks, or Styles and use “Generate AI Draft” to turn a natural-language description into a reviewable JSON draft. The draft is not saved until you inspect it and click Save.
+
 ## Data Layout
 
 ```text

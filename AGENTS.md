@@ -14,6 +14,8 @@ npm start      # 默认 http://localhost:18379，可用 HOST/PORT 覆盖
 npm test       # node test/smoke.js
 ```
 
+生产服务器使用 `deploy/nocturne-atlas.service` 作为 systemd 后台服务，监听 `18379`；代码或服务配置更新后执行 `sudo systemctl restart nocturne-atlas`，查看状态使用 `sudo systemctl status nocturne-atlas`。
+
 项目没有独立 lint、format、typecheck 或 CI 命令，不要声称这些检查通过。代码风格为双引号、分号、2 空格缩进。
 
 ## 代码地图

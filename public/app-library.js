@@ -100,11 +100,49 @@ window.createLibraryTools = function createLibraryTools({
     }
   }
 
+  async function generateLibraryDraft() {
+    const description = els.libraryAiDescription?.value.trim() || "";
+    if (!description) {
+      if (els.libraryAiStatus) els.libraryAiStatus.textContent = "Describe what you want first.";
+      els.libraryAiDescription?.focus();
+      return;
+    }
+    if (els.libraryAiGenerateBtn) {
+      els.libraryAiGenerateBtn.disabled = true;
+      els.libraryAiGenerateBtn.textContent = "Generating...";
+    }
+    if (els.libraryAiStatus) els.libraryAiStatus.textContent = "Generating a draft. Nothing will be saved yet.";
+    try {
+      const providerId = state.activeStoryData?.story?.providerId || els.providerSelect?.value || state.providers[0]?.id || "";
+      const result = await api("/api/library/generate", {
+        method: "POST",
+        body: JSON.stringify({
+          type: state.selectedLibraryType,
+          description,
+          providerId,
+          model: state.activeStoryData?.story?.model || "",
+        }),
+      });
+      state.selectedLibraryItemId = "__new__";
+      els.libraryItemSelect.value = "__new__";
+      els.libraryJsonEditor.value = JSON.stringify(result.draft, null, 2);
+      if (els.libraryAiStatus) els.libraryAiStatus.textContent = "Draft ready. Review the JSON, then click Save to create it.";
+    } catch (error) {
+      if (els.libraryAiStatus) els.libraryAiStatus.textContent = `Generation failed: ${error.message}`;
+    } finally {
+      if (els.libraryAiGenerateBtn) {
+        els.libraryAiGenerateBtn.disabled = false;
+        els.libraryAiGenerateBtn.textContent = "Generate AI Draft";
+      }
+    }
+  }
+
   return {
     getSelectedLibraryItems,
     getNewLibraryTemplate,
     renderLibraryEditor,
     saveLibraryItem,
     deleteLibraryItem,
+    generateLibraryDraft,
   };
 };

@@ -467,6 +467,8 @@ const {
   loadProviders,
   saveProviders,
   canDecryptSecret,
+  decryptSecret,
+  callOpenAICompatible,
   encryptSecret,
   testProviderConnection,
   listJsonFiles,

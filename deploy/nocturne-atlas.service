@@ -1,0 +1,20 @@
+[Unit]
+Description=Nocturne Atlas story workspace
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+Type=simple
+WorkingDirectory=/root/workspace/Nocturne-Atlas
+ExecStart=/usr/bin/npm start
+Environment=HOST=0.0.0.0
+Environment=PORT=18379
+Restart=on-failure
+RestartSec=5
+KillSignal=SIGTERM
+TimeoutStopSec=15
+NoNewPrivileges=true
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target

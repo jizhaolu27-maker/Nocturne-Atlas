@@ -1626,6 +1626,19 @@ textarea {
   background: var(--accent-soft);
 }
 
+.library-ai-generator {
+  display: grid;
+  gap: 8px;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+  background: color-mix(in srgb, var(--accent-soft) 36%, transparent);
+}
+
+.library-ai-generator label {
+  gap: 6px;
+}
+
 .mobile-language-toggle {
   display: none;
 }

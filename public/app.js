@@ -11,6 +11,7 @@
   chatAbortController: null,
   isStreamingChat: false,
   storySaveStatusTimer: null,
+  selectorSaveTimer: null,
   pendingProposalPipeline: null,
   currentProposalTriggers: [],
   selectedWorkspaceAssetKey: null,
@@ -87,6 +88,9 @@ const els = {
   libraryTypeSelect: document.getElementById("library-type-select"),
   libraryItemSelect: document.getElementById("library-item-select"),
   libraryJsonEditor: document.getElementById("library-json-editor"),
+  libraryAiDescription: document.getElementById("library-ai-description"),
+  libraryAiGenerateBtn: document.getElementById("library-ai-generate-btn"),
+  libraryAiStatus: document.getElementById("library-ai-status"),
   saveLibraryBtn: document.getElementById("save-library-btn"),
   newLibraryBtn: document.getElementById("new-library-btn"),
   deleteLibraryBtn: document.getElementById("delete-library-btn"),
@@ -266,6 +270,7 @@ const {
   renderLibraryEditor,
   saveLibraryItem,
   deleteLibraryItem,
+  generateLibraryDraft,
 } = window.createLibraryTools({
   state,
   els,
@@ -621,6 +626,19 @@ async function saveStoryConfig() {
   }
 }
 
+function scheduleSelectorSave() {
+  if (!state.activeStoryId) {
+    return;
+  }
+  if (state.selectorSaveTimer) {
+    clearTimeout(state.selectorSaveTimer);
+  }
+  state.selectorSaveTimer = setTimeout(() => {
+    state.selectorSaveTimer = null;
+    saveStoryConfig().catch((error) => console.error("Failed to save enabled workspace assets", error));
+  }, 180);
+}
+
 async function refreshAll() {
   const data = await api("/api/bootstrap");
   state.stories = data.stories || [];
@@ -718,6 +736,13 @@ els.chatLog.addEventListener("click", (event) => {
 els.saveStoryBtn.addEventListener("click", saveStoryConfig);
 els.newStoryBtn.addEventListener("click", createStory);
 els.deleteStoryBtn.addEventListener("click", deleteActiveStory);
+for (const selectorRoot of [els.selectorCharacters, els.selectorWorldbooks, els.selectorStyles]) {
+  selectorRoot?.addEventListener("change", (event) => {
+    if (event.target.matches("input[type=checkbox]")) {
+      scheduleSelectorSave();
+    }
+  });
+}
 els.saveProviderBtn.addEventListener("click", saveProvider);
 els.testProviderBtn.addEventListener("click", testProvider);
 els.newProviderBtn.addEventListener("click", () => {
@@ -745,6 +770,7 @@ els.newLibraryBtn.addEventListener("click", () => {
   renderLibraryEditor();
 });
 els.deleteLibraryBtn.addEventListener("click", deleteLibraryItem);
+els.libraryAiGenerateBtn?.addEventListener("click", generateLibraryDraft);
 
 bindShellEvents();
 initializeSidebarState();

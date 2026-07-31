@@ -1788,7 +1788,7 @@ textarea {
   }
 
   .app-shell.sidebar-open .sidebar {
-    display: block;
+    display: flex;
     visibility: visible;
     opacity: 1;
     pointer-events: auto;
@@ -1799,7 +1799,7 @@ textarea {
   }
 
   .app-shell.right-open .right-panel {
-    display: block;
+    display: flex;
     visibility: visible;
     opacity: 1;
     pointer-events: auto;
@@ -1923,6 +1923,11 @@ textarea {
 
   .right-panel-body {
     padding: 16px 16px calc(28px + env(safe-area-inset-bottom));
+    min-height: 0;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+    touch-action: pan-y;
+    overscroll-behavior: contain;
   }
 
   .rp-section {

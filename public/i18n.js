@@ -112,7 +112,9 @@
       }
     }
     for (const button of document.querySelectorAll(".language-toggle")) {
-      button.textContent = language === "zh" ? "EN" : "中文";
+      const code = button.querySelector(".language-code");
+      if (code) code.textContent = language === "zh" ? "EN" : "中";
+      else button.textContent = language === "zh" ? "EN" : "中文";
       button.title = language === "zh" ? "Switch to English" : "切换到中文";
       button.setAttribute("aria-label", button.title);
     }

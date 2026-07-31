@@ -16,7 +16,10 @@
       <label>Username<input id="auth-username" name="username" autocomplete="username" required /></label>
       <label>Password<input id="auth-password" name="password" type="password" autocomplete="current-password" required /></label>
       <button type="submit">Sign in</button>
-      <button id="language-toggle-auth" class="ghost language-toggle" type="button" aria-label="Switch to Chinese">中文</button>
+      <button id="language-toggle-auth" class="ghost language-toggle" type="button" aria-label="Switch to Chinese" title="Switch to Chinese">
+        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"></circle><path d="M3 12h18M12 3a14 14 0 0 1 0 18M12 3a14 14 0 0 0 0 18"></path></svg>
+        <span class="language-code">中</span>
+      </button>
       <p id="auth-error" class="auth-error" aria-live="polite"></p>
     </form>
   </section>
@@ -74,6 +77,10 @@
             <span title="Worldbook assets">🌍 <span id="count-worldbooks">0</span></span>
             <span title="Style assets">✨ <span id="count-styles">0</span></span>
           </div>
+          <button id="language-toggle-btn" class="ghost icon-btn language-toggle" type="button" aria-label="Switch to Chinese" title="Switch to Chinese">
+            <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"></circle><path d="M3 12h18M12 3a14 14 0 0 1 0 18M12 3a14 14 0 0 0 0 18"></path></svg>
+            <span class="language-code">中</span>
+          </button>
           <button id="theme-toggle-btn" class="ghost icon-btn theme-toggle" type="button" title="Toggle theme">
             <svg class="theme-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
               stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -102,7 +109,6 @@
         <div class="chat-topbar-actions">
           <span id="story-save-status" class="story-save-status" aria-live="polite"></span>
           <button id="auth-logout-btn" class="ghost" type="button" title="Sign out">Sign out</button>
-          <button id="language-toggle-btn" class="ghost language-toggle" type="button" aria-label="Switch to Chinese">中文</button>
 
           <button id="save-story-btn" class="ghost icon-btn" type="button" title="Save Story">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"

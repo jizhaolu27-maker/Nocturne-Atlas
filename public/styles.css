@@ -1619,6 +1619,12 @@ textarea {
   letter-spacing: 0.02em;
 }
 
+.language-toggle .language-code {
+  margin-left: 2px;
+  font-size: 9px;
+  line-height: 1;
+}
+
 /* ── Responsive ─────────────────────────────────── */
 @media (max-width: 1100px) {
   :root {

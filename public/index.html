@@ -16,6 +16,7 @@
       <label>Username<input id="auth-username" name="username" autocomplete="username" required /></label>
       <label>Password<input id="auth-password" name="password" type="password" autocomplete="current-password" required /></label>
       <button type="submit">Sign in</button>
+      <button id="language-toggle-auth" class="ghost language-toggle" type="button" aria-label="Switch to Chinese">中文</button>
       <p id="auth-error" class="auth-error" aria-live="polite"></p>
     </form>
   </section>
@@ -101,6 +102,7 @@
         <div class="chat-topbar-actions">
           <span id="story-save-status" class="story-save-status" aria-live="polite"></span>
           <button id="auth-logout-btn" class="ghost" type="button" title="Sign out">Sign out</button>
+          <button id="language-toggle-btn" class="ghost language-toggle" type="button" aria-label="Switch to Chinese">中文</button>
 
           <button id="save-story-btn" class="ghost icon-btn" type="button" title="Save Story">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
@@ -432,6 +434,7 @@
       </button>
     </nav>
   </div>
+  <script src="/i18n.js"></script>
   <script src="/app-review.js"></script>
   <script src="/app-chat.js"></script>
   <script src="/app-library.js"></script>

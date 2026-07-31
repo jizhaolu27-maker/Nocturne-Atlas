@@ -5,6 +5,17 @@ window.createShellTools = function createShellTools({
   sidebarCollapsedStorageKey,
   renderActiveRightPanel,
 }) {
+  function setMobileNavState(view = "chat") {
+    if (window.innerWidth > 900) {
+      return;
+    }
+    for (const button of document.querySelectorAll("[data-mobile-view]")) {
+      const isActive = button.dataset.mobileView === view;
+      button.classList.toggle("active", isActive);
+      button.setAttribute("aria-current", isActive ? "page" : "false");
+    }
+  }
+
   function showStorySaveStatus(message, tone = "") {
     if (state.storySaveStatusTimer) {
       clearTimeout(state.storySaveStatusTimer);
@@ -81,6 +92,9 @@ window.createShellTools = function createShellTools({
       setSidebarOpen(false);
     } else {
       els.appShell.classList.remove("sidebar-collapsed");
+      if (!els.appShell.classList.contains("sidebar-open") && !els.appShell.classList.contains("right-open")) {
+        setMobileNavState("chat");
+      }
     }
   }
 
@@ -95,7 +109,10 @@ window.createShellTools = function createShellTools({
     if (!els.appShell || window.innerWidth > 900) {
       return;
     }
-    setSidebarOpen(!els.appShell.classList.contains("sidebar-open"));
+    const willOpen = !els.appShell.classList.contains("sidebar-open");
+    closeRightPanelOverlay();
+    setSidebarOpen(willOpen);
+    setMobileNavState(willOpen ? "stories" : "chat");
   }
 
   function toggleDesktopSidebar() {
@@ -108,6 +125,7 @@ window.createShellTools = function createShellTools({
   function closeSidebar() {
     if (window.innerWidth <= 900) {
       setSidebarOpen(false);
+      setMobileNavState("chat");
     }
   }
 
@@ -117,13 +135,30 @@ window.createShellTools = function createShellTools({
     }
   }
 
+  function openMobileView(view) {
+    if (!els.appShell || window.innerWidth > 900) {
+      return;
+    }
+    setSidebarOpen(false);
+    closeRightPanelOverlay();
+    if (view === "stories") {
+      setSidebarOpen(true);
+    } else if (view === "knowledge" || view === "controls") {
+      activateRightTab(view);
+      els.appShell.classList.add("right-open");
+    }
+    setMobileNavState(view);
+  }
+
   function toggleRightPanel() {
     if (!els.appShell) {
       return;
     }
     if (window.innerWidth <= 900) {
       const isOpen = els.appShell.classList.contains("right-open");
+      setSidebarOpen(false);
       els.appShell.classList.toggle("right-open", !isOpen);
+      setMobileNavState(isOpen ? "chat" : state.activeRightTab === "knowledge" ? "knowledge" : "controls");
       return;
     }
     const isCollapsed = els.appShell.classList.contains("right-collapsed");
@@ -150,6 +185,7 @@ window.createShellTools = function createShellTools({
     els.sidebarOverlay?.addEventListener("click", () => {
       closeSidebar();
       closeRightPanelOverlay();
+      setMobileNavState("chat");
     });
     els.themeToggleBtn?.addEventListener("click", toggleTheme);
 
@@ -159,6 +195,10 @@ window.createShellTools = function createShellTools({
     for (const button of document.querySelectorAll(".tab-btn")) {
       button.setAttribute("aria-selected", button.classList.contains("active") ? "true" : "false");
       button.addEventListener("click", () => activateRightTab(button.dataset.tab));
+    }
+
+    for (const button of document.querySelectorAll("[data-mobile-view]")) {
+      button.addEventListener("click", () => openMobileView(button.dataset.mobileView));
     }
 
     window.addEventListener("resize", () => {

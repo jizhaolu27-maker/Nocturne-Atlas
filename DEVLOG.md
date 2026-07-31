@@ -12,6 +12,7 @@
 
 ### Changed
 
+- 登录请求显式携带同源 Cookie、禁止 API 缓存，并在网络无响应时于 15 秒后显示超时错误，避免登录界面无限等待。
 - 扩大敏感运行时文件忽略规则：整个 `data/config/`、环境变量文件、证书/私钥和本地会话文件均不进入 Git。
 - 增加单用户认证层：密码以 scrypt 哈希保存在 ignored `data/config/auth.json`，API 使用 HttpOnly 会话 Cookie；静态登录页仍可访问。
 - 默认监听端口改为高位端口 `18379`，支持 `HOST`、`PORT` 和 `AUTH_COOKIE_SECURE` 环境变量。

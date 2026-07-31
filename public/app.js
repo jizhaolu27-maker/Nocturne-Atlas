@@ -184,10 +184,30 @@ function renderMarkdownSafe(source) {
 }
 
 async function api(path, options = {}) {
-  const response = await fetch(path, {
-    headers: { "Content-Type": "application/json", ...(options.headers || {}) },
-    ...options,
-  });
+  const { timeoutMs = 0, ...fetchOptions } = options;
+  const timeoutController = timeoutMs > 0 && !fetchOptions.signal ? new AbortController() : null;
+  const timeoutId = timeoutController
+    ? setTimeout(() => timeoutController.abort(), timeoutMs)
+    : null;
+  let response;
+  try {
+    response = await fetch(path, {
+      credentials: "same-origin",
+      cache: "no-store",
+      headers: { "Content-Type": "application/json", ...(fetchOptions.headers || {}) },
+      ...fetchOptions,
+      signal: fetchOptions.signal || timeoutController?.signal,
+    });
+  } catch (error) {
+    if (error?.name === "AbortError" && timeoutController) {
+      throw new Error("The request timed out. Check the network and try again.");
+    }
+    throw error;
+  } finally {
+    if (timeoutId) {
+      clearTimeout(timeoutId);
+    }
+  }
   const data = await response.json().catch(() => ({}));
   if (!response.ok) {
     const error = new Error(data.error || "Request failed");
@@ -671,6 +691,7 @@ els.authForm?.addEventListener("submit", async (event) => {
   try {
     await api("/api/auth/login", {
       method: "POST",
+      timeoutMs: 15_000,
       body: JSON.stringify({
         username: els.authUsername?.value || "",
         password: els.authPassword?.value || "",

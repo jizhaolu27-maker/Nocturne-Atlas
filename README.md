@@ -39,8 +39,20 @@ npm start
 Open:
 
 ```text
-http://localhost:3000
+http://localhost:18379
 ```
+
+The server listens on all interfaces by default so a trusted phone or tablet on the same network can use `http://<server-lan-ip>:18379`. Set `HOST=127.0.0.1` to restrict it to the local machine. Cross-network access should use Tailscale/WireGuard or an HTTPS reverse proxy; the app should not be exposed directly to the public internet.
+
+### Authentication
+
+Set `AUTH_USERNAME` and `AUTH_PASSWORD` on the first start to create the local single-user authentication file. The password is stored as a scrypt hash under ignored `data/config/auth.json`; it is not committed to the repository. After the file exists, the server can restart without those environment variables.
+
+```bash
+AUTH_USERNAME=your-user AUTH_PASSWORD=choose-a-password npm start
+```
+
+All API routes require the login session when authentication is configured. When using HTTPS, set `AUTH_COOKIE_SECURE=1` so the session cookie is only sent over TLS.
 
 ### Test
 

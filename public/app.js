@@ -19,6 +19,12 @@
 };
 
 const els = {
+  authGate: document.getElementById("auth-gate"),
+  authForm: document.getElementById("auth-form"),
+  authUsername: document.getElementById("auth-username"),
+  authPassword: document.getElementById("auth-password"),
+  authError: document.getElementById("auth-error"),
+  authLogoutBtn: document.getElementById("auth-logout-btn"),
   appShell: document.querySelector(".app-shell"),
   sidebarOverlay: document.getElementById("sidebar-overlay"),
   desktopSidebarBtn: document.getElementById("desktop-sidebar-btn"),
@@ -91,6 +97,24 @@ const els = {
   diagnosticPromptPreview: document.getElementById("diagnostic-prompt-preview"),
   themeToggleBtn: document.getElementById("theme-toggle-btn"),
 };
+
+let authEnabled = false;
+
+function setAuthGate(visible, message = "") {
+  if (!els.authGate) {
+    return;
+  }
+  if (els.authLogoutBtn) {
+    els.authLogoutBtn.hidden = !authEnabled || visible;
+  }
+  els.authGate.hidden = !visible;
+  if (els.authError) {
+    els.authError.textContent = message;
+  }
+  if (visible) {
+    els.authUsername?.focus();
+  }
+}
 
 function escapeHtml(value) {
   return String(value || "")
@@ -166,9 +190,26 @@ async function api(path, options = {}) {
   });
   const data = await response.json().catch(() => ({}));
   if (!response.ok) {
-    throw new Error(data.error || "Request failed");
+    const error = new Error(data.error || "Request failed");
+    error.status = response.status;
+    if (response.status === 401) {
+      setAuthGate(true, "Please sign in to continue.");
+    }
+    throw error;
   }
   return data;
+}
+
+async function ensureAuthenticated() {
+  const response = await fetch("/api/auth/session", { credentials: "same-origin" });
+  const data = await response.json().catch(() => ({}));
+  authEnabled = Boolean(data.enabled);
+  if (authEnabled && !data.authenticated) {
+    setAuthGate(true);
+    return false;
+  }
+  setAuthGate(false);
+  return true;
 }
 
 const {
@@ -297,6 +338,9 @@ function renderActiveRightPanel() {
 }
 
 async function bootstrap() {
+  if (!(await ensureAuthenticated())) {
+    return;
+  }
   const data = await api("/api/bootstrap");
   state.appConfig = data.appConfig || {};
   state.stories = data.stories || [];
@@ -619,6 +663,30 @@ async function deleteActiveStory() {
 }
 
 els.chatForm.addEventListener("submit", sendChat);
+els.authForm?.addEventListener("submit", async (event) => {
+  event.preventDefault();
+  if (els.authError) {
+    els.authError.textContent = "Signing in...";
+  }
+  try {
+    await api("/api/auth/login", {
+      method: "POST",
+      body: JSON.stringify({
+        username: els.authUsername?.value || "",
+        password: els.authPassword?.value || "",
+      }),
+    });
+    els.authPassword.value = "";
+    setAuthGate(false);
+    await bootstrap();
+  } catch (error) {
+    setAuthGate(true, error.message || "Unable to sign in.");
+  }
+});
+els.authLogoutBtn?.addEventListener("click", async () => {
+  await api("/api/auth/logout", { method: "POST" });
+  setAuthGate(true, "You have been signed out.");
+});
 els.chatStopBtn.addEventListener("click", stopChatGeneration);
 els.chatLog.addEventListener("click", (event) => {
   const target = event.target.closest("[data-edit-last-user]");

@@ -9,6 +9,16 @@
 </head>
 
 <body>
+  <section id="auth-gate" class="auth-gate" hidden>
+    <form id="auth-form" class="auth-card">
+      <div class="brand-name">Nocturne Atlas</div>
+      <p class="auth-subtitle">Sign in to your story workspace.</p>
+      <label>Username<input id="auth-username" name="username" autocomplete="username" required /></label>
+      <label>Password<input id="auth-password" name="password" type="password" autocomplete="current-password" required /></label>
+      <button type="submit">Sign in</button>
+      <p id="auth-error" class="auth-error" aria-live="polite"></p>
+    </form>
+  </section>
   <div class="app-shell">
     <aside class="sidebar">
       <div class="sidebar-inner">
@@ -90,6 +100,7 @@
         </div>
         <div class="chat-topbar-actions">
           <span id="story-save-status" class="story-save-status" aria-live="polite"></span>
+          <button id="auth-logout-btn" class="ghost" type="button" title="Sign out">Sign out</button>
 
           <button id="save-story-btn" class="ghost icon-btn" type="button" title="Save Story">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"

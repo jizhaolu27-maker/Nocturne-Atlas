@@ -39,8 +39,20 @@ npm start
 打开：
 
 ```text
-http://localhost:3000
+http://localhost:18379
 ```
+
+服务默认监听所有网卡，因此同一可信局域网中的手机或平板可以访问 `http://<服务器局域网IP>:18379`。如只允许本机访问，可设置 `HOST=127.0.0.1`。跨网络访问建议使用 Tailscale/WireGuard 或 HTTPS 反向代理，不要直接把应用端口暴露到公网。
+
+### 认证
+
+首次启动时设置 `AUTH_USERNAME` 和 `AUTH_PASSWORD`，应用会创建单用户认证配置。密码以 scrypt 哈希保存到被 Git 忽略的 `data/config/auth.json`，不会提交到仓库；配置创建后，重启时可以不再提供这两个环境变量。
+
+```bash
+AUTH_USERNAME=your-user AUTH_PASSWORD=choose-a-password npm start
+```
+
+认证启用后所有 API 都要求登录会话。如果通过 HTTPS 访问，请设置 `AUTH_COOKIE_SECURE=1`，让会话 Cookie 只通过 TLS 发送。
 
 ### 运行测试
 

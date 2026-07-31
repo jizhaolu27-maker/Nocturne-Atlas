@@ -22,6 +22,8 @@ const { createProposalTools } = require("./lib/proposals");
 const { createStaticHandler, jsonResponse, notFound, parseBody, sendJson } = require("./lib/http");
 const { createServerConfigTools } = require("./lib/server-config");
 const { createApiRouter } = require("./lib/api-router");
+const { createKeyedSerialExecutor } = require("./lib/keyed-serial");
+const { createAuthTools } = require("./lib/auth");
 
 const ROOT = __dirname;
 const DATA_DIR = path.join(ROOT, "data");
@@ -44,6 +46,7 @@ const DEFAULT_GLOBAL_SYSTEM_PROMPT =
   "You are a collaborative fiction engine. Continue the story with consistency, emotional continuity, and scene-level specificity.";
 
 let workspaceTools = null;
+const storySerialExecutor = createKeyedSerialExecutor();
 const {
   embedText,
   embedTextDetailed,
@@ -93,6 +96,15 @@ const {
   slugify,
   getSyncStoryWorkspace: () => workspaceTools,
 });
+
+const authTools = createAuthTools({
+  readJson,
+  writeJson,
+  authFile: path.join(CONFIG_DIR, "auth.json"),
+  username: process.env.AUTH_USERNAME,
+  password: process.env.AUTH_PASSWORD,
+});
+const secureAuthCookie = process.env.AUTH_COOKIE_SECURE === "1";
 
 const {
   buildNextStoryEnabled,
@@ -483,11 +495,30 @@ const {
   writeJson,
   getAppConfigFile,
   DEFAULT_MAX_COMPLETION_TOKENS,
+  runStoryTask: storySerialExecutor.run,
 });
 
 initializeData();
 
 const server = http.createServer(async (req, res) => {
+  const requestUrl = new URL(req.url, "http://localhost");
+  try {
+    if (await authTools.handleRoute(req, res, {
+      parseBody,
+      sendJson,
+      pathname: requestUrl.pathname,
+      secureCookie: secureAuthCookie,
+    })) {
+      return;
+    }
+  } catch (error) {
+    sendJson(res, 400, { error: error.message || "Invalid authentication request" });
+    return;
+  }
+  if (requestUrl.pathname.startsWith("/api/") && authTools.isEnabled() && !authTools.isAuthenticated(req)) {
+    sendJson(res, 401, { error: "Authentication required" });
+    return;
+  }
   if (await routeApi(req, res)) {
     return;
   }
@@ -497,7 +528,8 @@ const server = http.createServer(async (req, res) => {
   notFound(res);
 });
 
-const port = Number(process.env.PORT) || 3000;
-server.listen(port, () => {
-  console.log(`Story generator running at http://localhost:${port}`);
+const host = process.env.HOST || "0.0.0.0";
+const port = Number(process.env.PORT) || 18379;
+server.listen(port, host, () => {
+  console.log(`Story generator running at http://${host}:${port}`);
 });

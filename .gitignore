@@ -6,13 +6,17 @@ server.log
 .cache/transformers/
 .huggingface/
 
-data/config/app-secret.json
-data/config/providers.json
-data/config/app.json
+data/config/
 data/stories/
+
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.p12
+cookies*.txt
+session*.json
 
 .DS_Store
 Thumbs.db
-
-AGENTS.md
-DEVLOG.md

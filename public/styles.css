@@ -1621,6 +1621,11 @@ textarea {
   min-width: 32px;
 }
 
+.language-toggle.is-active {
+  color: var(--accent-strong);
+  background: var(--accent-soft);
+}
+
 /* ── Responsive ─────────────────────────────────── */
 @media (max-width: 1100px) {
   :root {

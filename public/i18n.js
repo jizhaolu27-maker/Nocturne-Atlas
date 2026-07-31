@@ -116,6 +116,8 @@
       if (code) code.textContent = language === "zh" ? "EN" : "中";
       button.title = language === "zh" ? "Switch to English" : "切换到中文";
       button.setAttribute("aria-label", button.title);
+      button.setAttribute("aria-pressed", language === "zh" ? "true" : "false");
+      button.classList.toggle("is-active", language === "zh");
     }
     document.documentElement.lang = language === "zh" ? "zh-CN" : "en";
   }
@@ -126,7 +128,9 @@
     translate();
   }
   window.NocturneI18n = { translate, toggle, getLanguage: () => language };
-  document.querySelectorAll(".language-toggle").forEach((button) => button.addEventListener("click", toggle));
+  document.addEventListener("click", (event) => {
+    if (event.target.closest?.(".language-toggle")) toggle();
+  });
   translate();
   new MutationObserver((mutations) => mutations.forEach(({ addedNodes }) => addedNodes.forEach((node) => {
     if (node.nodeType === Node.ELEMENT_NODE) translate(node);

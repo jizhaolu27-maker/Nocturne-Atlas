@@ -1764,6 +1764,7 @@ textarea {
 
   .sidebar,
   .right-panel {
+    display: none;
     bottom: var(--mobile-nav-h);
     height: auto;
     max-height: calc(100dvh - var(--mobile-nav-h));
@@ -1779,6 +1780,7 @@ textarea {
   }
 
   .app-shell.sidebar-open .sidebar {
+    display: block;
     visibility: visible;
     opacity: 1;
     pointer-events: auto;
@@ -1789,6 +1791,7 @@ textarea {
   }
 
   .app-shell.right-open .right-panel {
+    display: block;
     visibility: visible;
     opacity: 1;
     pointer-events: auto;

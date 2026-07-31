@@ -1626,6 +1626,10 @@ textarea {
   background: var(--accent-soft);
 }
 
+.mobile-language-toggle {
+  display: none;
+}
+
 /* ── Responsive ─────────────────────────────────── */
 @media (max-width: 1100px) {
   :root {
@@ -1837,6 +1841,10 @@ textarea {
 
   .chat-topbar-actions {
     gap: 2px;
+  }
+
+  .mobile-language-toggle {
+    display: inline-flex;
   }
 
   .chat-topbar-actions .story-save-status,

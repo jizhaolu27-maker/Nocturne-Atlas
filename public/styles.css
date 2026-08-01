@@ -1429,20 +1429,22 @@ textarea {
   white-space: nowrap;
 }
 
-.workspace-compress-row {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  margin: 8px 12px 0;
-}
-
 .compress-asset-btn {
   flex: 0 0 auto;
-  padding: 5px 9px;
-  min-height: 26px;
+  padding: 2px 3px;
+  min-height: 20px;
+  border: 0;
+  background: transparent;
+  color: var(--muted);
+  border-radius: 4px;
   font-size: 10px;
   line-height: 1.2;
   font-weight: 500;
+}
+
+.compress-asset-btn:hover:not(:disabled) {
+  background: var(--bg);
+  color: var(--ink);
 }
 
 .workspace-detail {

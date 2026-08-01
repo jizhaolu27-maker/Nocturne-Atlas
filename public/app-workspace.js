@@ -81,7 +81,6 @@ window.createWorkspaceTools = function createWorkspaceTools({
       .join("");
     return `
       <div class="workspace-detail">
-        ${["character", "worldbook"].includes(card.type) ? `<div class="workspace-compress-row"><button type="button" class="ghost compress-asset-btn" data-asset-type="${escapeHtml(card.type)}" data-asset-id="${escapeHtml(card.id)}">${uiText(card.type === "character" ? "Compress character card" : "Compress worldbook", card.type === "character" ? "压缩角色卡" : "压缩世界书")}</button><p class="workspace-compress-status" data-compress-status></p></div>` : ""}
         <div class="workspace-detail-grid">
           ${fields || '<article class="workspace-detail-row"><strong>Content</strong><pre>There are no fields to display.</pre></article>'}
         </div>
@@ -102,7 +101,7 @@ window.createWorkspaceTools = function createWorkspaceTools({
           .map(
             (item) => `
               <details class="workspace-card" data-workspace-key="${escapeHtml(item.key)}">
-                <summary><span>${escapeHtml(formatWorkspaceAssetType(item.type))}</span><strong>${escapeHtml(item.title)}</strong><button type="button" class="canon-injection-toggle" data-asset-type="${escapeHtml(item.type)}" data-asset-id="${escapeHtml(item.id)}" data-injection-mode="${escapeHtml(item.injectionMode)}">${escapeHtml(item.injectionMode === "always" ? "Always" : "Keyword")}</button></summary>
+                <summary><span>${escapeHtml(formatWorkspaceAssetType(item.type))}</span>${["character", "worldbook"].includes(item.type) ? `<button type="button" class="compress-asset-btn" data-asset-type="${escapeHtml(item.type)}" data-asset-id="${escapeHtml(item.id)}">${uiText(item.type === "character" ? "Compress character card" : "Compress worldbook", item.type === "character" ? "压缩角色卡" : "压缩世界书")}</button><span class="workspace-compress-status" data-compress-status></span>` : ""}<strong>${escapeHtml(item.title)}</strong><button type="button" class="canon-injection-toggle" data-asset-type="${escapeHtml(item.type)}" data-asset-id="${escapeHtml(item.id)}" data-injection-mode="${escapeHtml(item.injectionMode)}">${escapeHtml(item.injectionMode === "always" ? "Always" : "Keyword")}</button></summary>
                 <div class="workspace-card-preview">${escapeHtml(item.body || "No current summary")}</div>
                 ${renderWorkspaceDetail(item)}
               </details>
@@ -144,6 +143,8 @@ window.createWorkspaceTools = function createWorkspaceTools({
       }
     }));
     els.workspaceView.querySelectorAll(".compress-asset-btn").forEach((button) => button.addEventListener("click", async (event) => {
+      event.preventDefault();
+      event.stopPropagation();
       const button = event.currentTarget;
       const cardRoot = button.closest(".workspace-card");
       const status = cardRoot?.querySelector("[data-compress-status]");

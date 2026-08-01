@@ -1353,15 +1353,17 @@ textarea {
   list-style: none;
   font-size: 12px;
   box-sizing: border-box;
+  list-style: none !important;
 }
 
 .workspace-card > summary::-webkit-details-marker {
-  display: none;
+  display: none !important;
 }
 
 .workspace-card > summary::marker,
 .asset-group > summary::marker {
-  content: "";
+  content: "" !important;
+  display: none !important;
 }
 
 .workspace-card > summary::before {
@@ -1383,6 +1385,8 @@ textarea {
 }
 
 .canon-injection-toggle {
+  appearance: none;
+  background-image: none;
   margin-left: auto;
   padding: 3px 7px;
   min-height: 24px;

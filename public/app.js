@@ -13,6 +13,7 @@
   storySaveStatusTimer: null,
   selectorSaveTimer: null,
   localEmbeddingSaveTimer: null,
+  storyConfigSaveTimer: null,
   pendingProposalPipeline: null,
   currentProposalTriggers: [],
   selectedWorkspaceAssetKey: null,
@@ -665,6 +666,19 @@ function scheduleLocalEmbeddingConfigSave() {
   }, 350);
 }
 
+function scheduleStoryConfigSave() {
+  if (!state.activeStoryId) {
+    return;
+  }
+  if (state.storyConfigSaveTimer) {
+    clearTimeout(state.storyConfigSaveTimer);
+  }
+  state.storyConfigSaveTimer = setTimeout(() => {
+    state.storyConfigSaveTimer = null;
+    saveStoryConfig().catch((error) => console.error("Failed to auto-save story configuration", error));
+  }, 650);
+}
+
 async function refreshAll() {
   const data = await api("/api/bootstrap");
   state.stories = data.stories || [];
@@ -762,6 +776,23 @@ els.chatLog.addEventListener("click", (event) => {
 els.saveStoryBtn.addEventListener("click", saveStoryConfig);
 els.newStoryBtn.addEventListener("click", createStory);
 els.deleteStoryBtn.addEventListener("click", deleteActiveStory);
+for (const field of [
+  els.storyConfigTitle,
+  els.storyConfigSummary,
+  els.storyConfigModel,
+  els.storyConfigContextBlocks,
+  els.storyConfigSummaryInterval,
+  els.storyConfigTemperature,
+  els.storyConfigReasoningEffort,
+  els.storyConfigMaxCompletion,
+  els.promptGlobal,
+  els.promptStory,
+  els.promptUser,
+  els.providerSelect,
+]) {
+  field?.addEventListener("input", scheduleStoryConfigSave);
+  field?.addEventListener("change", scheduleStoryConfigSave);
+}
 for (const selectorRoot of [els.selectorCharacters, els.selectorWorldbooks, els.selectorStyles]) {
   selectorRoot?.addEventListener("change", (event) => {
     if (event.target.matches("input[type=checkbox]")) {

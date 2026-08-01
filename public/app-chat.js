@@ -208,7 +208,7 @@ window.createChatTools = function createChatTools({
         renderPendingGeneration(pending);
         els.chatInput.disabled = true;
         els.chatSendBtn.disabled = true;
-        els.chatStopBtn.disabled = true;
+        els.chatStopBtn.disabled = false;
         renderChatStatus();
       }
     } catch (error) {
@@ -455,7 +455,7 @@ window.createChatTools = function createChatTools({
     }
     els.chatInput.disabled = state.isWatchingRemoteChat;
     els.chatSendBtn.disabled = state.isWatchingRemoteChat;
-    els.chatStopBtn.disabled = true;
+    els.chatStopBtn.disabled = !pendingGeneration;
     schedulePendingGenerationPoll(state.activeStoryId);
     if (preserveScroll) {
       requestAnimationFrame(() => {

@@ -9,6 +9,7 @@
     "Select a story": "请选择故事",
     "Open or create a story to start chatting.": "打开或创建故事后开始聊天。",
     "Sign out": "退出登录",
+    "Export chat as TXT": "导出聊天为 TXT",
     Controls: "控制",
     Knowledge: "知识",
     Review: "审阅",

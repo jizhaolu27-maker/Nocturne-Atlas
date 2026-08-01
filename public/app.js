@@ -45,6 +45,7 @@ const els = {
   chatStopBtn: document.getElementById("chat-stop-btn"),
   chatStatus: document.getElementById("chat-status"),
   saveStoryBtn: document.getElementById("save-story-btn"),
+  exportChatBtn: document.getElementById("export-chat-btn"),
   storySaveStatus: document.getElementById("story-save-status"),
   newStoryBtn: document.getElementById("new-story-btn"),
   deleteStoryBtn: document.getElementById("delete-story-btn"),
@@ -592,6 +593,32 @@ function collectStoryPayload() {
   };
 }
 
+function exportChatAsTxt() {
+  const messages = Array.isArray(state.activeStoryData?.messages) ? state.activeStoryData.messages : [];
+  if (!state.activeStoryId || !messages.length) {
+    return;
+  }
+  const isChinese = window.NocturneI18n?.getLanguage?.() === "zh";
+  const labels = isChinese ? { user: "用户", assistant: "AI" } : { user: "User", assistant: "AI" };
+  const title = String(state.activeStoryData?.story?.title || els.storyTitle?.textContent || "story").trim() || "story";
+  const body = messages
+    .filter((message) => message && (message.role === "user" || message.role === "assistant"))
+    .map((message) => `${labels[message.role]}:\n${String(message.content || "").trim()}`)
+    .join("\n\n");
+  if (!body) {
+    return;
+  }
+  const blob = new Blob([`${title}\n\n${body}\n`], { type: "text/plain;charset=utf-8" });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = `${title.replace(/[\\/:*?"<>|]+/g, "_").slice(0, 80) || "story"}.txt`;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  URL.revokeObjectURL(url);
+}
+
 async function saveStoryConfig() {
   if (!state.activeStoryId) {
     return;
@@ -784,6 +811,7 @@ els.chatLog.addEventListener("click", (event) => {
   }
 });
 els.saveStoryBtn.addEventListener("click", saveStoryConfig);
+els.exportChatBtn?.addEventListener("click", exportChatAsTxt);
 els.newStoryBtn.addEventListener("click", createStory);
 els.deleteStoryBtn.addEventListener("click", deleteActiveStory);
 for (const field of [

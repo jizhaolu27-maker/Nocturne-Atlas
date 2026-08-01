@@ -1855,6 +1855,7 @@ textarea {
     height: calc(64px + env(safe-area-inset-top));
     padding: env(safe-area-inset-top) 14px 0;
     gap: 8px;
+    z-index: 30;
   }
 
   .chat-topbar-title h2 {
@@ -1878,8 +1879,7 @@ textarea {
     display: inline-flex;
   }
 
-  .chat-topbar-actions .story-save-status,
-  .chat-topbar-actions .right-panel-toggle {
+  .chat-topbar-actions .story-save-status {
     display: none;
   }
 
@@ -1919,6 +1919,7 @@ textarea {
     width: 100vw;
     max-width: 100vw;
     z-index: 20;
+    max-height: 42dvh;
     bottom: var(--mobile-nav-h);
     padding: 0 12px 10px;
     padding-bottom: calc(10px + env(safe-area-inset-bottom));

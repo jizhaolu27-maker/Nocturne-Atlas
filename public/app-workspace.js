@@ -81,7 +81,7 @@ window.createWorkspaceTools = function createWorkspaceTools({
       .join("");
     return `
       <div class="workspace-detail">
-        ${["character", "worldbook"].includes(card.type) ? `<button type="button" class="ghost compress-asset-btn" data-asset-type="${escapeHtml(card.type)}" data-asset-id="${escapeHtml(card.id)}">${uiText(card.type === "character" ? "Compress character card" : "Compress worldbook", card.type === "character" ? "压缩角色卡" : "压缩世界书")}</button><p class="workspace-compress-status" data-compress-status></p>` : ""}
+        ${["character", "worldbook"].includes(card.type) ? `<div class="workspace-compress-row"><button type="button" class="ghost compress-asset-btn" data-asset-type="${escapeHtml(card.type)}" data-asset-id="${escapeHtml(card.id)}">${uiText(card.type === "character" ? "Compress character card" : "Compress worldbook", card.type === "character" ? "压缩角色卡" : "压缩世界书")}</button><p class="workspace-compress-status" data-compress-status></p></div>` : ""}
         <div class="workspace-detail-grid">
           ${fields || '<article class="workspace-detail-row"><strong>Content</strong><pre>There are no fields to display.</pre></article>'}
         </div>

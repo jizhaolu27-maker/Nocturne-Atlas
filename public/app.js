@@ -536,14 +536,19 @@ function renderSelectorList(root, items, enabledIds, injectionModes = {}) {
   root.innerHTML = items
     .map(
       (item) => `
-        <label class="selector-item">
-          <input type="checkbox" value="${item.id}" ${enabledIds.includes(item.id) ? "checked" : ""} />
-          <strong>${escapeHtml(item.name || item.title || item.id)}</strong>
-          <select class="asset-injection-mode" data-asset-id="${escapeHtml(item.id)}" aria-label="Injection mode">
-            <option value="keyword" ${(injectionModes[item.id] || "keyword") === "keyword" ? "selected" : ""}>Keyword</option>
-            <option value="always" ${injectionModes[item.id] === "always" ? "selected" : ""}>Always</option>
-          </select>
-        </label>
+        <div class="selector-item">
+          <label class="selector-main">
+            <input type="checkbox" value="${item.id}" ${enabledIds.includes(item.id) ? "checked" : ""} />
+            <strong>${escapeHtml(item.name || item.title || item.id)}</strong>
+          </label>
+          <label class="selector-mode">
+            <span>Injection</span>
+            <select class="asset-injection-mode" data-asset-id="${escapeHtml(item.id)}" aria-label="Injection mode">
+              <option value="keyword" ${(injectionModes[item.id] || "keyword") === "keyword" ? "selected" : ""}>Keyword trigger</option>
+              <option value="always" ${injectionModes[item.id] === "always" ? "selected" : ""}>Always include</option>
+            </select>
+          </label>
+        </div>
       `
     )
     .join("");

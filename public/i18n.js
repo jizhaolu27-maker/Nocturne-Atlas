@@ -78,6 +78,8 @@
     Worldbook: "世界书",
     Style: "文风",
     "Compress character card": "压缩角色卡",
+    "Compress worldbook": "压缩世界书",
+    "Review this worldbook compression draft:\n\n": "请审核世界书压缩草稿：\n\n",
     "Generating a review draft...": "正在生成审核草稿……",
     "Compression accepted.": "压缩结果已接受。",
     "Draft discarded.": "已放弃草稿。",

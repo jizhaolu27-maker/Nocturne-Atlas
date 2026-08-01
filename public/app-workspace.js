@@ -81,7 +81,7 @@ window.createWorkspaceTools = function createWorkspaceTools({
       .join("");
     return `
       <div class="workspace-detail">
-        ${card.type === "character" ? `<button type="button" class="ghost compress-character-btn" data-character-id="${escapeHtml(card.id)}">${uiText("Compress character card", "压缩角色卡")}</button><p class="workspace-compress-status" data-compress-status></p>` : ""}
+        ${["character", "worldbook"].includes(card.type) ? `<button type="button" class="ghost compress-asset-btn" data-asset-type="${escapeHtml(card.type)}" data-asset-id="${escapeHtml(card.id)}">${uiText(card.type === "character" ? "Compress character card" : "Compress worldbook", card.type === "character" ? "压缩角色卡" : "压缩世界书")}</button><p class="workspace-compress-status" data-compress-status></p>` : ""}
         <div class="workspace-detail-grid">
           ${fields || '<article class="workspace-detail-row"><strong>Content</strong><pre>There are no fields to display.</pre></article>'}
         </div>
@@ -143,21 +143,23 @@ window.createWorkspaceTools = function createWorkspaceTools({
         console.error("Failed to update asset injection mode", error);
       }
     }));
-    els.workspaceView.querySelectorAll(".compress-character-btn").forEach((button) => button.addEventListener("click", async (event) => {
+    els.workspaceView.querySelectorAll(".compress-asset-btn").forEach((button) => button.addEventListener("click", async (event) => {
       const button = event.currentTarget;
       const cardRoot = button.closest(".workspace-card");
       const status = cardRoot?.querySelector("[data-compress-status]");
       button.disabled = true;
       if (status) status.textContent = uiText("Generating a review draft...", "正在生成审核草稿……");
       try {
-        const draft = await api(`/api/stories/${state.activeStoryId}/workspace/characters/${encodeURIComponent(button.dataset.characterId)}/compress`, { method: "POST" });
+        const assetType = button.dataset.assetType;
+        const assetPath = assetType === "character" ? "characters" : "worldbooks";
+        const draft = await api(`/api/stories/${state.activeStoryId}/workspace/${assetPath}/${encodeURIComponent(button.dataset.assetId)}/compress`, { method: "POST" });
         const approved = confirm(
-          uiText("Review this character-card compression draft:\n\n", "请审核角色卡压缩草稿：\n\n") +
+          uiText(assetType === "character" ? "Review this character-card compression draft:\n\n" : "Review this worldbook compression draft:\n\n", assetType === "character" ? "请审核角色卡压缩草稿：\n\n" : "请审核世界书压缩草稿：\n\n") +
             `${JSON.stringify(draft.runtimeSummary, null, 2)}\n\n` +
             uiText("Accept it?", "接受这份草稿吗？")
         );
         if (approved) {
-          await api(`/api/stories/${state.activeStoryId}/workspace/characters/${encodeURIComponent(button.dataset.characterId)}/compress`, {
+          await api(`/api/stories/${state.activeStoryId}/workspace/${assetPath}/${encodeURIComponent(button.dataset.assetId)}/compress`, {
             method: "POST",
             body: JSON.stringify({ accept: true, runtimeSummary: draft.runtimeSummary }),
           });

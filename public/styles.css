@@ -1398,6 +1398,15 @@ textarea {
   font-size: 11px;
 }
 
+.compress-character-btn {
+  margin: 8px 12px 0;
+  padding: 5px 9px;
+  min-height: 28px;
+  font-size: 11px;
+  line-height: 1.2;
+  font-weight: 500;
+}
+
 .workspace-detail {
   border: 1px solid var(--line);
   border-radius: var(--radius-md);

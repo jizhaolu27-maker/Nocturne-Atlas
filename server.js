@@ -233,6 +233,8 @@ const {
   buildMemoryEmbeddingText,
   buildEmbeddingSignature,
   resolveEmbeddingOptions: resolveStoryEmbeddingConfig,
+  appendJsonLine,
+  getStoryMemoryArchiveFile,
 });
 
 const {

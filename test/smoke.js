@@ -94,7 +94,7 @@ function createStoreHarness(rootDir) {
   };
 }
 
-function buildMemoryTools() {
+function buildMemoryTools(overrides = {}) {
   return createMemoryTools({
     DEFAULT_SUMMARY_INTERVAL,
     MEMORY_SUMMARY_CHAR_LIMIT: 160,
@@ -122,6 +122,7 @@ function buildMemoryTools() {
         return null;
       }
     },
+    ...overrides,
   });
 }
 
@@ -1534,6 +1535,53 @@ async function main() {
     assert.ok(!update.summaryRecords[0].summary.includes("user:"));
     assert.ok(!update.summaryRecords[0].summary.includes("assistant:"));
     assert.deepEqual(update.summaryRecords[0].triggeredBy, ["Manual smoke trigger"]);
+  });
+
+  await runTest("memory lifecycle archives only old merged short-term checkpoints", async () => {
+    const archivedLines = [];
+    const memoryTools = buildMemoryTools({
+      appendJsonLine: (file, item) => archivedLines.push({ file, item }),
+      getStoryMemoryArchiveFile: (storyId) => path.join(os.tmpdir(), `memory-archive-${storyId}.jsonl`),
+    });
+    const records = Array.from({ length: 160 }, (_, index) => ({
+      id: `record_${index}`,
+      tier: "short_term",
+      kind: "plot_checkpoint",
+      importance: "medium",
+      stability: "volatile",
+      createdAt: `2026-01-01T00:${String(index).padStart(2, "0")}:00.000Z`,
+    }));
+    records.unshift({
+      id: "archive_candidate",
+      tier: "short_term",
+      kind: "plot_checkpoint",
+      importance: "medium",
+      stability: "volatile",
+      mergedInto: "long_term_1",
+      createdAt: "2025-01-01T00:00:00.000Z",
+    });
+    records.push(
+      { id: "high_keep", tier: "short_term", kind: "plot_checkpoint", importance: "high", stability: "volatile", mergedInto: "long_term_1" },
+      { id: "stable_keep", tier: "short_term", kind: "plot_checkpoint", importance: "medium", stability: "stable", mergedInto: "long_term_1" },
+      { id: "unmerged_keep", tier: "short_term", kind: "plot_checkpoint", importance: "medium", stability: "volatile" }
+    );
+    const update = await memoryTools.generateMemoryUpdate({
+      storyId: "lifecycle-test",
+      story: { settings: { summaryInterval: 1000 }, providerId: "", model: "" },
+      fullMessages: [],
+      memoryRecords: records,
+      memoryChunks: [],
+      workspace: { characters: [], worldbooks: [], styles: [] },
+      summaryTriggers: [],
+    });
+    assert.equal(update.archivedRecords.length, 1);
+    assert.equal(update.archivedRecords[0].id, "archive_candidate");
+    assert.equal(archivedLines.length, 1);
+    assert.equal(archivedLines[0].item.archiveReason, "Old merged short-term plot checkpoint");
+    assert.ok(!update.records.some((item) => item.id === "archive_candidate"));
+    assert.ok(update.records.some((item) => item.id === "high_keep"));
+    assert.ok(update.records.some((item) => item.id === "stable_keep"));
+    assert.ok(update.records.some((item) => item.id === "unmerged_keep"));
   });
 
   await runTest("memory tools index episodic chunks even when no summary trigger fires", async () => {

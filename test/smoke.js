@@ -3309,6 +3309,34 @@ async function main() {
       assert.equal(workspaceCharacter.name, "Shade");
       assert.ok(updatedStory.enabled.characters.includes("char_shade"));
       assert.equal(storedProposal.reviewNote, "smoke");
+
+      harness.writeJson(path.join(harness.getStoryWorkspaceDir(story.id, "characters"), "legacy-character-id.json"), {
+        id: "legacy-character-id",
+        name: "Minase Nagi",
+        relationships: { "Asama Kiri": "partner" },
+        arcState: { current: "Before" },
+      });
+      harness.writeJsonLines(harness.getStoryProposalFile(story.id), [
+        ...harness.readJsonLines(harness.getStoryProposalFile(story.id)),
+        {
+          id: "proposal_stale_target",
+          action: "update",
+          targetType: "character",
+          targetId: "invented-minase-id",
+          reason: "Update an existing character with a legacy id.",
+          diff: {
+            relationships: { "Asama Kiri": "wife" },
+            arcState: { current: "After" },
+          },
+          status: "pending",
+        },
+      ]);
+      proposalTools.reviewProposal(story.id, "proposal_stale_target", "accept");
+      const legacyCharacter = harness.readJson(
+        path.join(harness.getStoryWorkspaceDir(story.id, "characters"), "legacy-character-id.json")
+      );
+      assert.equal(legacyCharacter.arcState.current, "After");
+      assert.equal(legacyCharacter.relationships["Asama Kiri"], "wife");
     } finally {
       fs.rmSync(rootDir, { recursive: true, force: true });
     }

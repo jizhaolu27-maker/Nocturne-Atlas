@@ -8,6 +8,16 @@ window.createWorkspaceTools = function createWorkspaceTools({
   function uiText(en, zh) {
     return window.NocturneI18n?.getLanguage?.() === "zh" ? zh : en;
   }
+  function showCompressionStatus(message, tone = "") {
+    if (state.storySaveStatusTimer) clearTimeout(state.storySaveStatusTimer);
+    els.storySaveStatus.className = `story-save-status ${tone}`.trim();
+    els.storySaveStatus.textContent = message;
+    state.storySaveStatusTimer = setTimeout(() => {
+      els.storySaveStatus.textContent = "";
+      els.storySaveStatus.className = "story-save-status";
+      state.storySaveStatusTimer = null;
+    }, 3200);
+  }
   function formatWorkspaceAssetType(type) {
     const labels = {
       character: "Character Card",
@@ -101,7 +111,7 @@ window.createWorkspaceTools = function createWorkspaceTools({
           .map(
             (item) => `
               <details class="workspace-card" data-workspace-key="${escapeHtml(item.key)}">
-                <summary><span>${escapeHtml(formatWorkspaceAssetType(item.type))}</span>${["character", "worldbook"].includes(item.type) ? `<button type="button" class="compress-asset-btn" data-asset-type="${escapeHtml(item.type)}" data-asset-id="${escapeHtml(item.id)}">${uiText(item.type === "character" ? "Compress character card" : "Compress worldbook", item.type === "character" ? "压缩角色卡" : "压缩世界书")}</button><span class="workspace-compress-status" data-compress-status></span>` : ""}<strong>${escapeHtml(item.title)}</strong><button type="button" class="canon-injection-toggle" data-asset-type="${escapeHtml(item.type)}" data-asset-id="${escapeHtml(item.id)}" data-injection-mode="${escapeHtml(item.injectionMode)}">${escapeHtml(item.injectionMode === "always" ? "Always" : "Keyword")}</button></summary>
+                <summary><span>${escapeHtml(formatWorkspaceAssetType(item.type))}</span>${["character", "worldbook"].includes(item.type) ? `<button type="button" class="compress-asset-btn" data-asset-type="${escapeHtml(item.type)}" data-asset-id="${escapeHtml(item.id)}" title="${uiText("Compress", "压缩")}" aria-label="${uiText("Compress", "压缩")}"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 3H5a2 2 0 0 0-2 2v3"></path><path d="M16 3h3a2 2 0 0 1 2 2v3"></path><path d="M8 21H5a2 2 0 0 1-2-2v-3"></path><path d="M16 21h3a2 2 0 0 0 2-2v-3"></path><path d="m8 12 3-3v6l-3-3Z"></path><path d="m16 12-3-3v6l3-3Z"></path></svg></button>` : ""}<strong>${escapeHtml(item.title)}</strong><button type="button" class="canon-injection-toggle" data-asset-type="${escapeHtml(item.type)}" data-asset-id="${escapeHtml(item.id)}" data-injection-mode="${escapeHtml(item.injectionMode)}">${escapeHtml(item.injectionMode === "always" ? "Always" : "Keyword")}</button></summary>
                 <div class="workspace-card-preview">${escapeHtml(item.body || "No current summary")}</div>
                 ${renderWorkspaceDetail(item)}
               </details>
@@ -146,10 +156,8 @@ window.createWorkspaceTools = function createWorkspaceTools({
       event.preventDefault();
       event.stopPropagation();
       const button = event.currentTarget;
-      const cardRoot = button.closest(".workspace-card");
-      const status = cardRoot?.querySelector("[data-compress-status]");
       button.disabled = true;
-      if (status) status.textContent = uiText("Generating a review draft...", "正在生成审核草稿……");
+      showCompressionStatus(uiText("Generating a review draft...", "正在生成审核草稿……"));
       try {
         const assetType = button.dataset.assetType;
         const assetPath = assetType === "character" ? "characters" : "worldbooks";
@@ -164,13 +172,13 @@ window.createWorkspaceTools = function createWorkspaceTools({
             method: "POST",
             body: JSON.stringify({ accept: true, runtimeSummary: draft.runtimeSummary }),
           });
-          if (status) status.textContent = uiText("Compression accepted.", "压缩结果已接受。");
+          showCompressionStatus(uiText("Compression accepted.", "压缩结果已接受。"), "ok");
           await loadStory(state.activeStoryId);
-        } else if (status) {
-          status.textContent = uiText("Draft discarded.", "已放弃草稿。");
+        } else {
+          showCompressionStatus(uiText("Draft discarded.", "已放弃草稿。"));
         }
       } catch (error) {
-        if (status) status.textContent = `${uiText("Compression failed", "压缩失败")}：${error.message}`;
+        showCompressionStatus(`${uiText("Compression failed", "压缩失败")}：${error.message}`, "error");
       } finally {
         button.disabled = false;
       }

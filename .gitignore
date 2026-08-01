@@ -9,6 +9,12 @@ server.log
 data/config/
 data/stories/
 
+# Personal library entries stay local; the three checked-in seed examples remain tracked.
+data/library/*/*.json
+!data/library/characters/hero_lyra.json
+!data/library/styles/style_luminous.json
+!data/library/worldbooks/world_skyrail.json
+
 .env
 .env.*
 !.env.example

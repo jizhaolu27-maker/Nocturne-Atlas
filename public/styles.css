@@ -1319,6 +1319,11 @@ textarea {
   gap: 10px;
   max-height: 400px;
   overflow-y: auto;
+  scrollbar-gutter: stable;
+}
+
+.fold-section:has(#workspace-view) > summary::after {
+  display: none;
 }
 
 .proposal-list {
@@ -1347,6 +1352,7 @@ textarea {
   cursor: pointer;
   list-style: none;
   font-size: 12px;
+  box-sizing: border-box;
 }
 
 .workspace-card > summary::-webkit-details-marker {
@@ -1367,6 +1373,13 @@ textarea {
   font-size: 10px;
   text-transform: uppercase;
   letter-spacing: 0.04em;
+}
+
+.workspace-card > summary strong {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .canon-injection-toggle {

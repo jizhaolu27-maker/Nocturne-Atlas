@@ -13,6 +13,25 @@ window.createChatTools = function createChatTools({
   let pendingAssistantSubmittedText = "";
   let pendingAssistantRenderFrame = 0;
 
+  function syncMobileChatClearance() {
+    if (window.innerWidth > 900) {
+      els.chatLog.style.removeProperty("padding-bottom");
+      return;
+    }
+    const composer = els.chatForm.closest(".chat-input-area");
+    const mobileNav = document.getElementById("mobile-nav");
+    const composerHeight = Math.ceil(composer?.getBoundingClientRect().height || 0);
+    const navHeight = Math.ceil(mobileNav?.getBoundingClientRect().height || 0);
+    els.chatLog.style.paddingBottom = `${composerHeight + navHeight + 24}px`;
+  }
+
+  function scrollChatToLatest() {
+    requestAnimationFrame(() => {
+      syncMobileChatClearance();
+      els.chatLog.scrollTop = els.chatLog.scrollHeight;
+    });
+  }
+
   function syncChatInputHeight({ reset = false } = {}) {
     if (!els.chatInput) {
       return;
@@ -22,6 +41,7 @@ window.createChatTools = function createChatTools({
       ? MIN_CHAT_INPUT_HEIGHT
       : Math.max(els.chatInput.scrollHeight, MIN_CHAT_INPUT_HEIGHT);
     els.chatInput.style.height = `${Math.min(contentHeight, MAX_CHAT_INPUT_HEIGHT)}px`;
+    syncMobileChatClearance();
   }
 
   function handleChatInputKeydown(event) {
@@ -67,7 +87,7 @@ window.createChatTools = function createChatTools({
       <div class="message-role">assistant / streaming</div>
       <div class="message-content">${renderedContent}</div>
     `;
-    els.chatLog.scrollTop = els.chatLog.scrollHeight;
+    scrollChatToLatest();
   }
 
   function setChatPending(isPending, submittedText = "") {
@@ -297,8 +317,10 @@ window.createChatTools = function createChatTools({
           )
           .join("")
       : `<div class="message assistant"><div class="message-role">system</div><div class="message-content">Start chatting with this story.</div></div>`;
-    els.chatLog.scrollTop = els.chatLog.scrollHeight;
+    scrollChatToLatest();
   }
+
+  window.addEventListener("resize", syncMobileChatClearance);
 
   return {
     decorateLatestEditableMessage,

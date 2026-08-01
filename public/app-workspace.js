@@ -18,6 +18,52 @@ window.createWorkspaceTools = function createWorkspaceTools({
       state.storySaveStatusTimer = null;
     }, 3200);
   }
+  function reviewCompressionDraft(draft) {
+    const modal = document.getElementById("compression-review-modal");
+    const editor = document.getElementById("compression-review-editor");
+    const error = document.getElementById("compression-review-error");
+    const accept = document.getElementById("compression-review-accept");
+    const discard = document.getElementById("compression-review-discard");
+    const close = document.getElementById("compression-review-close");
+    if (!modal || !editor || !error || !accept || !discard || !close) {
+      return Promise.resolve(null);
+    }
+    editor.value = JSON.stringify(draft, null, 2);
+    error.textContent = "";
+    modal.hidden = false;
+    requestAnimationFrame(() => editor.focus());
+    return new Promise((resolve) => {
+      const finish = (value) => {
+        modal.hidden = true;
+        accept.onclick = null;
+        discard.onclick = null;
+        close.onclick = null;
+        modal.onclick = null;
+        document.removeEventListener("keydown", handleKeydown);
+        resolve(value);
+      };
+      const handleKeydown = (event) => {
+        if (event.key === "Escape") finish(null);
+      };
+      accept.onclick = () => {
+        try {
+          const value = JSON.parse(editor.value);
+          if (!value || typeof value !== "object" || Array.isArray(value)) {
+            throw new Error(uiText("The draft must be a JSON object.", "草稿必须是 JSON 对象。"));
+          }
+          finish(value);
+        } catch (parseError) {
+          error.textContent = `${uiText("Invalid JSON", "JSON 格式无效")}：${parseError.message}`;
+        }
+      };
+      discard.onclick = () => finish(null);
+      close.onclick = () => finish(null);
+      modal.onclick = (event) => {
+        if (event.target === modal) finish(null);
+      };
+      document.addEventListener("keydown", handleKeydown);
+    });
+  }
   function formatWorkspaceAssetType(type) {
     const labels = {
       character: "Character Card",
@@ -162,15 +208,11 @@ window.createWorkspaceTools = function createWorkspaceTools({
         const assetType = button.dataset.assetType;
         const assetPath = assetType === "character" ? "characters" : "worldbooks";
         const draft = await api(`/api/stories/${state.activeStoryId}/workspace/${assetPath}/${encodeURIComponent(button.dataset.assetId)}/compress`, { method: "POST" });
-        const approved = confirm(
-          uiText(assetType === "character" ? "Review this character-card compression draft:\n\n" : "Review this worldbook compression draft:\n\n", assetType === "character" ? "请审核角色卡压缩草稿：\n\n" : "请审核世界书压缩草稿：\n\n") +
-            `${JSON.stringify(draft.runtimeSummary, null, 2)}\n\n` +
-            uiText("Accept it?", "接受这份草稿吗？")
-        );
-        if (approved) {
+        const reviewedDraft = await reviewCompressionDraft(draft.runtimeSummary);
+        if (reviewedDraft) {
           await api(`/api/stories/${state.activeStoryId}/workspace/${assetPath}/${encodeURIComponent(button.dataset.assetId)}/compress`, {
             method: "POST",
-            body: JSON.stringify({ accept: true, runtimeSummary: draft.runtimeSummary }),
+            body: JSON.stringify({ accept: true, runtimeSummary: reviewedDraft }),
           });
           showCompressionStatus(uiText("Compression accepted.", "压缩结果已接受。"), "ok");
           await loadStory(state.activeStoryId);

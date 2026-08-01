@@ -2325,3 +2325,90 @@ textarea {
     padding-right: 12px;
   }
 }
+
+.compression-review-modal {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  display: grid;
+  place-items: center;
+  padding: 20px;
+  background: rgba(9, 12, 20, 0.58);
+  backdrop-filter: blur(6px);
+}
+
+.compression-review-modal[hidden] {
+  display: none;
+}
+
+.compression-review-dialog {
+  width: min(720px, 100%);
+  max-height: min(760px, calc(100vh - 40px));
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 16px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: var(--paper);
+  box-shadow: 0 24px 80px rgba(0, 0, 0, 0.34);
+}
+
+.compression-review-dialog header,
+.compression-review-dialog footer {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.compression-review-dialog header h3 {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.compression-review-dialog header button {
+  margin-left: auto;
+}
+
+.compression-review-dialog footer {
+  justify-content: flex-end;
+}
+
+#compression-review-editor {
+  width: 100%;
+  min-height: 360px;
+  resize: vertical;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--bg);
+  color: var(--ink);
+  font: 12px/1.55 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+}
+
+.compression-review-error {
+  min-height: 16px;
+  margin: 0;
+  color: var(--risk);
+  font-size: 11px;
+}
+
+@media (max-width: 600px) {
+  .compression-review-modal {
+    align-items: end;
+    padding: 0;
+  }
+
+  .compression-review-dialog {
+    width: 100%;
+    max-height: 92dvh;
+    border-radius: 14px 14px 0 0;
+    padding: 14px;
+  }
+
+  #compression-review-editor {
+    min-height: 52dvh;
+    resize: none;
+  }
+}

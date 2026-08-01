@@ -5,7 +5,7 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Nocturne Atlas</title>
-  <link rel="stylesheet" href="/styles.css?v=c7b9400" />
+  <link rel="stylesheet" href="/styles.css?v=compression-review-1" />
 </head>
 
 <body>
@@ -450,11 +450,25 @@
       </button>
     </nav>
   </div>
+  <div id="compression-review-modal" class="compression-review-modal" hidden>
+    <section class="compression-review-dialog" role="dialog" aria-modal="true" aria-labelledby="compression-review-title">
+      <header>
+        <h3 id="compression-review-title">Review compression draft</h3>
+        <button id="compression-review-close" class="ghost icon-btn" type="button" title="Close" aria-label="Close">×</button>
+      </header>
+      <textarea id="compression-review-editor" spellcheck="false" aria-label="Compression draft JSON"></textarea>
+      <p id="compression-review-error" class="compression-review-error" aria-live="polite"></p>
+      <footer>
+        <button id="compression-review-discard" class="ghost" type="button">Discard</button>
+        <button id="compression-review-accept" type="button">Accept changes</button>
+      </footer>
+    </section>
+  </div>
   <script src="/i18n.js"></script>
   <script src="/app-review.js"></script>
   <script src="/app-chat.js"></script>
   <script src="/app-library.js"></script>
-  <script src="/app-workspace.js?v=c7b9400"></script>
+  <script src="/app-workspace.js?v=compression-review-1"></script>
   <script src="/app-provider.js"></script>
   <script src="/app-shell.js"></script>
   <script src="/app.js"></script>

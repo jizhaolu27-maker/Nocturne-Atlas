@@ -128,8 +128,14 @@ window.createWorkspaceTools = function createWorkspaceTools({
       try {
         await api(`/api/stories/${state.activeStoryId}/config`, {
           method: "POST",
-          body: JSON.stringify({ enabled: { ...current, injectionModes: modes } }),
+            body: JSON.stringify({ enabled: { ...current, injectionModes: modes } }),
         });
+        if (state.activeStoryData?.story) {
+          state.activeStoryData.story.enabled = {
+            ...state.activeStoryData.story.enabled,
+            injectionModes: modes,
+          };
+        }
         await loadStory(state.activeStoryId);
       } catch (error) {
         button.dataset.injectionMode = nextMode === "always" ? "keyword" : "always";

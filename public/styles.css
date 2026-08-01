@@ -1353,6 +1353,11 @@ textarea {
   display: none;
 }
 
+.workspace-card > summary::marker,
+.asset-group > summary::marker {
+  content: "";
+}
+
 .workspace-card > summary::before {
   content: "›";
   color: var(--muted);

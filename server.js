@@ -70,6 +70,7 @@ const {
   getStoryWorkspaceDir,
   getStoryMemoryFile,
   getStoryMemoryChunkFile,
+  getStoryMemoryArchiveFile,
   getStoryKnowledgeChunkFile,
   getStoryKnowledgeEmbeddingFile,
   getStoryProposalFile,

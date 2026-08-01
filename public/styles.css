@@ -1327,6 +1327,77 @@ textarea {
   overflow-y: auto;
 }
 
+.workspace-card-list {
+  display: grid;
+  gap: 8px;
+}
+
+.workspace-card {
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: var(--bg-strong);
+  overflow: hidden;
+}
+
+.workspace-card > summary {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 12px;
+  cursor: pointer;
+  list-style: none;
+  font-size: 12px;
+}
+
+.workspace-card > summary::-webkit-details-marker {
+  display: none;
+}
+
+.workspace-card > summary::before {
+  content: "›";
+  color: var(--muted);
+  font-size: 16px;
+  transition: transform 0.2s;
+}
+
+.workspace-card[open] > summary::before {
+  transform: rotate(90deg);
+}
+
+.workspace-card > summary span {
+  color: var(--muted);
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.workspace-card-preview {
+  padding: 0 12px 9px 34px;
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 1.45;
+}
+
+.workspace-card .workspace-detail {
+  margin: 0;
+  border: 0;
+  border-top: 1px solid var(--line);
+  border-radius: 0;
+  box-shadow: none;
+  background: transparent;
+}
+
+.workspace-card .workspace-detail-grid {
+  background: var(--paper);
+}
+
+.workspace-compress-status {
+  padding: 6px 12px 0;
+  margin: 0;
+  color: var(--muted);
+  font-size: 11px;
+}
+
 .workspace-detail {
   border: 1px solid var(--line);
   border-radius: var(--radius-md);

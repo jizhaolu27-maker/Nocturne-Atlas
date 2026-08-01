@@ -14,6 +14,7 @@ It is designed for writers who want more than a single chat box. Each story gets
 - Stores chats, memory, proposals, and diagnostics as local JSON or JSONL
 - Supports proposal-based canon updates instead of silent auto-merges
 - Streams replies in the browser with stop and revise-last support
+- Keeps streaming replies visible across signed-in devices and pauses auto-follow when you scroll away
 - Works with OpenAI-compatible chat-completions providers
 - Supports fully local embeddings with lexical fallback
 - Runs as a static browser UI with no frontend build step
@@ -70,6 +71,8 @@ npm test
 6. Accept only the workspace changes that should become canon for that story.
 
 If you want semantic retrieval, turn on `Global Local Embeddings` and prewarm the local embedding model once.
+
+While a reply is streaming, other signed-in browsers connected to the same running server receive a transient snapshot of the user turn and partial assistant text. These snapshots are kept only in server memory and are replaced by persisted messages when finalization succeeds; restarting the server discards an unfinished snapshot.
 
 ## Core Model
 

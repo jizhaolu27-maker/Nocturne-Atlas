@@ -83,6 +83,11 @@ window.createReviewTools = function createReviewTools({
       els.chatStatus.textContent = "AI received the request and is preparing the reply.";
       return;
     }
+    if (state.isWatchingRemoteChat) {
+      els.chatStatus.className = "chat-status busy";
+      els.chatStatus.textContent = "Another signed-in device is generating this story.";
+      return;
+    }
     const message = buildProposalPipelineMessage(state.pendingProposalPipeline);
     const tone =
       state.pendingProposalPipeline?.stage === "failed"

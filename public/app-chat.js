@@ -9,9 +9,14 @@ window.createChatTools = function createChatTools({
 }) {
   const MIN_CHAT_INPUT_HEIGHT = 42;
   const MAX_CHAT_INPUT_HEIGHT = 160;
+  const CHAT_FOLLOW_THRESHOLD = 96;
+  const PENDING_POLL_INTERVAL = 1000;
   let pendingAssistantText = "";
   let pendingAssistantSubmittedText = "";
   let pendingAssistantRenderFrame = 0;
+  let shouldFollowChat = true;
+  let pendingPollTimer = 0;
+  let remotePendingGenerationId = "";
 
   function syncMobileChatClearance() {
     if (window.innerWidth > 900) {
@@ -25,16 +30,27 @@ window.createChatTools = function createChatTools({
     els.chatLog.style.paddingBottom = `${composerHeight + navHeight + 24}px`;
   }
 
-  function scrollChatToLatest() {
+  function isChatNearBottom() {
+    const distance = els.chatLog.scrollHeight - els.chatLog.scrollTop - els.chatLog.clientHeight;
+    return distance <= CHAT_FOLLOW_THRESHOLD;
+  }
+
+  function scrollChatToLatest({ force = false } = {}) {
+    if (!force && !shouldFollowChat) {
+      return;
+    }
     requestAnimationFrame(() => {
-      syncMobileChatClearance();
-      const latest = els.chatLog.lastElementChild;
-      if (!latest) {
+      if (!force && !shouldFollowChat) {
         return;
       }
-      const targetTop = latest.offsetTop - Math.max(24, els.chatLog.clientHeight * 0.28);
-      els.chatLog.scrollTop = Math.max(0, targetTop);
+      syncMobileChatClearance();
+      shouldFollowChat = true;
+      els.chatLog.scrollTop = els.chatLog.scrollHeight;
     });
+  }
+
+  function handleChatScroll() {
+    shouldFollowChat = isChatNearBottom();
   }
 
   function syncChatInputHeight({ reset = false } = {}) {
@@ -71,6 +87,15 @@ window.createChatTools = function createChatTools({
     return els.chatLog.querySelector(".message.assistant.pending");
   }
 
+  function getPendingUserNode() {
+    return els.chatLog.querySelector(".message.user.pending");
+  }
+
+  function clearPendingMessageNodes() {
+    getPendingUserNode()?.remove();
+    getPendingAssistantNode()?.remove();
+  }
+
   function buildPendingAssistantPlaceholder() {
     const parts = ["Preparing the reply..."];
     if (pendingAssistantSubmittedText) {
@@ -95,8 +120,91 @@ window.createChatTools = function createChatTools({
     scrollChatToLatest();
   }
 
+  function renderPendingUser(message) {
+    let pending = getPendingUserNode();
+    if (!pending) {
+      pending = document.createElement("div");
+      pending.className = "message user pending";
+      const assistant = getPendingAssistantNode();
+      if (assistant) {
+        els.chatLog.insertBefore(pending, assistant);
+      } else {
+        els.chatLog.appendChild(pending);
+      }
+    }
+    const createdAt = message?.createdAt ? new Date(message.createdAt).toLocaleString() : "now";
+    pending.innerHTML = `
+      <div class="message-role">user / ${escapeHtml(createdAt)}</div>
+      <div class="message-content">${escapeHtml(message?.content || pendingAssistantSubmittedText)}</div>
+    `;
+  }
+
+  function renderPendingGeneration(pending) {
+    if (!pending) {
+      clearPendingMessageNodes();
+      return;
+    }
+    pendingAssistantSubmittedText = String(pending.userMessage?.content || "").trim();
+    pendingAssistantText = String(pending.assistantText || "");
+    renderPendingUser(pending.userMessage);
+    let assistant = getPendingAssistantNode();
+    if (!assistant) {
+      assistant = document.createElement("div");
+      assistant.className = "message assistant pending";
+      els.chatLog.appendChild(assistant);
+    }
+    renderPendingAssistantNow();
+  }
+
+  function stopPendingGenerationPolling() {
+    if (pendingPollTimer) {
+      clearTimeout(pendingPollTimer);
+      pendingPollTimer = 0;
+    }
+  }
+
+  function schedulePendingGenerationPoll(storyId) {
+    stopPendingGenerationPolling();
+    if (!storyId || state.isStreamingChat) {
+      return;
+    }
+    pendingPollTimer = window.setTimeout(() => pollPendingGeneration(storyId), PENDING_POLL_INTERVAL);
+  }
+
+  async function pollPendingGeneration(storyId) {
+    pendingPollTimer = 0;
+    if (state.isStreamingChat || state.activeStoryId !== storyId) {
+      return;
+    }
+    try {
+      const payload = await api(`/api/stories/${storyId}/chat/pending`);
+      const pending = payload.pendingGeneration || null;
+      if (!pending) {
+        if (remotePendingGenerationId) {
+          remotePendingGenerationId = "";
+          state.isWatchingRemoteChat = false;
+          await loadStory(storyId, { preserveTransientDiagnostics: true });
+          return;
+        }
+      } else {
+        remotePendingGenerationId = pending.id || "pending";
+        state.isWatchingRemoteChat = true;
+        renderPendingGeneration(pending);
+        els.chatInput.disabled = true;
+        els.chatSendBtn.disabled = true;
+        els.chatStopBtn.disabled = true;
+        renderChatStatus();
+      }
+    } catch (error) {
+      console.warn("Failed to refresh pending chat generation", error);
+    }
+    schedulePendingGenerationPoll(storyId);
+  }
+
   function setChatPending(isPending, submittedText = "") {
     state.isStreamingChat = isPending;
+    state.isWatchingRemoteChat = false;
+    stopPendingGenerationPolling();
     els.chatInput.disabled = isPending;
     els.chatSendBtn.disabled = isPending;
     els.chatStopBtn.disabled = !isPending;
@@ -112,7 +220,8 @@ window.createChatTools = function createChatTools({
       cancelPendingAssistantRender();
       pendingAssistantText = "";
       pendingAssistantSubmittedText = "";
-      existing?.remove();
+      clearPendingMessageNodes();
+      schedulePendingGenerationPoll(state.activeStoryId);
       return;
     }
     if (existing) {
@@ -120,6 +229,8 @@ window.createChatTools = function createChatTools({
     }
     pendingAssistantText = "";
     pendingAssistantSubmittedText = String(submittedText || "").trim();
+    shouldFollowChat = true;
+    renderPendingUser({ content: pendingAssistantSubmittedText, createdAt: new Date().toISOString() });
     const pending = document.createElement("div");
     pending.className = "message assistant pending";
     els.chatLog.appendChild(pending);
@@ -309,7 +420,10 @@ window.createChatTools = function createChatTools({
     target.appendChild(actions);
   }
 
-  function renderMessages(messages) {
+  function renderMessages(messages, pendingGeneration = null) {
+    stopPendingGenerationPolling();
+    const previousScrollTop = els.chatLog.scrollTop;
+    const preserveScroll = !shouldFollowChat;
     els.chatLog.innerHTML = messages.length
       ? messages
           .map(
@@ -322,9 +436,28 @@ window.createChatTools = function createChatTools({
           )
           .join("")
       : `<div class="message assistant"><div class="message-role">system</div><div class="message-content">Start chatting with this story.</div></div>`;
-    scrollChatToLatest();
+    if (pendingGeneration && !state.isStreamingChat) {
+      remotePendingGenerationId = pendingGeneration.id || "pending";
+      state.isWatchingRemoteChat = true;
+      renderPendingGeneration(pendingGeneration);
+    } else if (!pendingGeneration) {
+      remotePendingGenerationId = "";
+      state.isWatchingRemoteChat = false;
+    }
+    els.chatInput.disabled = state.isWatchingRemoteChat;
+    els.chatSendBtn.disabled = state.isWatchingRemoteChat;
+    els.chatStopBtn.disabled = true;
+    schedulePendingGenerationPoll(state.activeStoryId);
+    if (preserveScroll) {
+      requestAnimationFrame(() => {
+        els.chatLog.scrollTop = previousScrollTop;
+      });
+    } else {
+      scrollChatToLatest({ force: true });
+    }
   }
 
+  els.chatLog.addEventListener("scroll", handleChatScroll, { passive: true });
   window.addEventListener("resize", syncMobileChatClearance);
 
   return {

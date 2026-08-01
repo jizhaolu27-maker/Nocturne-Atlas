@@ -4203,6 +4203,75 @@ async function main() {
     }
   });
 
+  await runTest("streaming chat exposes transient pending generation without persisting partial messages", async () => {
+    const rootDir = createTempRoot();
+    try {
+      const harness = createStoreHarness(rootDir);
+      const story = harness.createDefaultStory({
+        title: "Pending Generation Smoke",
+        providerId: "provider_1",
+        model: "test-model",
+        enabled: { characters: [], worldbooks: [], styles: [] },
+      });
+      let releaseStream;
+      const streamReady = new Promise((resolve) => {
+        releaseStream = resolve;
+      });
+      const chatTools = createChatTools({
+        safeId,
+        summarizeText,
+        jsonResponse: (status, data) => ({ status, data }),
+        sendJson: () => {},
+        getAppConfig: () => ({ localEmbedding: { mode: "off" } }),
+        getStory: harness.getStory,
+        saveStory: harness.saveStory,
+        getProviderForStory: () => ({ id: "provider_1", name: "Smoke Provider", baseUrl: "http://example.test", model: "test-model", encryptedApiKey: { mock: true } }),
+        decryptSecret: () => "test-key",
+        syncStoryWorkspace: harness.workspaceTools.syncStoryWorkspace,
+        loadActiveWorkspaceItems: harness.workspaceTools.loadActiveWorkspaceItems,
+        readJsonLines: harness.readJsonLines,
+        appendJsonLine: harness.appendJsonLine,
+        writeJson: harness.writeJson,
+        writeJsonLines: harness.writeJsonLines,
+        getStoryMessagesFile: harness.getStoryMessagesFile,
+        getStoryMemoryFile: harness.getStoryMemoryFile,
+        getStoryMemoryChunkFile: harness.getStoryMemoryChunkFile,
+        getStoryProposalFile: harness.getStoryProposalFile,
+        getStorySnapshotFile: harness.getStorySnapshotFile,
+        getStoryWorkspaceDir: harness.getStoryWorkspaceDir,
+        getDefaultContextStatus: () => ({}),
+        buildContextBlocks: async () => ({ blocks: [], usedTokens: 0, maxTokens: 100, usedBlocks: 0, maxBlocks: 6, selectedKnowledgeChunks: [], selectedMemoryRecords: [], selectedMemoryReasons: {}, selectedMemoryEvidence: [], selectedMemoryEvidenceReasons: {}, selectedContestedMemoryRecords: [], selectedContestedMemoryReasons: {}, memoryRetrievalMeta: {}, knowledgeRetrievalMeta: {} }),
+        classifyPressure: () => "low",
+        getSummaryTriggers: () => [],
+        getSummarySchedule: () => ({}),
+        buildTransientMemoryCandidate: async () => null,
+        generateMemoryUpdate: async ({ memoryRecords, memoryChunks }) => ({ records: memoryRecords, chunks: memoryChunks, summaryRecords: [], episodicChunks: [], summaryChunks: [], consolidatedMemoryRecords: [], consolidatedMemorySourceIds: [], supersededLongTermIds: [], summarySchedule: {} }),
+        generateProposalUpdate: async () => ({ proposalRecords: [], proposalTriggers: [], proposalPipeline: null }),
+        detectForgetfulness: () => ({ pressureLevel: "low", forgetfulnessState: "ok", forgetfulnessReasons: [], forgetfulnessSignals: [] }),
+        buildEndpointUrl: () => "http://example.test/chat/completions",
+        callOpenAICompatible: async () => ({ content: "unused", meta: {} }),
+        streamOpenAICompatible: async () => ({ endpoint: "http://example.test/chat/completions", startedAt: Date.now(), stream: new ReadableStream({ async start(controller) { controller.enqueue(new TextEncoder().encode('data: {"choices":[{"delta":{"content":"Partial text"}}]}\n')); await streamReady; controller.enqueue(new TextEncoder().encode('data: [DONE]\n')); controller.close(); } }) }),
+      });
+      const req = new EventEmitter();
+      const chunks = [];
+      const res = { writableEnded: false, writeHead() {}, write(chunk) { chunks.push(String(chunk)); }, end() { this.writableEnded = true; } };
+      const streamPromise = chatTools.handleChatStream(req, res, story.id, { message: "A pending request" });
+      for (let attempt = 0; attempt < 20 && !chatTools.getPendingGeneration(story.id); attempt += 1) {
+        await new Promise((resolve) => setTimeout(resolve, 5));
+      }
+      const pending = chatTools.getPendingGeneration(story.id);
+      assert.equal(pending.userMessage.content, "A pending request");
+      assert.equal(pending.assistantText, "Partial text");
+      assert.deepEqual(harness.readJsonLines(harness.getStoryMessagesFile(story.id)), []);
+      releaseStream();
+      await streamPromise;
+      assert.equal(chatTools.getPendingGeneration(story.id), null);
+      assert.ok(chunks.some((chunk) => chunk.includes('\"done\"')));
+    } finally {
+      fs.rmSync(rootDir, { recursive: true, force: true });
+    }
+  });
+
   await runTest("preparing revise-last rolls story state back to the previous turn before regeneration", async () => {
     const rootDir = createTempRoot();
     try {

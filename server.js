@@ -338,6 +338,7 @@ function getProviderContextWindow(story) {
 const {
   handleChat,
   handleChatStream,
+  getPendingGeneration,
   prepareReviseLastExchange,
   reviseLastExchange,
   buildStoryPreview,
@@ -481,6 +482,7 @@ const {
   syncStoryWorkspace,
   handleChat,
   handleChatStream,
+  getPendingGeneration,
   prepareReviseLastExchange,
   reviseLastExchange,
   buildStoryPreview,

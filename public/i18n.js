@@ -89,6 +89,10 @@
     "Prompt preview": "提示词预览",
     Stories: "故事",
     Chat: "聊天",
+    "AI received the request and is preparing the reply.": "AI 已收到请求，正在准备回复。",
+    "Another signed-in device is generating this story.": "另一个已登录设备正在生成这个故事。",
+    "Preparing the reply...": "正在准备回复……",
+    "Current user input:": "当前用户输入：",
     "Write the next turn, instruction, or revision...": "写下下一轮内容、指令或修订意见……",
   };
   const reverse = Object.fromEntries(Object.entries(translations).map(([en, zh]) => [zh, en]));
@@ -139,6 +143,7 @@
   });
   translate();
   new MutationObserver((mutations) => mutations.forEach(({ addedNodes }) => addedNodes.forEach((node) => {
-    if (node.nodeType === Node.ELEMENT_NODE) translate(node);
+    const target = node.nodeType === Node.ELEMENT_NODE ? node : node.parentElement;
+    if (target) translate(target);
   }))).observe(document.body, { childList: true, subtree: true });
 })();

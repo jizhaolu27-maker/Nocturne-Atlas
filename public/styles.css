@@ -258,6 +258,7 @@ body[data-theme="dark"] .brand-mark {
 .story-list {
   flex: 1;
   overflow-y: auto;
+  overflow-anchor: none;
   padding: 4px 12px;
   display: flex;
   flex-direction: column;
@@ -499,7 +500,7 @@ body[data-theme="dark"] .chat-topbar {
   /* Leave breathing room above and below */
   display: flex;
   flex-direction: column;
-  scroll-behavior: smooth;
+  scroll-behavior: auto;
 }
 
 .message {

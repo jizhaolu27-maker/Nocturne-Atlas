@@ -10,6 +10,7 @@
   selectedLibraryItemId: null,
   chatAbortController: null,
   isStreamingChat: false,
+  isWatchingRemoteChat: false,
   storySaveStatusTimer: null,
   selectorSaveTimer: null,
   localEmbeddingSaveTimer: null,
@@ -506,7 +507,7 @@ function renderStory() {
   els.promptUser.value = story.promptConfig?.userPromptTemplate || "";
   els.providerSelect.value = story.providerId || "";
   renderSelectors(story.enabled || {});
-  renderMessages(payload.messages || []);
+  renderMessages(payload.messages || [], payload.pendingGeneration || null);
   decorateLatestEditableMessage(payload.messages || []);
   try {
     renderStatusCurrent(payload.diagnostics?.currentContextPreview?.contextStatus || story.contextStatus || {});

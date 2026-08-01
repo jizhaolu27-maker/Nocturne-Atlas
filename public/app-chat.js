@@ -7,8 +7,8 @@ window.createChatTools = function createChatTools({
   loadStory,
   renderChatStatus,
 }) {
-  const MIN_CHAT_INPUT_HEIGHT = 96;
-  const MAX_CHAT_INPUT_HEIGHT = 240;
+  const MIN_CHAT_INPUT_HEIGHT = 52;
+  const MAX_CHAT_INPUT_HEIGHT = 180;
   let pendingAssistantText = "";
   let pendingAssistantSubmittedText = "";
   let pendingAssistantRenderFrame = 0;

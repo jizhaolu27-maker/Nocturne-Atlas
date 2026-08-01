@@ -304,10 +304,17 @@
 
         <div class="tab-content" id="tab-knowledge">
           <section class="rp-section">
-            <h3 class="rp-title">Activated Assets</h3>
-            <p class="rp-subtitle">Library sources active for the current story.</p>
+            <h3 class="rp-title">Story Canon</h3>
             <details class="fold-section" open>
-              <summary>Selections</summary>
+              <summary>Story assets</summary>
+              <div class="fold-body"><div id="workspace-view" class="workspace-view"></div></div>
+            </details>
+          </section>
+
+          <section class="rp-section">
+            <h3 class="rp-title">Library Sources</h3>
+            <details class="fold-section">
+              <summary>Choose assets</summary>
               <div class="fold-body selector-grid">
                 <details class="asset-group">
                   <summary><span>Characters</span><span class="asset-group-count" data-asset-count="characters">0</span></summary>
@@ -323,30 +330,8 @@
                 </details>
               </div>
             </details>
-          </section>
-
-          <section class="rp-section">
-            <h3 class="rp-title">Workspace Memory</h3>
-            <p class="rp-subtitle">Story-local copies and recent records.</p>
-            <details class="fold-section" open>
-              <summary>Workspace assets</summary>
-              <div class="fold-body">
-                <div id="workspace-view" class="workspace-view"></div>
-              </div>
-            </details>
             <details class="fold-section">
-              <summary>Memory records</summary>
-              <div class="fold-body">
-                <div id="memory-list" class="memory-list"></div>
-              </div>
-            </details>
-          </section>
-
-          <section class="rp-section">
-            <h3 class="rp-title">Library Editor</h3>
-            <p class="rp-subtitle">Edit reusable source entries.</p>
-            <details class="fold-section">
-              <summary>Source JSON</summary>
+              <summary>Edit source</summary>
               <div class="fold-body stack-fields">
                 <div class="form-grid">
                   <label>Type
@@ -372,6 +357,14 @@
                   <button id="delete-library-btn" class="ghost danger" type="button">Delete</button>
                 </div>
               </div>
+            </details>
+          </section>
+
+          <section class="rp-section">
+            <h3 class="rp-title">Runtime Memory</h3>
+            <details class="fold-section">
+              <summary>Memory records</summary>
+              <div class="fold-body"><div id="memory-list" class="memory-list"></div></div>
             </details>
           </section>
         </div>

@@ -977,23 +977,6 @@ body[data-theme="dark"] .chat-status.busy::before {
   display: none;
 }
 
-/* CSS-only disclosure arrow */
-.fold-section summary::after {
-  content: "";
-  position: absolute;
-  right: 16px;
-  width: 6px;
-  height: 6px;
-  border-right: 1.5px solid var(--muted);
-  border-bottom: 1.5px solid var(--muted);
-  transform: translateY(-50%) rotate(45deg);
-  transition: transform 0.2s cubic-bezier(0.4, 0, 0.2, 1);
-}
-
-.fold-section[open] summary::after {
-  transform: translateY(-20%) rotate(225deg);
-}
-
 .fold-body {
   padding: 0 16px 16px;
 }
@@ -1196,19 +1179,6 @@ textarea {
 
 .asset-group summary::-webkit-details-marker {
   display: none;
-}
-
-.asset-group summary::before {
-  content: "›";
-  margin-right: 7px;
-  color: var(--muted);
-  font-size: 16px;
-  line-height: 1;
-  transition: transform 0.2s;
-}
-
-.asset-group[open] summary::before {
-  transform: rotate(90deg);
 }
 
 .asset-group-count {

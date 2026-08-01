@@ -28,7 +28,12 @@ window.createChatTools = function createChatTools({
   function scrollChatToLatest() {
     requestAnimationFrame(() => {
       syncMobileChatClearance();
-      els.chatLog.scrollTop = els.chatLog.scrollHeight;
+      const latest = els.chatLog.lastElementChild;
+      if (!latest) {
+        return;
+      }
+      const targetTop = latest.offsetTop - Math.max(24, els.chatLog.clientHeight * 0.28);
+      els.chatLog.scrollTop = Math.max(0, targetTop);
     });
   }
 

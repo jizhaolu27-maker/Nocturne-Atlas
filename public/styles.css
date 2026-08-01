@@ -1874,7 +1874,7 @@ textarea {
   }
 
   .chat-log {
-    padding: calc(76px + env(safe-area-inset-top)) 0 calc(194px + env(safe-area-inset-bottom));
+    padding: calc(76px + env(safe-area-inset-top)) 0 calc(280px + env(safe-area-inset-bottom));
     scroll-padding-bottom: 24px;
     -webkit-overflow-scrolling: touch;
     overscroll-behavior-y: contain;

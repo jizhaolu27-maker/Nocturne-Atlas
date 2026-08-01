@@ -75,7 +75,6 @@ const {
   getStoryProposalFile,
   getStorySnapshotFile,
   listJsonFiles,
-  readJson,
   saveLibraryItem,
   deleteLibraryItem,
   loadProviders,

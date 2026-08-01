@@ -117,11 +117,7 @@ window.createChatTools = function createChatTools({
   }
 
   function buildPendingAssistantPlaceholder() {
-    const parts = ["Preparing the reply..."];
-    if (pendingAssistantSubmittedText) {
-      parts.push(`Current user input: ${pendingAssistantSubmittedText}`);
-    }
-    return renderMarkdownSafe(parts.join("\n\n"));
+    return renderMarkdownSafe("Preparing the reply...");
   }
 
   function renderPendingAssistantNow() {

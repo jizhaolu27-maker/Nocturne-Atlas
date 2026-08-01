@@ -17,6 +17,25 @@ window.createChatTools = function createChatTools({
   let shouldFollowChat = true;
   let pendingPollTimer = 0;
   let remotePendingGenerationId = "";
+  let revisionMode = false;
+
+  const revisionBar = document.getElementById("chat-revision-bar");
+  const cancelRevisionBtn = document.getElementById("cancel-chat-revision-btn");
+
+  function setRevisionMode(enabled) {
+    revisionMode = enabled;
+    if (revisionBar) revisionBar.hidden = !enabled;
+    els.chatInput.classList.toggle("revision-input", enabled);
+    if (!enabled) {
+      els.chatInput.value = "";
+      syncChatInputHeight({ reset: true });
+    }
+  }
+
+  cancelRevisionBtn?.addEventListener("click", () => {
+    setRevisionMode(false);
+    els.chatInput.focus();
+  });
 
   function syncMobileChatClearance() {
     if (window.innerWidth > 900) {
@@ -58,9 +77,10 @@ window.createChatTools = function createChatTools({
       return;
     }
     els.chatInput.style.height = "0px";
+    const minimumHeight = els.chatInput.classList.contains("revision-input") ? 112 : MIN_CHAT_INPUT_HEIGHT;
     const contentHeight = reset && !els.chatInput.value
-      ? MIN_CHAT_INPUT_HEIGHT
-      : Math.max(els.chatInput.scrollHeight, MIN_CHAT_INPUT_HEIGHT);
+      ? minimumHeight
+      : Math.max(els.chatInput.scrollHeight, minimumHeight);
     els.chatInput.style.height = `${Math.min(contentHeight, MAX_CHAT_INPUT_HEIGHT)}px`;
     syncMobileChatClearance();
   }
@@ -346,9 +366,18 @@ window.createChatTools = function createChatTools({
     if (!message) {
       return;
     }
+    const isRevision = revisionMode;
+    if (isRevision) {
+      setRevisionMode(false);
+    }
     els.chatInput.value = "";
     syncChatInputHeight({ reset: true });
     try {
+      if (isRevision) {
+        setChatPreparing(true);
+        await api(`/api/stories/${state.activeStoryId}/chat/revise-last/prepare`, { method: "POST" });
+        await loadStory(state.activeStoryId);
+      }
       await runFreshChatTurn(message);
     } catch (error) {
       if (error.name !== "AbortError") {
@@ -360,6 +389,9 @@ window.createChatTools = function createChatTools({
 
   function stopChatGeneration() {
     state.chatAbortController?.abort();
+    if (state.activeStoryId) {
+      api(`/api/stories/${state.activeStoryId}/chat/stop`, { method: "POST" }).catch(() => {});
+    }
   }
 
   async function reviseLastUserMessage() {
@@ -374,36 +406,11 @@ window.createChatTools = function createChatTools({
       alert("Only the latest user input and AI reply can be revised.");
       return;
     }
-    const replacement = prompt("Edit the previous user input and regenerate the AI reply", previousMessage.content || "");
-    if (replacement === null) {
-      return;
-    }
-    const nextMessage = replacement.trim();
-    if (!nextMessage) {
-      alert("Input cannot be empty.");
-      return;
-    }
-    try {
-      setChatPreparing(true);
-      await api(`/api/stories/${state.activeStoryId}/chat/revise-last/prepare`, {
-        method: "POST",
-      });
-      await loadStory(state.activeStoryId);
-    } catch (error) {
-      setChatPreparing(false);
-      renderChatStatus();
-      alert(error.message);
-      await loadStory(state.activeStoryId).catch(() => {});
-      return;
-    }
-    try {
-      await runFreshChatTurn(nextMessage);
-    } catch (error) {
-      if (error.name !== "AbortError") {
-        alert(error.message);
-        await loadStory(state.activeStoryId);
-      }
-    }
+    setRevisionMode(true);
+    els.chatInput.value = previousMessage.content || "";
+    syncChatInputHeight();
+    els.chatInput.focus();
+    els.chatInput.setSelectionRange(els.chatInput.value.length, els.chatInput.value.length);
   }
 
   function decorateLatestEditableMessage(messages) {

@@ -10,6 +10,8 @@
     "Open or create a story to start chatting.": "打开或创建故事后开始聊天。",
     "Sign out": "退出登录",
     "Export chat as TXT": "导出聊天为 TXT",
+    "Editing the previous user message": "正在编辑上一条用户消息",
+    Cancel: "取消",
     Controls: "控制",
     Knowledge: "知识",
     Review: "审阅",

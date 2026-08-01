@@ -1168,9 +1168,19 @@ textarea {
 /* ── Asset lists ─────────────────────── */
 .selector-grid {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 16px;
+  grid-template-columns: 1fr;
+  gap: 18px;
   align-items: start;
+}
+
+.selector-grid > div {
+  padding-bottom: 14px;
+  border-bottom: 1px solid var(--line);
+}
+
+.selector-grid > div:last-child {
+  padding-bottom: 0;
+  border-bottom: 0;
 }
 
 .selector-grid h4 {

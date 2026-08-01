@@ -35,7 +35,7 @@
 
   /* Layout values */
   --sidebar-w: 260px;
-  --sidebar-collapsed-w: 64px;
+  --sidebar-collapsed-w: 48px;
   --right-w: 360px;
   --topbar-h: 56px;
 
@@ -364,9 +364,10 @@ body[data-theme="dark"] .brand-mark {
   padding-inline: 4px;
 }
 
-.app-shell.sidebar-collapsed .sidebar-topbar .brand-mark {
-  width: 24px;
-  height: 24px;
+.app-shell.sidebar-collapsed .sidebar-topbar .brand-mark,
+.app-shell.sidebar-collapsed .story-list,
+.app-shell.sidebar-collapsed .sidebar-footer {
+  display: none;
 }
 
 /* ── Toggle buttons ─────────────────────────────── */

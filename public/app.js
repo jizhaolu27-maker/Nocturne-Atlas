@@ -590,7 +590,7 @@ async function saveStoryConfig() {
   if (!state.activeStoryId) {
     return;
   }
-  showStorySaveStatus("Saving configuration and refreshing the context preview...");
+  showStorySaveStatus("Saving...");
   try {
     const nextGlobalSystemPrompt = els.promptGlobal.value.trim();
     const currentGlobalSystemPrompt = state.appConfig?.globalSystemPrompt || "";
@@ -621,7 +621,7 @@ async function saveStoryConfig() {
     });
     await refreshAll();
     await loadStory(state.activeStoryId);
-    showStorySaveStatus("Saved. Diagnostics has been refreshed for the current configuration preview.", "ok");
+    showStorySaveStatus("Saved.", "ok");
   } catch (error) {
     showStorySaveStatus(`Save failed: ${error.message}`, "error");
     throw error;
@@ -659,7 +659,7 @@ function scheduleLocalEmbeddingConfigSave() {
         }),
       });
       renderLocalEmbeddingStatus();
-      showStorySaveStatus("Local embedding settings saved.", "ok");
+      showStorySaveStatus("Saved.", "ok");
     } catch (error) {
       showStorySaveStatus(`Local embedding save failed: ${error.message}`, "error");
     }

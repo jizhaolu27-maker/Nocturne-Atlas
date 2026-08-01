@@ -65,7 +65,7 @@ window.createWorkspaceTools = function createWorkspaceTools({
 
   function renderWorkspaceDetail(card) {
     const fields = Object.entries(card.item || {})
-      .filter(([key]) => !["workspaceUpdatedAt", "changeLog", "sourceId", "sourceUpdatedAt"].includes(key))
+      .filter(([key]) => !["workspaceUpdatedAt", "changeLog", "sourceId", "sourceUpdatedAt", "createdAt", "updatedAt"].includes(key))
       .map(
         ([key, value]) => `
           <article class="workspace-detail-row">

@@ -641,28 +641,32 @@ function scheduleSelectorSave() {
   }, 180);
 }
 
+async function saveLocalEmbeddingConfig() {
+  try {
+    state.appConfig = await api("/api/app-config", {
+      method: "POST",
+      body: JSON.stringify({
+        localEmbedding: {
+          ...(state.appConfig?.localEmbedding || {}),
+          mode: els.appLocalEmbeddingMode.value === "on" ? "on" : "off",
+          remoteHost: els.appLocalEmbeddingRemoteHost.value.trim(),
+        },
+      }),
+    });
+    renderLocalEmbeddingStatus();
+    showStorySaveStatus("Saved.", "ok");
+  } catch (error) {
+    showStorySaveStatus(`Save failed: ${error.message}`, "error");
+  }
+}
+
 function scheduleLocalEmbeddingConfigSave() {
   if (state.localEmbeddingSaveTimer) {
     clearTimeout(state.localEmbeddingSaveTimer);
   }
   state.localEmbeddingSaveTimer = setTimeout(async () => {
     state.localEmbeddingSaveTimer = null;
-    try {
-      state.appConfig = await api("/api/app-config", {
-        method: "POST",
-        body: JSON.stringify({
-          localEmbedding: {
-            ...(state.appConfig?.localEmbedding || {}),
-            mode: els.appLocalEmbeddingMode.value === "on" ? "on" : "off",
-            remoteHost: els.appLocalEmbeddingRemoteHost.value.trim(),
-          },
-        }),
-      });
-      renderLocalEmbeddingStatus();
-      showStorySaveStatus("Saved.", "ok");
-    } catch (error) {
-      showStorySaveStatus(`Local embedding save failed: ${error.message}`, "error");
-    }
+    await saveLocalEmbeddingConfig();
   }, 350);
 }
 
@@ -808,7 +812,7 @@ els.newProviderBtn.addEventListener("click", () => {
   syncProviderForm();
 });
 els.prewarmLocalEmbeddingBtn?.addEventListener("click", prewarmLocalEmbeddingModel);
-els.appLocalEmbeddingMode?.addEventListener("change", scheduleLocalEmbeddingConfigSave);
+els.appLocalEmbeddingMode?.addEventListener("change", saveLocalEmbeddingConfig);
 els.appLocalEmbeddingRemoteHost?.addEventListener("change", scheduleLocalEmbeddingConfigSave);
 els.appLocalEmbeddingRemoteHost?.addEventListener("blur", scheduleLocalEmbeddingConfigSave);
 els.providerEditorSelect.addEventListener("change", () => {

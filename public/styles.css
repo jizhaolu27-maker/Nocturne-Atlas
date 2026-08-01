@@ -973,8 +973,15 @@ body[data-theme="dark"] .chat-status.busy::before {
   align-items: center;
 }
 
+.fold-section > summary::marker,
+.asset-group > summary::marker,
+.workspace-card > summary::marker {
+  content: "" !important;
+  display: none !important;
+}
+
 .fold-section summary::-webkit-details-marker {
-  display: none;
+  display: none !important;
 }
 
 .fold-body {

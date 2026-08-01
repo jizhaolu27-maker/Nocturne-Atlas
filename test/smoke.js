@@ -27,7 +27,7 @@ const { createServerConfigTools } = require("../lib/server-config");
 const { createGroundingCheckTools } = require("../lib/grounding-check");
 const { createKeyedSerialExecutor } = require("../lib/keyed-serial");
 const { createAuthTools } = require("../lib/auth");
-const { MEMORY_KEYWORD_VERSION, normalizeRuntimeMemoryState } = require("../lib/memory-runtime");
+const { MEMORY_KEYWORD_VERSION, MEMORY_SCHEMA_VERSION, normalizeRuntimeMemoryState } = require("../lib/memory-runtime");
 
 const DEFAULT_CONTEXT_BLOCKS = 6;
 const DEFAULT_SUMMARY_INTERVAL = 4;
@@ -393,6 +393,8 @@ async function main() {
     });
 
     assert.equal(normalized.changed, true);
+    assert.equal(normalized.memoryRecords[0].schemaVersion, MEMORY_SCHEMA_VERSION);
+    assert.equal(normalized.memoryChunks[0].schemaVersion, MEMORY_SCHEMA_VERSION);
     assert.equal(normalized.memoryRecords[0].keywordVersion, MEMORY_KEYWORD_VERSION);
     assert.equal(normalized.memoryChunks[0].keywordVersion, MEMORY_KEYWORD_VERSION);
     assert.ok(normalized.memoryRecords[0].keywords.includes("\u9646\u77e5\u7ed2"));
@@ -1302,6 +1304,28 @@ async function main() {
     assert.ok(query.primaryMatchedEntityIds.includes("bai"));
     assert.ok(query.primaryMatchedEntityIds.includes("yian"));
     assert.ok(!query.primaryMatchedEntityIds.includes("eira"));
+  });
+
+  await runTest("memory query carries recent scene entities into continuation asks", () => {
+    const query = buildMemoryQuery({
+      userMessage: "继续写下去。",
+      messages: [
+        { role: "user", content: "让 Lyra 和 Jun Ash 进入档案馆。" },
+        { role: "assistant", content: "Lyra and Jun Ash step into the archive together." },
+      ],
+      workspace: {
+        characters: [
+          { id: "lyra", name: "Lyra", core: { role: "Courier" } },
+          { id: "jun", name: "Jun Ash", core: { role: "Rival-ally" } },
+          { id: "eira", name: "Eira", core: { role: "Archivist" } },
+        ],
+        worldbooks: [{ id: "archive", title: "Archive", category: "vault" }],
+        styles: [],
+      },
+    });
+    assert.deepEqual(query.inheritedEntityIds.sort(), ["archive", "jun", "lyra"]);
+    assert.ok(query.matchedEntityIds.includes("lyra"));
+    assert.ok(query.matchedEntityIds.includes("jun"));
   });
 
   await runTest("memory lexical recall favors current-turn entities over stale history carryover", () => {

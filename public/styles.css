@@ -1173,6 +1173,57 @@ textarea {
   align-items: start;
 }
 
+.asset-group {
+  padding: 8px 10px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: color-mix(in srgb, var(--bg-strong) 72%, transparent);
+}
+
+.asset-group summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  min-height: 28px;
+  cursor: pointer;
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--ink);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  list-style: none;
+}
+
+.asset-group summary::-webkit-details-marker {
+  display: none;
+}
+
+.asset-group summary::before {
+  content: "›";
+  margin-right: 7px;
+  color: var(--muted);
+  font-size: 16px;
+  line-height: 1;
+  transition: transform 0.2s;
+}
+
+.asset-group[open] summary::before {
+  transform: rotate(90deg);
+}
+
+.asset-group-count {
+  margin-left: auto;
+  color: var(--muted);
+  font-size: 10px;
+  font-weight: 500;
+  text-transform: none;
+  letter-spacing: 0;
+}
+
+.asset-group[open] .selector-list {
+  margin-top: 8px;
+}
+
 .selector-grid > div {
   padding-bottom: 14px;
   border-bottom: 1px solid var(--line);

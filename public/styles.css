@@ -665,6 +665,10 @@ body[data-theme="dark"] .chat-form:focus-within {
   font-size: 12px;
 }
 
+.chat-revision-bar[hidden] {
+  display: none;
+}
+
 .chat-revision-bar button {
   padding: 4px 8px;
   font-size: 11px;

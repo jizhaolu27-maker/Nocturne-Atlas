@@ -79,8 +79,15 @@ window.createReviewTools = function createReviewTools({
 
   function renderChatStatus() {
     if (state.isStreamingChat) {
+      const generationMessages = {
+        reply_generating: "正在生成回复…",
+        finalizing: "正在整理本轮结果…",
+        memory_generating: "正在整理本轮记忆…",
+        proposal_checking: "正在检查是否需要更新故事设定…",
+        proposal_generating: "正在生成待审核提案…",
+      };
       els.chatStatus.className = "chat-status busy";
-      els.chatStatus.textContent = "AI received the request and is preparing the reply.";
+      els.chatStatus.textContent = generationMessages[state.chatGenerationStage] || "正在生成回复…";
       return;
     }
     if (state.isWatchingRemoteChat) {

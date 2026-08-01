@@ -211,6 +211,7 @@ window.createChatTools = function createChatTools({
     if (isPending) {
       state.pendingProposalPipeline = null;
       state.currentProposalTriggers = [];
+      state.chatGenerationStage = "reply_generating";
     }
     els.chatStatus.className = `chat-status ${isPending ? "busy" : ""}`.trim();
     els.chatStatus.textContent = isPending ? "AI received the request and is preparing the reply." : "";
@@ -246,6 +247,7 @@ window.createChatTools = function createChatTools({
     }
     state.pendingProposalPipeline = null;
     state.currentProposalTriggers = [];
+    state.chatGenerationStage = "preparing_revise";
     els.chatStatus.className = "chat-status busy";
     els.chatStatus.textContent = "Rewinding the latest turn to the previous state...";
   }
@@ -300,6 +302,9 @@ window.createChatTools = function createChatTools({
         } else if (event.type === "replace") {
           assistantText = event.text || assistantText;
           updateStreamingAssistant(assistantText);
+        } else if (event.type === "stage") {
+          state.chatGenerationStage = event.stage || "";
+          renderChatStatus();
         } else if (event.type === "done") {
           return event.payload;
         } else if (event.type === "error") {
@@ -325,6 +330,7 @@ window.createChatTools = function createChatTools({
       return payload;
     } finally {
       state.chatAbortController = null;
+      state.chatGenerationStage = "";
       setChatPending(false);
       renderChatStatus();
     }

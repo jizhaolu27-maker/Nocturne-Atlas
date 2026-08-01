@@ -16,6 +16,7 @@
   localEmbeddingSaveTimer: null,
   storyConfigSaveTimer: null,
   pendingProposalPipeline: null,
+  chatGenerationStage: "",
   currentProposalTriggers: [],
   selectedWorkspaceAssetKey: null,
   isPrewarmingLocalEmbedding: false,

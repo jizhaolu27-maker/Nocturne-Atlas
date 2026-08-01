@@ -526,12 +526,6 @@ function renderSelectors(enabled) {
   renderSelectorList(els.selectorCharacters, state.libraries.characters, enabled.characters || [], enabled.injectionModes?.characters || {});
   renderSelectorList(els.selectorWorldbooks, state.libraries.worldbooks, enabled.worldbooks || [], enabled.injectionModes?.worldbooks || {});
   renderSelectorList(els.selectorStyles, state.libraries.styles, enabled.styles || [], enabled.injectionModes?.styles || {});
-  for (const type of ["characters", "worldbooks", "styles"]) {
-    const root = document.querySelector(`[data-asset-count="${type}"]`);
-    if (root) {
-      root.textContent = `${(enabled[type] || []).length} enabled / ${(state.libraries[type] || []).length} available`;
-    }
-  }
 }
 
 function renderSelectorList(root, items, enabledIds, injectionModes = {}) {

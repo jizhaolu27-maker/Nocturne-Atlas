@@ -1188,15 +1188,6 @@ textarea {
   display: none;
 }
 
-.asset-group-count {
-  margin-left: auto;
-  color: var(--muted);
-  font-size: 10px;
-  font-weight: 500;
-  text-transform: none;
-  letter-spacing: 0;
-}
-
 .asset-group[open] .selector-list {
   margin-top: 8px;
 }

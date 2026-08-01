@@ -12,6 +12,7 @@
   isStreamingChat: false,
   storySaveStatusTimer: null,
   selectorSaveTimer: null,
+  localEmbeddingSaveTimer: null,
   pendingProposalPipeline: null,
   currentProposalTriggers: [],
   selectedWorkspaceAssetKey: null,
@@ -639,6 +640,31 @@ function scheduleSelectorSave() {
   }, 180);
 }
 
+function scheduleLocalEmbeddingConfigSave() {
+  if (state.localEmbeddingSaveTimer) {
+    clearTimeout(state.localEmbeddingSaveTimer);
+  }
+  state.localEmbeddingSaveTimer = setTimeout(async () => {
+    state.localEmbeddingSaveTimer = null;
+    try {
+      state.appConfig = await api("/api/app-config", {
+        method: "POST",
+        body: JSON.stringify({
+          localEmbedding: {
+            ...(state.appConfig?.localEmbedding || {}),
+            mode: els.appLocalEmbeddingMode.value === "on" ? "on" : "off",
+            remoteHost: els.appLocalEmbeddingRemoteHost.value.trim(),
+          },
+        }),
+      });
+      renderLocalEmbeddingStatus();
+      showStorySaveStatus("Local embedding settings saved.", "ok");
+    } catch (error) {
+      showStorySaveStatus(`Local embedding save failed: ${error.message}`, "error");
+    }
+  }, 350);
+}
+
 async function refreshAll() {
   const data = await api("/api/bootstrap");
   state.stories = data.stories || [];
@@ -751,6 +777,9 @@ els.newProviderBtn.addEventListener("click", () => {
   syncProviderForm();
 });
 els.prewarmLocalEmbeddingBtn?.addEventListener("click", prewarmLocalEmbeddingModel);
+els.appLocalEmbeddingMode?.addEventListener("change", scheduleLocalEmbeddingConfigSave);
+els.appLocalEmbeddingRemoteHost?.addEventListener("change", scheduleLocalEmbeddingConfigSave);
+els.appLocalEmbeddingRemoteHost?.addEventListener("blur", scheduleLocalEmbeddingConfigSave);
 els.providerEditorSelect.addEventListener("change", () => {
   state.selectedProviderId = els.providerEditorSelect.value === "__new__" ? null : els.providerEditorSelect.value;
   syncProviderForm();

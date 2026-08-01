@@ -68,6 +68,8 @@
     "Runtime Memory": "运行时记忆",
     "Always include": "始终注入",
     "Keyword trigger": "关键词触发",
+    Always: "始终",
+    Keyword: "关键词",
     Injection: "注入方式",
     "Character Card": "角色卡",
     Worldbook: "世界书",

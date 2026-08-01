@@ -35,6 +35,7 @@ window.createWorkspaceTools = function createWorkspaceTools({
   }
 
   function buildWorkspaceCards(workspace) {
+    const injectionModes = workspace.injectionModes || {};
     return [
       ...(workspace.characters || []).map((item) => ({
         key: `character:${item.id}`,
@@ -42,6 +43,7 @@ window.createWorkspaceTools = function createWorkspaceTools({
         id: item.id,
         title: getWorkspaceAssetTitle("character", item),
         body: item.arcState?.current || item.notes || "",
+        injectionMode: injectionModes.characters?.[item.id] || "keyword",
         item,
       })),
       ...(workspace.worldbooks || []).map((item) => ({
@@ -50,6 +52,7 @@ window.createWorkspaceTools = function createWorkspaceTools({
         id: item.id,
         title: getWorkspaceAssetTitle("worldbook", item),
         body: item.storyState || item.content || "",
+        injectionMode: injectionModes.worldbooks?.[item.id] || "keyword",
         item,
       })),
       ...(workspace.styles || []).map((item) => ({
@@ -58,6 +61,7 @@ window.createWorkspaceTools = function createWorkspaceTools({
         id: item.id,
         title: getWorkspaceAssetTitle("style", item),
         body: `${item.tone || ""} / ${item.voice || ""}`,
+        injectionMode: injectionModes.styles?.[item.id] || "keyword",
         item,
       })),
     ];
@@ -98,7 +102,7 @@ window.createWorkspaceTools = function createWorkspaceTools({
           .map(
             (item) => `
               <details class="workspace-card" data-workspace-key="${escapeHtml(item.key)}">
-                <summary><span>${escapeHtml(formatWorkspaceAssetType(item.type))}</span><strong>${escapeHtml(item.title)}</strong></summary>
+                <summary><span>${escapeHtml(formatWorkspaceAssetType(item.type))}</span><strong>${escapeHtml(item.title)}</strong><button type="button" class="canon-injection-toggle" data-asset-type="${escapeHtml(item.type)}" data-asset-id="${escapeHtml(item.id)}" data-injection-mode="${escapeHtml(item.injectionMode)}">${escapeHtml(item.injectionMode === "always" ? "Always" : "Keyword")}</button></summary>
                 <div class="workspace-card-preview">${escapeHtml(item.body || "No current summary")}</div>
                 ${renderWorkspaceDetail(item)}
               </details>
@@ -107,6 +111,32 @@ window.createWorkspaceTools = function createWorkspaceTools({
           .join("")}
       </div>
     `;
+    els.workspaceView.querySelectorAll(".canon-injection-toggle").forEach((button) => button.addEventListener("click", async (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+      const type = `${button.dataset.assetType}s`;
+      const current = state.activeStoryData?.story?.enabled || {};
+      const modes = {
+        characters: { ...(current.injectionModes?.characters || {}) },
+        worldbooks: { ...(current.injectionModes?.worldbooks || {}) },
+        styles: { ...(current.injectionModes?.styles || {}) },
+      };
+      const nextMode = button.dataset.injectionMode === "always" ? "keyword" : "always";
+      modes[type][button.dataset.assetId] = nextMode;
+      button.dataset.injectionMode = nextMode;
+      button.textContent = nextMode === "always" ? "Always" : "Keyword";
+      try {
+        await api(`/api/stories/${state.activeStoryId}/config`, {
+          method: "POST",
+          body: JSON.stringify({ enabled: { ...current, injectionModes: modes } }),
+        });
+        await loadStory(state.activeStoryId);
+      } catch (error) {
+        button.dataset.injectionMode = nextMode === "always" ? "keyword" : "always";
+        button.textContent = button.dataset.injectionMode === "always" ? "Always" : "Keyword";
+        console.error("Failed to update asset injection mode", error);
+      }
+    }));
     els.workspaceView.querySelectorAll(".compress-character-btn").forEach((button) => button.addEventListener("click", async (event) => {
       const button = event.currentTarget;
       const cardRoot = button.closest(".workspace-card");

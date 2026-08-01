@@ -547,13 +547,6 @@ function renderSelectorList(root, items, enabledIds, injectionModes = {}) {
             <input type="checkbox" value="${item.id}" ${enabledIds.includes(item.id) ? "checked" : ""} />
             <strong>${escapeHtml(item.name || item.title || item.id)}</strong>
           </label>
-          <label class="selector-mode">
-            <span>Injection</span>
-            <select class="asset-injection-mode" data-asset-id="${escapeHtml(item.id)}" aria-label="Injection mode">
-              <option value="keyword" ${(injectionModes[item.id] || "keyword") === "keyword" ? "selected" : ""}>Keyword trigger</option>
-              <option value="always" ${injectionModes[item.id] === "always" ? "selected" : ""}>Always include</option>
-            </select>
-          </label>
         </div>
       `
     )
@@ -580,9 +573,6 @@ function collectStoryPayload() {
     }
     return Array.from(selectedIds);
   };
-  const collectInjectionModes = (type, selectorRoot) => Object.fromEntries(
-    Array.from(selectorRoot.querySelectorAll(".asset-injection-mode")).map((node) => [node.dataset.assetId, node.value])
-  );
 
   return {
     title: els.storyConfigTitle.value.trim(),
@@ -604,11 +594,6 @@ function collectStoryPayload() {
       characters: collectEnabledIds("characters", els.selectorCharacters),
       worldbooks: collectEnabledIds("worldbooks", els.selectorWorldbooks),
       styles: collectEnabledIds("styles", els.selectorStyles),
-      injectionModes: {
-        characters: collectInjectionModes("characters", els.selectorCharacters),
-        worldbooks: collectInjectionModes("worldbooks", els.selectorWorldbooks),
-        styles: collectInjectionModes("styles", els.selectorStyles),
-      },
     },
   };
 }
@@ -826,7 +811,7 @@ for (const field of [
 }
 for (const selectorRoot of [els.selectorCharacters, els.selectorWorldbooks, els.selectorStyles]) {
   selectorRoot?.addEventListener("change", (event) => {
-    if (event.target.matches("input[type=checkbox], .asset-injection-mode")) {
+    if (event.target.matches("input[type=checkbox]")) {
       scheduleSelectorSave();
     }
   });

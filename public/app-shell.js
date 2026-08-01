@@ -39,6 +39,8 @@ window.createShellTools = function createShellTools({
     document.body.dataset.theme = nextTheme;
     if (els.themeToggleBtn) {
       els.themeToggleBtn.title = nextTheme === "light" ? "Switch to dark theme" : "Switch to light theme";
+      els.themeToggleBtn.setAttribute("aria-label", els.themeToggleBtn.title);
+      els.themeToggleBtn.classList.toggle("is-light", nextTheme === "light");
     }
   }
 

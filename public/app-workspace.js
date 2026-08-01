@@ -2,6 +2,8 @@ window.createWorkspaceTools = function createWorkspaceTools({
   state,
   els,
   escapeHtml,
+  api,
+  loadStory,
 }) {
   function formatWorkspaceAssetType(type) {
     const labels = {
@@ -60,7 +62,7 @@ window.createWorkspaceTools = function createWorkspaceTools({
 
   function renderWorkspaceDetail(card) {
     const fields = Object.entries(card.item || {})
-      .filter(([key]) => key !== "workspaceUpdatedAt")
+      .filter(([key]) => !["workspaceUpdatedAt", "changeLog", "sourceId", "sourceUpdatedAt"].includes(key))
       .map(
         ([key, value]) => `
           <article class="workspace-detail-row">
@@ -76,6 +78,7 @@ window.createWorkspaceTools = function createWorkspaceTools({
           <strong>${escapeHtml(formatWorkspaceAssetType(card.type))} / ${escapeHtml(card.title)}</strong>
           <span>ID: ${escapeHtml(card.id)}</span>
         </div>
+        ${card.type === "character" ? `<button type="button" class="ghost compress-character-btn" data-character-id="${escapeHtml(card.id)}">Compress character card</button><p class="workspace-compress-status" data-compress-status></p>` : ""}
         <div class="workspace-detail-grid">
           ${fields || '<article class="workspace-detail-row"><strong>Content</strong><pre>There are no fields to display.</pre></article>'}
         </div>
@@ -116,6 +119,30 @@ window.createWorkspaceTools = function createWorkspaceTools({
         renderWorkspace(state.activeStoryData?.workspace || {});
       });
     }
+    els.workspaceView.querySelector(".compress-character-btn")?.addEventListener("click", async (event) => {
+      const button = event.currentTarget;
+      const status = els.workspaceView.querySelector("[data-compress-status]");
+      button.disabled = true;
+      if (status) status.textContent = "Generating a review draft...";
+      try {
+        const draft = await api(`/api/stories/${state.activeStoryId}/workspace/characters/${encodeURIComponent(button.dataset.characterId)}/compress`, { method: "POST" });
+        const approved = confirm(`Review this character-card compression draft:\n\n${JSON.stringify(draft.runtimeSummary, null, 2)}\n\nAccept it?`);
+        if (approved) {
+          await api(`/api/stories/${state.activeStoryId}/workspace/characters/${encodeURIComponent(button.dataset.characterId)}/compress`, {
+            method: "POST",
+            body: JSON.stringify({ accept: true, runtimeSummary: draft.runtimeSummary }),
+          });
+          if (status) status.textContent = "Compression accepted.";
+          await loadStory(state.activeStoryId);
+        } else if (status) {
+          status.textContent = "Draft discarded.";
+        }
+      } catch (error) {
+        if (status) status.textContent = `Compression failed: ${error.message}`;
+      } finally {
+        button.disabled = false;
+      }
+    });
   }
 
   return {

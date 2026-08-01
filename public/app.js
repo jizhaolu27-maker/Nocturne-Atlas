@@ -290,6 +290,8 @@ const {
   state,
   els,
   escapeHtml,
+  api,
+  loadStory: (...args) => loadStory(...args),
 });
 
 function parseNumberInput(value, fallback) {
@@ -521,12 +523,12 @@ function renderStory() {
 }
 
 function renderSelectors(enabled) {
-  renderSelectorList(els.selectorCharacters, state.libraries.characters, enabled.characters || []);
-  renderSelectorList(els.selectorWorldbooks, state.libraries.worldbooks, enabled.worldbooks || []);
-  renderSelectorList(els.selectorStyles, state.libraries.styles, enabled.styles || []);
+  renderSelectorList(els.selectorCharacters, state.libraries.characters, enabled.characters || [], enabled.injectionModes?.characters || {});
+  renderSelectorList(els.selectorWorldbooks, state.libraries.worldbooks, enabled.worldbooks || [], enabled.injectionModes?.worldbooks || {});
+  renderSelectorList(els.selectorStyles, state.libraries.styles, enabled.styles || [], enabled.injectionModes?.styles || {});
 }
 
-function renderSelectorList(root, items, enabledIds) {
+function renderSelectorList(root, items, enabledIds, injectionModes = {}) {
   if (!items.length) {
     root.innerHTML = `<article class="selector-empty">There are no selectable entries yet.</article>`;
     return;
@@ -537,6 +539,10 @@ function renderSelectorList(root, items, enabledIds) {
         <label class="selector-item">
           <input type="checkbox" value="${item.id}" ${enabledIds.includes(item.id) ? "checked" : ""} />
           <strong>${escapeHtml(item.name || item.title || item.id)}</strong>
+          <select class="asset-injection-mode" data-asset-id="${escapeHtml(item.id)}" aria-label="Injection mode">
+            <option value="keyword" ${(injectionModes[item.id] || "keyword") === "keyword" ? "selected" : ""}>Keyword</option>
+            <option value="always" ${injectionModes[item.id] === "always" ? "selected" : ""}>Always</option>
+          </select>
         </label>
       `
     )
@@ -563,6 +569,9 @@ function collectStoryPayload() {
     }
     return Array.from(selectedIds);
   };
+  const collectInjectionModes = (type, selectorRoot) => Object.fromEntries(
+    Array.from(selectorRoot.querySelectorAll(".asset-injection-mode")).map((node) => [node.dataset.assetId, node.value])
+  );
 
   return {
     title: els.storyConfigTitle.value.trim(),
@@ -584,6 +593,11 @@ function collectStoryPayload() {
       characters: collectEnabledIds("characters", els.selectorCharacters),
       worldbooks: collectEnabledIds("worldbooks", els.selectorWorldbooks),
       styles: collectEnabledIds("styles", els.selectorStyles),
+      injectionModes: {
+        characters: collectInjectionModes("characters", els.selectorCharacters),
+        worldbooks: collectInjectionModes("worldbooks", els.selectorWorldbooks),
+        styles: collectInjectionModes("styles", els.selectorStyles),
+      },
     },
   };
 }
@@ -801,7 +815,7 @@ for (const field of [
 }
 for (const selectorRoot of [els.selectorCharacters, els.selectorWorldbooks, els.selectorStyles]) {
   selectorRoot?.addEventListener("change", (event) => {
-    if (event.target.matches("input[type=checkbox]")) {
+    if (event.target.matches("input[type=checkbox], .asset-injection-mode")) {
       scheduleSelectorSave();
     }
   });

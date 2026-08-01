@@ -1824,6 +1824,14 @@ textarea {
     min-height: 100dvh;
   }
 
+  .chat-main {
+    position: relative;
+    display: block;
+    width: 100vw;
+    min-width: 0;
+    overflow: hidden;
+  }
+
   .sidebar,
   .right-panel {
     display: none;
@@ -1868,6 +1876,8 @@ textarea {
     padding: env(safe-area-inset-top) 14px 0;
     gap: 8px;
     z-index: 30;
+    left: 0;
+    right: 0;
   }
 
   .chat-topbar-title h2 {
@@ -1902,6 +1912,12 @@ textarea {
   }
 
   .chat-log {
+    position: absolute;
+    inset: 0;
+    display: block;
+    width: 100%;
+    height: 100%;
+    z-index: 2;
     padding: calc(76px + env(safe-area-inset-top)) 0 calc(280px + env(safe-area-inset-bottom));
     scroll-padding-bottom: 24px;
     -webkit-overflow-scrolling: touch;

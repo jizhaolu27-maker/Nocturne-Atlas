@@ -54,6 +54,7 @@ const els = {
   providerSelect: document.getElementById("provider-select"),
   workspaceView: document.getElementById("workspace-view"),
   memoryList: document.getElementById("memory-list"),
+  memoryCompressBtn: document.getElementById("memory-compress-btn"),
   proposalList: document.getElementById("proposal-list"),
   countCharacters: document.getElementById("count-characters"),
   countWorldbooks: document.getElementById("count-worldbooks"),
@@ -263,7 +264,14 @@ const {
   escapeHtml,
 });
 
-const { renderMemory } = window.createMemoryUiTools({ els, escapeHtml });
+const { renderMemory } = window.createMemoryUiTools({
+  els,
+  escapeHtml,
+  state,
+  api,
+  loadStory: (...args) => loadStory(...args),
+  reviewCompressionDraft: (...args) => reviewCompressionDraft(...args),
+});
 
 const { renderProposals } = window.createProposalUiTools({
   state,
@@ -319,6 +327,7 @@ const {
 
 const {
   renderWorkspace,
+  reviewCompressionDraft,
 } = window.createWorkspaceTools({
   state,
   els,

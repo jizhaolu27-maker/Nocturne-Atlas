@@ -232,6 +232,7 @@ const {
   getSummarySchedule,
   buildTransientMemoryCandidate,
   generateMemoryUpdate,
+  deleteMemoryRecord,
 } = createMemoryTools({
   DEFAULT_SUMMARY_INTERVAL,
   MEMORY_SUMMARY_CHAR_LIMIT,
@@ -249,6 +250,10 @@ const {
   resolveEmbeddingOptions: resolveStoryEmbeddingConfig,
   appendJsonLine,
   getStoryMemoryArchiveFile,
+  getStoryMemoryFile,
+  getStoryMemoryChunkFile,
+  readJsonLines,
+  writeJsonLines,
 });
 
 const {
@@ -511,6 +516,7 @@ const {
   buildStoryPreview,
   getStoryStateView,
   saveStoryState,
+  deleteMemoryRecord,
   reviewProposal,
   safeId,
   getStoryWorkspaceDir,
@@ -523,6 +529,11 @@ const {
   buildNextStoryEnabled,
   isSupportedLibraryType,
   writeJson,
+  readJsonLines,
+  writeJsonLines,
+  appendJsonLine,
+  getStoryMemoryFile,
+  getStoryMemoryArchiveFile,
   getAppConfigFile,
   DEFAULT_MAX_COMPLETION_TOKENS,
   runStoryTask: storySerialExecutor.run,

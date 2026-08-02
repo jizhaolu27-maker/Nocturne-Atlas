@@ -234,5 +234,6 @@ window.createWorkspaceTools = function createWorkspaceTools({
     buildWorkspaceCards,
     renderWorkspaceDetail,
     renderWorkspace,
+    reviewCompressionDraft,
   };
 };

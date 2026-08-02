@@ -97,6 +97,7 @@ npm test
 - 当前 active 大纲和活跃剧情线目标会以 `Reviewed story direction` 注入 prompt；planned 事件不会被当作已经发生。
 - `Always` 模式的角色卡、世界书和文风都会作为 pinned 上下文保留，不会因普通上下文筛选被裁掉；未设为 Always 的聚焦资产仍可按 token 压力裁剪。
 - Knowledge RAG 只从 Keyword 模式的角色卡和世界书中检索；已 Always 的来源不会重复进入 Knowledge，文风统一作为固定写作约束注入。
+- Runtime Memory 标题旁的压缩图标会生成记忆重构草稿；用户接受后才覆盖活跃 `records.jsonl`，旧记录先归档，场景 chunks 保留。
 - 当前请求相关的大纲、剧情线、时间线和人物关系会通过 `story:map_retrieved` 按需检索注入；固定方向与按需 Map RAG 分开，避免全量 Map 占用上下文。
 - 人物关系图只投影 `canon` 关系事件，历史视图仍保留 planned、superseded 和 discarded 变化。
 - 图谱由用户编辑并原子保存，模型不会静默改写。

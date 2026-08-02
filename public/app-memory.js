@@ -1,4 +1,4 @@
-window.createMemoryUiTools = function createMemoryUiTools({ els, escapeHtml }) {
+window.createMemoryUiTools = function createMemoryUiTools({ els, escapeHtml, state, api, loadStory, reviewCompressionDraft }) {
   function formatMemoryKind(kind) {
     const labels = {
       relationship_update: "Relationship change",
@@ -51,32 +51,45 @@ window.createMemoryUiTools = function createMemoryUiTools({ els, escapeHtml }) {
           .map(
             (item) => `
               <article class="memory-item">
-                <div class="memory-meta">${escapeHtml(item.type)} / ${escapeHtml(formatMemoryTier(item.tier))} / ${escapeHtml(formatMemoryKind(item.kind))} / ${escapeHtml(item.importance || "")}</div>
-                <div>${escapeHtml(item.summary)}</div>
-                ${
-                  item.scope || item.subjectIds?.length || item.tags?.length
-                    ? `<div class="memory-trigger">Scope: ${escapeHtml(formatMemoryScope(item.scope))}${item.subjectIds?.length ? ` / Subjects: ${escapeHtml(item.subjectIds.join(", "))}` : ""}${item.tags?.length ? ` / Tags: ${escapeHtml(item.tags.join(", "))}` : ""}</div>`
-                    : ""
-                }
-                ${
-                  item.triggeredBy?.length
-                    ? `<div class="memory-trigger">Triggered by: ${escapeHtml(item.triggeredBy.map(formatSummaryTrigger).join(" / "))}</div>`
-                    : ""
-                }
-                ${
-                  item.triggeredAt?.round
-                    ? `<div class="memory-trigger">Created on conversation turn ${escapeHtml(String(item.triggeredAt.round))}</div>`
-                    : ""
-                }
-                ${buildCanonMetaLines(item)
-                  .map((line) => `<div class="memory-trigger">${escapeHtml(line)}</div>`)
-                  .join("")}
+                <div class="memory-meta"><span>${escapeHtml(formatMemoryKind(item.kind))}</span><span>${escapeHtml(formatMemoryTier(item.tier))}</span></div>
+                <div class="memory-summary">${escapeHtml(item.summary)}</div>
+                <button class="memory-delete-btn ghost" type="button" data-memory-delete="${escapeHtml(item.id)}" title="Delete memory" aria-label="Delete memory">×</button>
               </article>
             `
           )
           .join("")
       : `<article class="memory-item">No memory summaries have been generated yet.</article>`;
+    for (const button of els.memoryList.querySelectorAll("[data-memory-delete]")) {
+      button.addEventListener("click", async () => {
+        if (!confirm("Delete this memory?")) return;
+        button.disabled = true;
+        try {
+          await api(`/api/stories/${state.activeStoryId}/memory/${button.dataset.memoryDelete}`, { method: "DELETE" });
+          await loadStory(state.activeStoryId);
+        } catch (error) {
+          button.disabled = false;
+          alert(`Unable to delete memory: ${error.message}`);
+        }
+      });
+    }
   }
+
+  els.memoryCompressBtn?.addEventListener("click", async () => {
+    if (!state.activeStoryId) return;
+    els.memoryCompressBtn.disabled = true;
+    try {
+      const draft = await api(`/api/stories/${state.activeStoryId}/memory/compress`, { method: "POST" });
+      const reviewed = await reviewCompressionDraft({ records: draft.records || [] });
+      if (reviewed?.records) {
+        await api(`/api/stories/${state.activeStoryId}/memory/compress`, { method: "POST", body: JSON.stringify({ accept: true, records: reviewed.records }) });
+        await loadStory(state.activeStoryId);
+      }
+    } catch (error) {
+      alert(`Memory compression failed: ${error.message}`);
+    } finally {
+      els.memoryCompressBtn.disabled = false;
+    }
+  });
 
   return { renderMemory };
 };

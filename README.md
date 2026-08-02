@@ -10,7 +10,7 @@ It is designed for writers who want more than a single chat box. Each story gets
 
 - Keeps every story in its own isolated workspace
 - Separates immutable library assets from story-local working copies
-- Uses always-on Memory RAG and Knowledge RAG for continuity
+- Uses Memory RAG for continuity and selective Knowledge RAG for relevant workspace lore
 - Stores chats, memory, proposals, and diagnostics as local JSON or JSONL
 - Supports proposal-based canon updates instead of silent auto-merges
 - Streams replies in the browser with stop and revise-last support
@@ -101,7 +101,7 @@ While a reply is streaming, other signed-in browsers connected to the same runni
 - Request-relevant outline, plot, timeline, and relationship entries are selectively injected through `story:map_retrieved`; fixed direction and Map retrieval stay separate so the full map does not consume the prompt.
 - The relationship graph is projected only from `canon` relationship events, while the history view keeps planned, superseded, and discarded changes visible.
 - Story Map is edited by the user and saved atomically. The model does not silently rewrite it.
-- Open the expanded Story Map from `Map` in the chat header; desktop uses a wider workspace panel and mobile uses a full-width panel. Reviewed changes from another device are picked up by lightweight polling.
+- Open the expanded Story Map from `Map` in the chat header on desktop; on mobile, use the bottom navigation or the right-panel Map entry. Desktop uses a wider workspace panel and mobile uses a full-width panel. Reviewed changes from another device are picked up by lightweight polling.
 
 Story configuration and asset selections auto-save. Provider and Library Editor retain their own manual Save buttons because they commit separate global provider or library records.
 
@@ -130,7 +130,7 @@ Nocturne Atlas uses two retrieval layers:
 - **Memory RAG** for story continuity, canon facts, and recent scene evidence
 - **Knowledge RAG** for character cards, worldbooks, and style material
 
-Both are always on. Lexical recall still exists, but only as an internal fallback when semantic retrieval is unavailable or too weak.
+Both retrieval pipelines are available by default. Memory retrieval protects continuity on every turn, while Knowledge retrieval is selective: it searches only non-Always, Keyword-mode character cards and worldbooks when the current request benefits from workspace lore. Lexical recall still exists as an internal fallback when semantic retrieval is unavailable or too weak.
 
 ### Memory RAG
 

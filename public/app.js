@@ -905,8 +905,6 @@ els.storyMapTopBtn?.addEventListener("click", () => {
     return;
   }
   state.activeRightTab = "story-map";
-  document.querySelector(".right-panel")?.classList.add("story-map-expanded");
-  shell?.classList.add("story-map-focus");
   const shouldOpen = window.innerWidth <= 900
     ? !shell?.classList.contains("right-open")
     : shell?.classList.contains("right-collapsed");

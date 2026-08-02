@@ -608,7 +608,8 @@ function exportChatAsTxt() {
   if (!body) {
     return;
   }
-  const blob = new Blob([`${title}\n\n${body}\n`], { type: "text/plain;charset=utf-8" });
+  const text = `${title}\n\n${body}\n`.replace(/\r?\n/g, "\r\n");
+  const blob = new Blob(["\uFEFF", text], { type: "text/plain;charset=utf-8" });
   const url = URL.createObjectURL(blob);
   const link = document.createElement("a");
   link.href = url;

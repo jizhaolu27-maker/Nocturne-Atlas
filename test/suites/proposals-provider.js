@@ -71,6 +71,8 @@ module.exports = async function runProposalsProviderTests(runTest) {
             }),
           };
         }
+        assert.match(systemPrompt, /only sourceId's current attitude toward targetId/);
+        assert.match(systemPrompt, /two relationship proposals with reversed sourceId and targetId/);
         return {
           content: JSON.stringify({
             proposals: [
@@ -93,6 +95,20 @@ module.exports = async function runProposalsProviderTests(runTest) {
                   name: "Shade",
                   core: { role: "dream guide" },
                 },
+              },
+              {
+                action: "update",
+                targetType: "story_state",
+                targetId: "story-map",
+                reason: "Lyra now cares about Mira.",
+                patch: { kind: "relationship", item: { id: "rel-lyra-mira", sourceId: "lyra", targetId: "mira", type: "attitude", label: "在意", direction: "directed", status: "canon" } },
+              },
+              {
+                action: "update",
+                targetType: "story_state",
+                targetId: "story-map",
+                reason: "Mira sees Lyra as her light.",
+                patch: { kind: "relationship", item: { id: "rel-mira-lyra", sourceId: "mira", targetId: "lyra", type: "attitude", label: "光", direction: "directed", status: "canon" } },
               },
             ],
           }),
@@ -121,12 +137,16 @@ module.exports = async function runProposalsProviderTests(runTest) {
         { id: "msg_1", role: "user", content: "Create the dream girl as a real recurring character." },
         { id: "msg_2", role: "assistant", content: "Shade steps fully into the story." },
       ],
-      workspace: { characters: [], worldbooks: [], styles: [] },
+      workspace: { characters: [{ id: "lyra", name: "Lyra" }, { id: "mira", name: "Mira" }], worldbooks: [], styles: [] },
       assistantText: "Shade steps fully into the story as a recurring dream guide.",
     });
   
-    assert.equal(update.proposalRecords.length, 1);
+    assert.equal(update.proposalRecords.length, 3);
     assert.equal(update.proposalRecords[0].targetId, "char_shade");
+    assert.deepEqual(update.proposalRecords.slice(1).map((item) => [item.diff.item.sourceId, item.diff.item.targetId, item.diff.item.label]), [
+      ["lyra", "mira", "在意"],
+      ["mira", "lyra", "光"],
+    ]);
   });
   
   await runTest("proposal review rejects create-character collisions with existing workspace ids", () => {

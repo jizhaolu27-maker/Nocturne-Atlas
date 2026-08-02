@@ -154,19 +154,55 @@ window.createStoryMapTools = function createStoryMapTools({ state, els, escapeHt
     return { width, height, nodes };
   }
 
+  function relationshipPairKey(item) {
+    return [item.sourceId, item.targetId].map((value) => String(value || "")).sort().join("|");
+  }
+
   function renderRelationshipGraph(relationships) {
     if (!relationships.length) return emptyState("No canon relationship events yet.");
     const layout = graphLayout(relationships);
+    const pairCounts = new Map();
+    for (const item of relationships) {
+      const key = relationshipPairKey(item);
+      pairCounts.set(key, (pairCounts.get(key) || 0) + 1);
+    }
+    const pairIndexes = new Map();
     const edges = relationships.map((item) => {
       const source = layout.nodes.get(item.sourceId);
       const target = layout.nodes.get(item.targetId);
-      const midX = (source.x + target.x) / 2;
-      const midY = (source.y + target.y) / 2;
+      const pairKey = relationshipPairKey(item);
+      const pairIndex = pairIndexes.get(pairKey) || 0;
+      pairIndexes.set(pairKey, pairIndex + 1);
+      const pairCount = pairCounts.get(pairKey) || 1;
+      const dx = target.x - source.x;
+      const dy = target.y - source.y;
+      const distance = Math.hypot(dx, dy) || 1;
+      // Parallel or opposing relationships share a line midpoint by default.
+      // Spread their labels along the line's normal so every relationship stays readable.
+      const normalDirection = String(item.sourceId || "") <= String(item.targetId || "") ? 1 : -1;
+      const normalX = (-dy / distance) * normalDirection;
+      const normalY = (dx / distance) * normalDirection;
+      const edgeStep = pairCount > 1 ? Math.min(22, 36 / (pairCount - 1)) : 0;
+      const edgeOffset = (pairIndex - (pairCount - 1) / 2) * edgeStep;
+      const unitX = dx / distance;
+      const unitY = dy / distance;
+      const nodeInset = Math.sqrt(Math.max(0, 25 ** 2 - edgeOffset ** 2));
+      const arrowClearance = item.direction === "directed" ? 10 : 0;
+      const sourceX = source.x + normalX * edgeOffset + unitX * nodeInset;
+      const sourceY = source.y + normalY * edgeOffset + unitY * nodeInset;
+      const targetX = target.x + normalX * edgeOffset - unitX * (nodeInset + arrowClearance);
+      const targetY = target.y + normalY * edgeOffset - unitY * (nodeInset + arrowClearance);
+      const labelSide = pairCount > 1 ? Math.sign(edgeOffset || pairIndex - (pairCount - 1) / 2) : -1;
+      const labelX = (sourceX + targetX) / 2 + normalX * labelSide * 8;
+      const labelY = (sourceY + targetY) / 2 + normalY * labelSide * 8;
+      let labelAngle = Math.atan2(dy, dx) * 180 / Math.PI;
+      if (labelAngle > 90) labelAngle -= 180;
+      if (labelAngle < -90) labelAngle += 180;
       const strokeWidth = 1.5 + Math.abs(Number(item.strength || 0)) * 3;
       return `
         <g class="relationship-edge" data-map-edit="relationship" data-map-id="${escapeHtml(item.id)}">
-          <line x1="${source.x}" y1="${source.y}" x2="${target.x}" y2="${target.y}" style="stroke-width:${strokeWidth}" ${item.direction === "directed" ? 'marker-end="url(#story-map-arrow)"' : ""}></line>
-          <text x="${midX}" y="${midY - 7}">${escapeHtml(item.label || item.type)}</text>
+          <line x1="${sourceX}" y1="${sourceY}" x2="${targetX}" y2="${targetY}" style="stroke-width:${strokeWidth}" ${item.direction === "directed" ? 'marker-end="url(#story-map-arrow)"' : ""}></line>
+          <text x="${labelX}" y="${labelY}" transform="rotate(${labelAngle} ${labelX} ${labelY})">${escapeHtml(item.label || item.type)}</text>
         </g>`;
     }).join("");
     const nodes = Array.from(layout.nodes.values()).map((node) => `
@@ -178,7 +214,7 @@ window.createStoryMapTools = function createStoryMapTools({ state, els, escapeHt
       <div class="relationship-canvas">
         <div class="relationship-controls"><button type="button" data-graph-zoom="out" aria-label="Zoom out">−</button><button type="button" data-graph-zoom="reset" aria-label="Reset graph view">Reset</button><button type="button" data-graph-zoom="in" aria-label="Zoom in">+</button></div>
         <svg viewBox="0 0 ${layout.width} ${layout.height}" role="img" aria-label="Current canon character relationships" data-relationship-graph>
-          <defs><marker id="story-map-arrow" markerWidth="8" markerHeight="8" refX="7" refY="3" orient="auto"><path d="M0,0 L0,6 L8,3 z"></path></marker></defs>
+          <defs><marker id="story-map-arrow" markerUnits="userSpaceOnUse" markerWidth="14" markerHeight="12" refX="11" refY="6" orient="auto"><path d="M1,1 L11,6"></path></marker></defs>
           <g data-relationship-stage transform="translate(${graphOffset.x} ${graphOffset.y}) scale(${graphScale})">${edges}${nodes}</g>
         </svg>
       </div>`;
@@ -298,14 +334,14 @@ window.createStoryMapTools = function createStoryMapTools({ state, els, escapeHt
       `<label><span>From character</span><select name="sourceId">${optionRows(workspaceCharacters(), item.sourceId, "name")}</select></label>`,
       `<label><span>To character</span><select name="targetId">${optionRows(workspaceCharacters(), item.targetId, "name")}</select></label>`,
       input("type", "Relation type", item.type || "ally"),
-      input("direction", "Direction", item.direction || "mutual", { options: [["mutual", "mutual"], ["directed", "directed"]] }),
+      input("direction", "Direction", "directed", { options: [["directed", "directed"]] }),
       input("status", "Status", item.status || "canon", { options: ["planned", "canon", "superseded", "discarded"].map((value) => [value, value]) }),
       input("strength", "Strength (-1 to 1)", item.strength ?? 0.5, { type: "number", step: "0.1" }),
       input("storyTime", "Story time", item.storyTime),
       input("sortKey", "Sort order", item.sortKey ?? current.relationshipEvents.length, { type: "number" }),
       `<label><span>Outline node</span><select name="outlineNodeId">${optionRows(current.outlineNodes || [], item.outlineNodeId)}</select></label>`,
       `<label><span>Timeline event</span><select name="timelineEventId">${optionRows(current.timelineEvents || [], item.timelineEventId)}</select></label>`,
-      input("label", "Graph label", item.label, { wide: true }),
+      input("label", "Source character's attitude", item.label, { wide: true }),
       input("note", "Note", item.note, { type: "textarea", wide: true }),
     ];
   }

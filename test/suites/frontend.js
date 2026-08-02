@@ -50,7 +50,7 @@ module.exports = async function runFrontendTests(runTest) {
             currentOutline: { id: "chapter-2", type: "chapter", title: "Below the rails", status: "active", summary: "Follow the signal." },
             activePlotThreads: [{ id: "thread-1", kind: "main", title: "Find the archive", status: "active", currentGoal: "Reach the vault" }],
             timelineEvents: [{ id: "event-1", title: "The station opens", status: "canon", sortKey: 1 }],
-            currentRelationships: [{ id: "rel-1", sourceId: "lyra", targetId: "mira", type: "ally", label: "Trusted allies", status: "canon", direction: "mutual", strength: 0.8 }],
+            currentRelationships: [{ id: "rel-1", sourceId: "lyra", targetId: "mira", type: "attitude", label: "Trusted", status: "canon", direction: "directed", strength: 0.8 }],
             counts: { activeOutline: 1, openPlotThreads: 1, canonTimelineEvents: 1, relationships: 1 },
           },
         },
@@ -84,7 +84,25 @@ module.exports = async function runFrontendTests(runTest) {
       assert.match(els.storyMapContent.innerHTML, /Find the archive/);
       storyMap.renderStoryMap("relationships");
       assert.match(els.storyMapContent.innerHTML, /<svg/);
-      assert.match(els.storyMapContent.innerHTML, /Trusted allies/);
+      assert.match(els.storyMapContent.innerHTML, /<marker id="story-map-arrow"[^>]+><path d="M1,1 L11,6"><\/path>/);
+      assert.match(els.storyMapContent.innerHTML, /Trusted/);
+      const singleArrow = els.storyMapContent.innerHTML.match(/<line x1="([^"]+)" y1="([^"]+)" x2="([^"]+)" y2="([^"]+)"[^>]+marker-end/);
+      assert.ok(singleArrow);
+      const targetNode = { x: 320, y: 268.8 };
+      assert.ok(Math.hypot(Number(singleArrow[3]) - targetNode.x, Number(singleArrow[4]) - targetNode.y) >= 35);
+      state.activeStoryData.storyState.currentRelationships.push({
+        id: "rel-2", sourceId: "mira", targetId: "lyra", type: "tension", label: "Old debt", status: "canon", direction: "directed", strength: 0.4,
+      });
+      storyMap.renderStoryMap("relationships");
+      const labelCoordinates = [...els.storyMapContent.innerHTML.matchAll(/<text x="([^"]+)" y="([^"]+)" transform="rotate\(([-\d.]+) [^"]+\)">(?:Trusted|Old debt)<\/text>/g)]
+        .map((match) => `${match[1]},${match[2]}`);
+      assert.equal(new Set(labelCoordinates).size, 2);
+      const labelAngles = [...els.storyMapContent.innerHTML.matchAll(/<text x="[^"]+" y="[^"]+" transform="rotate\(([-\d.]+) [^"]+\)">(?:Trusted|Old debt)<\/text>/g)]
+        .map((match) => Math.abs(Number(match[1])));
+      assert.deepEqual(labelAngles, [90, 90]);
+      const edgeLines = [...els.storyMapContent.innerHTML.matchAll(/<line x1="([^"]+)" y1="([^"]+)" x2="([^"]+)" y2="([^"]+)"/g)]
+        .map((match) => match.slice(1).join(","));
+      assert.equal(new Set(edgeLines).size, 2);
     } finally {
       global.window = previousWindow;
       global.document = previousDocument;

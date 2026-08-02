@@ -295,7 +295,8 @@
 
 .relationship-edge line {
   stroke: var(--accent);
-  opacity: 0.6;
+  opacity: 0.82;
+  stroke-linecap: round;
 }
 
 .relationship-edge text {
@@ -308,7 +309,11 @@
 }
 
 #story-map-arrow path {
-  fill: var(--accent);
+  fill: none;
+  stroke: var(--accent);
+  stroke-width: 2.5px;
+  stroke-linecap: round;
+  stroke-linejoin: round;
 }
 
 .relationship-node circle {

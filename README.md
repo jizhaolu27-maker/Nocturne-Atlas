@@ -95,6 +95,7 @@ While a reply is streaming, other signed-in browsers connected to the same runni
 
 - Reviewed outline nodes, plot threads, timeline events, and relationship events are stored separately from retrieval memory.
 - The current active outline and active plot-thread goals are injected as `Reviewed story direction`; planned events are explicitly not treated as events that already happened.
+- Character cards, worldbooks, and styles in `Always` mode are pinned and are not removed by normal context trimming; focused non-Always assets can still be trimmed under token pressure.
 - Request-relevant outline, plot, timeline, and relationship entries are selectively injected through `story:map_retrieved`; fixed direction and Map retrieval stay separate so the full map does not consume the prompt.
 - The relationship graph is projected only from `canon` relationship events, while the history view keeps planned, superseded, and discarded changes visible.
 - Story Map is edited by the user and saved atomically. The model does not silently rewrite it.

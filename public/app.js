@@ -45,6 +45,9 @@ const els = {
   chatInput: document.getElementById("chat-input"),
   chatSendBtn: document.getElementById("chat-send-btn"),
   chatStopBtn: document.getElementById("chat-stop-btn"),
+  chatProposalGenerateBtn: document.getElementById("chat-proposal-generate-btn"),
+  chatProposalReviewBtn: document.getElementById("chat-proposal-review-btn"),
+  chatProposalCount: document.getElementById("chat-proposal-count"),
   chatStatus: document.getElementById("chat-status"),
   storyMapTopBtn: document.getElementById("story-map-top-btn"),
   exportChatBtn: document.getElementById("export-chat-btn"),
@@ -887,6 +890,31 @@ els.authLogoutBtn?.addEventListener("click", async () => {
   setAuthGate(true, "You have been signed out.");
 });
 els.chatStopBtn.addEventListener("click", stopChatGeneration);
+els.chatProposalGenerateBtn?.addEventListener("click", async () => {
+  if (!state.activeStoryId || state.isStreamingChat) return;
+  const button = els.chatProposalGenerateBtn;
+  button.disabled = true;
+  button.classList.add("is-loading");
+  els.chatStatus.textContent = "Checking recent conversation for proposals…";
+  try {
+    const result = await api(`/api/stories/${state.activeStoryId}/proposals/generate`, { method: "POST" });
+    await loadStory(state.activeStoryId);
+    els.chatStatus.textContent = result.generatedCount
+      ? `Generated ${result.generatedCount} proposal${result.generatedCount === 1 ? "" : "s"} for review.`
+      : "No new canon changes found in the recent conversation.";
+  } catch (error) {
+    els.chatStatus.textContent = error.message || "Unable to generate proposals.";
+  } finally {
+    button.disabled = false;
+    button.classList.remove("is-loading");
+  }
+});
+els.chatProposalReviewBtn?.addEventListener("click", () => {
+  const shell = document.querySelector(".app-shell");
+  if (window.innerWidth <= 900) shell?.classList.add("right-open");
+  else shell?.classList.remove("right-collapsed");
+  document.querySelector('[data-tab="review"]')?.click();
+});
 els.chatLog.addEventListener("click", (event) => {
   const target = event.target.closest("[data-edit-last-user]");
   if (target) {

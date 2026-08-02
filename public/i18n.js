@@ -177,6 +177,8 @@
     "Preparing the reply...": "正在准备回复……",
     "Current user input:": "当前用户输入：",
     "Write the next turn, instruction, or revision...": "写下下一轮内容、指令或修订意见……",
+    "Check recent conversation for proposals": "检查最近对话并生成提案",
+    "Open proposal review": "打开提案审阅",
   };
   const reverse = Object.fromEntries(Object.entries(translations).map(([en, zh]) => [zh, en]));
   const original = new WeakMap();

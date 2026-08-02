@@ -600,18 +600,18 @@ body[data-theme="dark"] .chat-topbar {
   pointer-events: auto;
   width: 100%;
   min-width: 0;
-  max-width: 860px;
+  max-width: 780px;
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
   gap: 8px;
-  align-items: stretch;
+  align-items: end;
   position: relative;
   overflow: hidden;
   background: var(--paper);
   border: 1px solid var(--line-strong);
-  border-radius: 16px;
-  padding: 6px 8px 6px 12px;
-  box-shadow: 0 5px 16px rgba(15, 23, 42, 0.08);
+  border-radius: 14px;
+  padding: 5px 6px 5px 10px;
+  box-shadow: 0 3px 12px rgba(15, 23, 42, 0.07);
   transition: border-color 0.25s ease, box-shadow 0.25s ease, transform 0.25s ease;
 }
 
@@ -656,7 +656,7 @@ body[data-theme="dark"] .chat-form:focus-within {
   width: 100%;
   display: flex;
   flex-direction: column;
-  padding: 2px 2px 1px 0;
+  padding: 1px 2px 0 0;
 }
 
 .chat-revision-bar {
@@ -689,7 +689,7 @@ body[data-theme="dark"] .chat-form:focus-within {
 #chat-input {
   flex: 1;
   width: 100%;
-  min-height: 42px;
+  min-height: 36px;
   max-height: 160px;
   border: none;
   background: transparent;
@@ -702,6 +702,55 @@ body[data-theme="dark"] .chat-form:focus-within {
   font-size: 15px;
   line-height: 1.45;
   outline: none;
+}
+
+.chat-form-tools {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  min-height: 24px;
+}
+
+.chat-tool-btn {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 24px;
+  padding: 0;
+  border: 0;
+  border-radius: 7px;
+  background: transparent;
+  color: var(--muted);
+  box-shadow: none;
+}
+
+.chat-tool-btn:hover:not(:disabled) {
+  background: var(--bg-strong);
+  color: var(--ink);
+}
+
+.chat-tool-btn.is-loading svg {
+  animation: proposal-pulse 0.8s ease-in-out infinite alternate;
+}
+
+.chat-tool-badge {
+  position: absolute;
+  top: -3px;
+  right: -2px;
+  min-width: 14px;
+  height: 14px;
+  padding: 0 3px;
+  border-radius: 7px;
+  background: var(--risk);
+  color: #fff;
+  font-size: 9px;
+  line-height: 14px;
+}
+
+@keyframes proposal-pulse {
+  to { opacity: 0.4; transform: scale(0.88); }
 }
 
 #chat-input::placeholder {

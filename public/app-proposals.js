@@ -119,6 +119,10 @@ window.createProposalUiTools = function createProposalUiTools({ state, els, esca
 
   function renderProposals(records) {
     const pendingRecords = records.filter((item) => !item.status || item.status === "pending");
+    if (els.chatProposalCount) {
+      els.chatProposalCount.textContent = pendingRecords.length > 99 ? "99+" : String(pendingRecords.length);
+      els.chatProposalCount.hidden = pendingRecords.length === 0;
+    }
     const hasItems = pendingRecords.length > 0;
     els.proposalList.innerHTML = pendingRecords.length
       ? pendingRecords

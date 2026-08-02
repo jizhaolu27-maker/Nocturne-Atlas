@@ -263,6 +263,7 @@ const {
 });
 
 const {
+  generateManualProposals,
   generateProposalUpdate,
   reviewProposal,
 } = createProposalTools({
@@ -282,10 +283,12 @@ const {
   readJson,
   writeJson,
   readJsonLines,
+  appendJsonLine,
   writeJsonLines,
   getStory,
   saveStory,
   getStoryProposalFile,
+  getStoryMessagesFile,
   getStoryWorkspaceDir,
   syncStoryWorkspace,
   getStoryStateView,
@@ -517,6 +520,7 @@ const {
   getStoryStateView,
   saveStoryState,
   deleteMemoryRecord,
+  generateManualProposals,
   reviewProposal,
   safeId,
   getStoryWorkspaceDir,

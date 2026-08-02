@@ -164,6 +164,15 @@
         <form id="chat-form" class="chat-form">
           <div class="chat-form-main">
             <textarea id="chat-input" placeholder="Write the next turn, instruction, or revision..." rows="1"></textarea>
+            <div class="chat-form-tools" aria-label="Proposal shortcuts">
+              <button id="chat-proposal-generate-btn" class="chat-tool-btn" type="button" title="Check recent conversation for proposals" aria-label="Check recent conversation for proposals">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m12 3 1.2 3.8L17 8l-3.8 1.2L12 13l-1.2-3.8L7 8l3.8-1.2L12 3Z"></path><path d="m18 14 .8 2.2L21 17l-2.2.8L18 20l-.8-2.2L15 17l2.2-.8L18 14Z"></path></svg>
+              </button>
+              <button id="chat-proposal-review-btn" class="chat-tool-btn" type="button" title="Open proposal review" aria-label="Open proposal review">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 5h10M9 12h10M9 19h10"></path><path d="m3 5 1 1 2-2M3 12l1 1 2-2M3 19l1 1 2-2"></path></svg>
+                <span id="chat-proposal-count" class="chat-tool-badge" hidden>0</span>
+              </button>
+            </div>
           </div>
           <div class="chat-form-btns" aria-label="Chat actions">
             <button id="chat-stop-btn" class="chat-action-btn stop-btn" type="button" disabled title="Stop Generating"

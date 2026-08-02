@@ -21,6 +21,8 @@
   selectedWorkspaceAssetKey: null,
   isPrewarmingLocalEmbedding: false,
   activeRightTab: "controls",
+  storyStatePollTimer: null,
+  storyStatePollInFlight: false,
 };
 
 const els = {
@@ -44,7 +46,7 @@ const els = {
   chatSendBtn: document.getElementById("chat-send-btn"),
   chatStopBtn: document.getElementById("chat-stop-btn"),
   chatStatus: document.getElementById("chat-status"),
-  saveStoryBtn: document.getElementById("save-story-btn"),
+  storyMapTopBtn: document.getElementById("story-map-top-btn"),
   exportChatBtn: document.getElementById("export-chat-btn"),
   storySaveStatus: document.getElementById("story-save-status"),
   newStoryBtn: document.getElementById("new-story-btn"),
@@ -104,6 +106,16 @@ const els = {
   diagnosticTriggers: document.getElementById("diagnostic-triggers"),
   diagnosticContextBlocks: document.getElementById("diagnostic-context-blocks"),
   diagnosticPromptPreview: document.getElementById("diagnostic-prompt-preview"),
+  storyMapContent: document.getElementById("story-map-content"),
+  storyMapStatus: document.getElementById("story-map-status"),
+  storyMapAdd: document.getElementById("story-map-add"),
+  storyMapEditorModal: document.getElementById("story-map-editor-modal"),
+  storyMapEditorTitle: document.getElementById("story-map-editor-title"),
+  storyMapEditorForm: document.getElementById("story-map-editor-form"),
+  storyMapEditorError: document.getElementById("story-map-editor-error"),
+  storyMapEditorClose: document.getElementById("story-map-editor-close"),
+  storyMapEditorCancel: document.getElementById("story-map-editor-cancel"),
+  storyMapEditorDelete: document.getElementById("story-map-editor-delete"),
   themeToggleBtn: document.getElementById("theme-toggle-btn"),
 };
 
@@ -243,16 +255,36 @@ async function ensureAuthenticated() {
 
 const {
   renderChatStatus,
-  renderMemory,
-  renderProposals,
   renderStatusCurrent,
-  renderDiagnosticsCurrent,
+  buildProposalPipelineMessage,
 } = window.createReviewTools({
+  state,
+  els,
+  escapeHtml,
+});
+
+const { renderMemory } = window.createMemoryUiTools({ els, escapeHtml });
+
+const { renderProposals } = window.createProposalUiTools({
   state,
   els,
   escapeHtml,
   api,
   loadStory: (...args) => loadStory(...args),
+});
+
+const { renderDiagnosticsCurrent } = window.createDiagnosticsTools({
+  state,
+  els,
+  escapeHtml,
+  buildProposalPipelineMessage,
+});
+
+const { bindStoryMapEvents, renderStoryMap } = window.createStoryMapTools({
+  state,
+  els,
+  escapeHtml,
+  api,
 });
 
 const {
@@ -348,6 +380,10 @@ function renderActiveRightPanel() {
     }
     return;
   }
+  if (state.activeRightTab === "story-map") {
+    renderStoryMap();
+    return;
+  }
   if (state.activeRightTab === "review") {
     try {
       renderProposals(payload.proposals || []);
@@ -428,6 +464,7 @@ function clearStorySelectors() {
 }
 
 function renderEmptyState() {
+  stopStoryStatePolling();
   state.pendingProposalPipeline = null;
   state.currentProposalTriggers = [];
   state.selectedWorkspaceAssetKey = null;
@@ -457,6 +494,9 @@ function renderEmptyState() {
     `<article class="memory-item">There is no story memory to display yet.</article>`;
   els.proposalList.innerHTML =
     `<article class="proposal-item">There are no proposals to process yet.</article>`;
+  els.storyMapContent.innerHTML =
+    `<div class="story-map-empty">Open a story to view its story map.</div>`;
+  els.storyMapStatus.textContent = "";
   renderStatusCurrent({});
   renderChatStatus();
   renderLocalEmbeddingStatus();
@@ -467,11 +507,44 @@ function renderEmptyState() {
   els.diagnosticPromptPreview.innerHTML = "";
 }
 
+function stopStoryStatePolling() {
+  if (state.storyStatePollTimer) {
+    clearInterval(state.storyStatePollTimer);
+    state.storyStatePollTimer = null;
+  }
+  state.storyStatePollInFlight = false;
+}
+
+async function pollStoryState() {
+  if (!state.activeStoryId || state.storyStatePollInFlight || state.isStreamingChat) return;
+  state.storyStatePollInFlight = true;
+  const storyId = state.activeStoryId;
+  try {
+    const latest = await api(`/api/stories/${storyId}/story-state`);
+    if (storyId !== state.activeStoryId) return;
+    const previous = state.activeStoryData?.storyState;
+    if (latest.updatedAt && latest.updatedAt === previous?.updatedAt) return;
+    state.activeStoryData = { ...state.activeStoryData, storyState: latest };
+    if (state.activeRightTab === "story-map") renderStoryMap();
+  } catch (error) {
+    console.debug("Story State polling skipped", error.message);
+  } finally {
+    state.storyStatePollInFlight = false;
+  }
+}
+
+function startStoryStatePolling() {
+  stopStoryStatePolling();
+  if (!state.activeStoryId) return;
+  state.storyStatePollTimer = setInterval(pollStoryState, 5000);
+}
+
 async function loadStory(storyId, options = {}) {
   const { preserveTransientDiagnostics = false } = options;
   const data = await api(`/api/stories/${storyId}`);
   state.activeStoryId = storyId;
   state.activeStoryData = data;
+  startStoryStatePolling();
   state.appConfig = { ...(state.appConfig || {}), lastOpenedStoryId: storyId };
   api("/api/app-config", {
     method: "POST",
@@ -811,7 +884,24 @@ els.chatLog.addEventListener("click", (event) => {
     reviseLastUserMessage();
   }
 });
-els.saveStoryBtn.addEventListener("click", saveStoryConfig);
+els.storyMapTopBtn?.addEventListener("click", () => {
+  const shell = document.querySelector(".app-shell");
+  const mapIsOpen = state.activeRightTab === "story-map" && (window.innerWidth <= 900
+    ? shell?.classList.contains("right-open")
+    : !shell?.classList.contains("right-collapsed"));
+  if (mapIsOpen) {
+    document.querySelector("#right-panel-btn")?.click();
+    return;
+  }
+  state.activeRightTab = "story-map";
+  document.querySelector(".right-panel")?.classList.add("story-map-expanded");
+  shell?.classList.add("story-map-focus");
+  const shouldOpen = window.innerWidth <= 900
+    ? !shell?.classList.contains("right-open")
+    : shell?.classList.contains("right-collapsed");
+  if (shouldOpen) document.querySelector("#right-panel-btn")?.click();
+  document.querySelector('[data-tab="story-map"]')?.click();
+});
 els.exportChatBtn?.addEventListener("click", exportChatAsTxt);
 els.newStoryBtn.addEventListener("click", createStory);
 els.deleteStoryBtn.addEventListener("click", deleteActiveStory);
@@ -872,6 +962,7 @@ els.deleteLibraryBtn.addEventListener("click", deleteLibraryItem);
 els.libraryAiGenerateBtn?.addEventListener("click", generateLibraryDraft);
 
 bindShellEvents();
+bindStoryMapEvents();
 initializeSidebarState();
 
 bootstrap().catch((error) => {

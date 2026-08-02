@@ -67,8 +67,9 @@ npm test
 2. Enable the characters, worldbooks, and style profiles that story should use.
 3. Configure an OpenAI-compatible provider and choose a model.
 4. Start writing in the browser UI.
-5. Review memory, diagnostics, and proposals as the story grows.
-6. Accept only the workspace changes that should become canon for that story.
+5. Use Story Map to maintain the reviewed outline, plot threads, timeline, and relationship history.
+6. Review memory, diagnostics, and proposals as the story grows.
+7. Accept only the workspace changes that should become canon for that story.
 
 If you want semantic retrieval, turn on `Global Local Embeddings` and prewarm the local embedding model once.
 
@@ -89,6 +90,16 @@ While a reply is streaming, other signed-in browsers connected to the same runni
 - Supporting evidence and episodic chunks are stored in `data/stories/<storyId>/memory/chunks.jsonl`.
 - Retrieval can inject stable facts, recent facts, and scene evidence back into the prompt.
 - Old memory keywords are refreshed lazily at runtime so legacy stories benefit from newer retrieval logic.
+
+### Story Map
+
+- Reviewed outline nodes, plot threads, timeline events, and relationship events are stored separately from retrieval memory.
+- The current active outline and active plot-thread goals are injected as `Reviewed story direction`; planned events are explicitly not treated as events that already happened.
+- The relationship graph is projected only from `canon` relationship events, while the history view keeps planned, superseded, and discarded changes visible.
+- Story Map is edited by the user and saved atomically. The model does not silently rewrite it.
+- Open the expanded Story Map from `Map` in the chat header; desktop uses a wider workspace panel and mobile uses a full-width panel. Reviewed changes from another device are picked up by lightweight polling.
+
+Story configuration and asset selections auto-save. Provider and Library Editor retain their own manual Save buttons because they commit separate global provider or library records.
 
 ### Proposals
 
@@ -193,6 +204,7 @@ data/stories/<storyId>/memory/records.jsonl
 data/stories/<storyId>/memory/chunks.jsonl
 data/stories/<storyId>/proposals/records.jsonl
 data/stories/<storyId>/snapshots/context.jsonl
+data/stories/<storyId>/story-state/state.json
 ```
 
 Notes:
@@ -216,8 +228,15 @@ lib/retrieval-plan.js             Memory-vs-knowledge routing and budget plannin
 lib/retrieval-fusion.js           Cross-source final reranking
 lib/knowledge-retrieval.js        Knowledge RAG composition layer
 lib/proposals.js                  Proposal generation and review helpers
-public/                           Static browser UI
-test/smoke.js                     Zero-dependency smoke tests
+lib/story-state.js                Outline, timeline, plot-thread, and relationship state
+public/app-review.js              Shared chat and context-status UI
+public/app-memory.js              Runtime memory list UI
+public/app-proposals.js           Proposal review UI
+public/app-diagnostics.js         Retrieval and prompt diagnostics UI
+public/app-story-map.js           Story direction and relationship-map UI
+public/story-map.css              Story Map layout and graph styling
+test/smoke.js                     Zero-dependency test suite runner
+test/suites/                      Domain-focused smoke test suites
 ```
 
 ## Notes And Limits

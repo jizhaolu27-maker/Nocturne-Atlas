@@ -1,0 +1,351 @@
+.story-map-section {
+  margin-bottom: 0;
+}
+
+.story-map-heading,
+.story-map-subhead {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.story-map-subhead > span {
+  color: var(--muted);
+  font-size: 10px;
+}
+
+.story-map-heading .rp-subtitle {
+  margin-bottom: 0;
+}
+
+.story-map-modes {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 2px;
+  margin: 14px 0;
+  padding: 3px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: var(--bg-strong);
+}
+
+.story-map-mode {
+  min-width: 0;
+  min-height: 32px;
+  padding: 5px 2px;
+  border: 0;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--muted);
+  font-size: 10px;
+}
+
+#tab-story-map .tab-btn,
+.right-panel-tabs .tab-btn {
+  font-size: 11px;
+}
+
+.story-map-mode.active {
+  color: var(--ink);
+  background: var(--paper);
+  box-shadow: var(--shadow-sm);
+}
+
+.story-map-content {
+  display: grid;
+  gap: 10px;
+  min-width: 0;
+}
+
+.story-map-metrics {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  border-block: 1px solid var(--line);
+}
+
+.story-map-metrics > div {
+  display: grid;
+  gap: 1px;
+  padding: 10px 5px;
+  text-align: center;
+}
+
+.story-map-metrics > div + div {
+  border-left: 1px solid var(--line);
+}
+
+.story-map-metrics strong {
+  color: var(--ink);
+  font-size: 18px;
+}
+
+.story-map-metrics span {
+  color: var(--muted);
+  font-size: 9px;
+  line-height: 1.2;
+}
+
+.story-map-current {
+  position: relative;
+  display: grid;
+  gap: 5px;
+  padding: 14px 14px 14px 17px;
+  border-left: 3px solid var(--accent);
+  background: var(--accent-soft);
+}
+
+.story-map-current > span,
+.story-map-item small {
+  color: var(--muted);
+  font-size: 10px;
+  text-transform: uppercase;
+}
+
+.story-map-current > strong {
+  font-size: 15px;
+}
+
+.story-map-current p {
+  color: var(--ink-soft);
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.story-map-current .story-map-badge {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+}
+
+.story-map-subhead {
+  margin-top: 6px;
+  padding-bottom: 5px;
+  border-bottom: 1px solid var(--line);
+  font-size: 12px;
+}
+
+.story-map-text-btn {
+  min-height: 26px;
+  padding: 2px 6px;
+  border: 0;
+  background: transparent;
+  color: var(--accent);
+  font-size: 10px;
+}
+
+.story-map-list,
+.story-map-outline,
+.story-map-timeline {
+  display: grid;
+  gap: 6px;
+}
+
+.story-map-item {
+  width: 100%;
+  min-width: 0;
+  min-height: 0;
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 10px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--ink);
+  text-align: left;
+}
+
+.story-map-item:hover {
+  border-color: var(--line-strong);
+  background: var(--paper-soft);
+}
+
+.story-map-item-body {
+  min-width: 0;
+  flex: 1;
+  display: grid;
+  gap: 2px;
+}
+
+.story-map-item-body strong,
+.story-map-item-body span,
+.story-map-item-body em {
+  overflow-wrap: anywhere;
+}
+
+.story-map-item-body strong {
+  font-size: 12px;
+}
+
+.story-map-item-body span {
+  color: var(--ink-soft);
+  font-size: 11px;
+  line-height: 1.4;
+}
+
+.story-map-item-body em {
+  color: var(--muted);
+  font-size: 10px;
+  font-style: normal;
+}
+
+.story-map-badge {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  min-height: 20px;
+  padding: 1px 6px;
+  border: 1px solid var(--line-strong);
+  border-radius: 999px;
+  color: var(--muted);
+  font-size: 9px;
+}
+
+.story-map-status-active,
+.story-map-status-canon {
+  border-color: color-mix(in srgb, var(--ok) 50%, transparent);
+  color: var(--ok);
+}
+
+.story-map-status-blocked,
+.story-map-status-paused {
+  border-color: color-mix(in srgb, var(--warn) 50%, transparent);
+  color: var(--warn);
+}
+
+.story-map-outline-item {
+  position: relative;
+  margin-left: calc(var(--outline-depth) * 12px);
+  width: calc(100% - var(--outline-depth) * 12px);
+}
+
+.story-map-item-marker {
+  flex: 0 0 auto;
+  width: 8px;
+  height: 8px;
+  border: 2px solid var(--accent);
+  border-radius: 50%;
+}
+
+.story-map-time {
+  flex: 0 0 62px;
+  color: var(--muted);
+  font-family: var(--font-mono);
+  font-size: 9px;
+  overflow-wrap: anywhere;
+}
+
+.story-map-empty {
+  padding: 18px 10px;
+  border: 1px dashed var(--line-strong);
+  color: var(--muted);
+  font-size: 11px;
+  text-align: center;
+}
+
+.relationship-canvas {
+  width: 100%;
+  aspect-ratio: 4 / 3;
+  min-height: 260px;
+  overflow: hidden;
+  border: 1px solid var(--line);
+  background: var(--bg-strong);
+}
+
+.relationship-canvas svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+.relationship-edge {
+  cursor: pointer;
+}
+
+.relationship-edge line {
+  stroke: var(--accent);
+  opacity: 0.6;
+}
+
+.relationship-edge text {
+  fill: var(--ink-soft);
+  font-size: 11px;
+  text-anchor: middle;
+  paint-order: stroke;
+  stroke: var(--bg-strong);
+  stroke-width: 4px;
+}
+
+#story-map-arrow path {
+  fill: var(--accent);
+}
+
+.relationship-node circle {
+  fill: var(--paper);
+  stroke: var(--line-strong);
+  stroke-width: 2px;
+}
+
+.relationship-node text {
+  fill: var(--ink);
+  font-size: 10px;
+  text-anchor: middle;
+}
+
+.relationship-list {
+  margin-top: 2px;
+}
+
+.story-map-status {
+  min-height: 18px;
+  margin-top: 8px;
+  color: var(--muted);
+  font-size: 10px;
+}
+
+.story-map-editor-dialog {
+  max-height: min(760px, 92dvh);
+}
+
+.story-map-editor-form {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+  padding: 16px 20px;
+  overflow-y: auto;
+}
+
+.story-map-editor-form label {
+  min-width: 0;
+  display: grid;
+  gap: 5px;
+  color: var(--muted);
+  font-size: 11px;
+}
+
+.story-map-editor-form label.wide {
+  grid-column: 1 / -1;
+}
+
+.story-map-editor-form input,
+.story-map-editor-form select,
+.story-map-editor-form textarea {
+  width: 100%;
+  min-width: 0;
+}
+
+.story-map-delete {
+  margin-right: auto;
+  color: var(--risk);
+}
+
+@media (max-width: 600px) {
+  .story-map-editor-form {
+    grid-template-columns: 1fr;
+  }
+
+  .story-map-editor-form label.wide {
+    grid-column: auto;
+  }
+}

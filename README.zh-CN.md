@@ -67,8 +67,9 @@ npm test
 2. 启用这个故事要使用的角色卡、世界书和文风。
 3. 配置一个 OpenAI 兼容 Provider，并选择模型。
 4. 在浏览器里开始写作。
-5. 随着故事推进，查看记忆、诊断和提案。
-6. 只接受那些你希望真正写入该故事 canon 的工作区更新。
+5. 在图谱中维护已审阅的大纲、剧情线、时间线和人物关系历史。
+6. 随着故事推进，查看记忆、诊断和提案。
+7. 只接受那些你希望真正写入该故事 canon 的工作区更新。
 
 如果你希望启用语义检索，把 `Global Local Embeddings` 打开，并先执行一次 `Prewarm Local Embedding Model`。
 
@@ -89,6 +90,16 @@ npm test
 - 支撑证据和 episodic chunk 存放在 `data/stories/<storyId>/memory/chunks.jsonl`
 - 检索时会把稳定事实、近期事实和场景证据重新注入 prompt
 - 旧故事里的 memory keywords 会在运行时懒刷新，所以历史数据也能吃到新的检索逻辑
+
+### 图谱
+
+- 已审阅的大纲节点、剧情线、时间线事件和人物关系事件独立于检索记忆保存。
+- 当前 active 大纲和活跃剧情线目标会以 `Reviewed story direction` 注入 prompt；planned 事件不会被当作已经发生。
+- 人物关系图只投影 `canon` 关系事件，历史视图仍保留 planned、superseded 和 discarded 变化。
+- 图谱由用户编辑并原子保存，模型不会静默改写。
+- 可从聊天区顶部的 `Map` 打开宽版图谱；桌面端会展开右侧工作区，移动端使用全宽面板。图谱也会轮询已审阅状态，便于其他设备查看更新。
+
+故事配置和资产选择会自动保存；Provider 和 Library Editor 仍保留各自的手动 Save 按钮，因为它们涉及独立的全局素材或服务商配置。
 
 ### 提案系统
 
@@ -197,6 +208,7 @@ data/stories/<storyId>/memory/records.jsonl
 data/stories/<storyId>/memory/chunks.jsonl
 data/stories/<storyId>/proposals/records.jsonl
 data/stories/<storyId>/snapshots/context.jsonl
+data/stories/<storyId>/story-state/state.json
 ```
 
 补充说明：
@@ -220,8 +232,15 @@ lib/retrieval-plan.js             memory / knowledge 联合路由与预算规划
 lib/retrieval-fusion.js           跨来源最终重排
 lib/knowledge-retrieval.js        Knowledge RAG 组合层
 lib/proposals.js                  提案生成与审阅
-public/                           静态浏览器 UI
-test/smoke.js                     零依赖 smoke 测试
+lib/story-state.js                大纲、时间线、剧情线与人物关系状态
+public/app-review.js              聊天与上下文状态 UI
+public/app-memory.js              运行时记忆列表 UI
+public/app-proposals.js           提案审阅 UI
+public/app-diagnostics.js         检索与 Prompt 诊断 UI
+public/app-story-map.js           故事走向与人物关系图 UI
+public/story-map.css              故事图谱布局与关系图样式
+test/smoke.js                     零依赖测试套件入口
+test/suites/                      按领域组织的 smoke 测试套件
 ```
 
 ## 说明与限制

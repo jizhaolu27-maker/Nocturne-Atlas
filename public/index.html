@@ -6,6 +6,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Nocturne Atlas</title>
   <link rel="stylesheet" href="/styles.css?v=compression-review-1" />
+  <link rel="stylesheet" href="/story-map.css" />
 </head>
 
 <body>
@@ -111,14 +112,20 @@
           <button id="language-toggle-mobile" class="ghost icon-btn language-toggle mobile-language-toggle" type="button" aria-label="Switch to Chinese" title="Switch to Chinese">
             <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"></circle><path d="M3 12h18M12 3a14 14 0 0 1 0 18M12 3a14 14 0 0 0 0 18"></path></svg>
           </button>
-          <button id="auth-logout-btn" class="ghost" type="button" title="Sign out">Sign out</button>
+          <button id="auth-logout-btn" class="ghost icon-btn" type="button" title="Sign out" aria-label="Sign out">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M10 4H5a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h5"></path>
+              <path d="M14 8l4 4-4 4"></path>
+              <path d="M8 12h10"></path>
+            </svg>
+          </button>
 
-          <button id="save-story-btn" class="ghost icon-btn" type="button" title="Save Story">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
-              stroke-linecap="round" stroke-linejoin="round">
-              <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path>
-              <polyline points="17 21 17 13 7 13 7 21"></polyline>
-              <polyline points="7 3 7 8 15 8"></polyline>
+          <button id="story-map-top-btn" class="ghost icon-btn topbar-map-btn" type="button" title="Open Story Map" aria-label="Open Story Map">
+            <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <circle cx="6" cy="6" r="2"></circle>
+              <circle cx="18" cy="7" r="2"></circle>
+              <circle cx="12" cy="18" r="2"></circle>
+              <path d="M7.8 6.3 16 6.8M7 7.7l4 8.5m6-7.4-4 7.5"></path>
             </svg>
           </button>
           <button id="export-chat-btn" class="ghost icon-btn" type="button" title="Export chat as TXT" aria-label="Export chat as TXT">
@@ -183,6 +190,7 @@
     <aside class="right-panel">
       <div class="right-panel-tabs" role="tablist" aria-label="Workspace panels">
         <button class="tab-btn active" data-tab="controls" type="button">Controls</button>
+        <button class="tab-btn" data-tab="story-map" type="button">Map</button>
         <button class="tab-btn" data-tab="knowledge" type="button">Knowledge</button>
         <button class="tab-btn" data-tab="review" type="button">Review</button>
         <button class="tab-btn" data-tab="diagnostics" type="button">Diagnostics</button>
@@ -311,6 +319,26 @@
                 <div id="provider-test-result" class="provider-test-result"></div>
               </div>
             </details>
+          </section>
+        </div>
+
+        <div class="tab-content" id="tab-story-map">
+          <section class="rp-section story-map-section">
+            <div class="story-map-heading">
+              <div>
+                <h3 class="rp-title">Story Map</h3>
+                <p class="rp-subtitle">Reviewed structure, current direction, and canon relationships.</p>
+              </div>
+              <button id="story-map-add" class="ghost icon-btn" type="button" title="Add story structure" aria-label="Add story structure">+</button>
+            </div>
+            <div class="story-map-modes" role="tablist" aria-label="Story map views">
+              <button class="story-map-mode active" data-story-map-view="overview" type="button">Overview</button>
+              <button class="story-map-mode" data-story-map-view="outline" type="button">Outline</button>
+              <button class="story-map-mode" data-story-map-view="timeline" type="button">Timeline</button>
+              <button class="story-map-mode" data-story-map-view="relationships" type="button">Relations</button>
+            </div>
+            <div id="story-map-content" class="story-map-content"></div>
+            <p id="story-map-status" class="story-map-status" aria-live="polite"></p>
           </section>
         </div>
 
@@ -445,6 +473,9 @@
       <button class="mobile-nav-btn" data-mobile-view="knowledge" type="button" aria-label="Knowledge">
         <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 5a2 2 0 0 1 2-2h5a3 3 0 0 1 3 3v15a3 3 0 0 0-3-3H3V5Z"></path><path d="M21 5a2 2 0 0 0-2-2h-3a3 3 0 0 0-3 3v15a3 3 0 0 1 3-3h5V5Z"></path></svg>
       </button>
+      <button class="mobile-nav-btn" data-mobile-view="story-map" type="button" aria-label="Story Map">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="6" cy="6" r="2"></circle><circle cx="18" cy="7" r="2"></circle><circle cx="12" cy="18" r="2"></circle><path d="M7.8 6.3 16 6.8M7 7.7l4 8.5m6-7.4-4 7.5"></path></svg>
+      </button>
       <button class="mobile-nav-btn" data-mobile-view="controls" type="button" aria-label="Controls">
         <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h10"></path><path d="M18 7h2"></path><path d="M4 17h2"></path><path d="M10 17h10"></path><circle cx="16" cy="7" r="2"></circle><circle cx="8" cy="17" r="2"></circle></svg>
       </button>
@@ -464,8 +495,27 @@
       </footer>
     </section>
   </div>
+  <div id="story-map-editor-modal" class="compression-review-modal" hidden>
+    <section class="compression-review-dialog story-map-editor-dialog" role="dialog" aria-modal="true" aria-labelledby="story-map-editor-title">
+      <header>
+        <h3 id="story-map-editor-title">Edit story structure</h3>
+        <button id="story-map-editor-close" class="ghost icon-btn" type="button" title="Close" aria-label="Close">×</button>
+      </header>
+      <form id="story-map-editor-form" class="story-map-editor-form"></form>
+      <p id="story-map-editor-error" class="compression-review-error" aria-live="polite"></p>
+      <footer>
+        <button id="story-map-editor-delete" class="ghost story-map-delete" type="button" hidden>Delete</button>
+        <button id="story-map-editor-cancel" class="ghost" type="button">Cancel</button>
+        <button id="story-map-editor-save" type="submit" form="story-map-editor-form">Save</button>
+      </footer>
+    </section>
+  </div>
   <script src="/i18n.js"></script>
   <script src="/app-review.js"></script>
+  <script src="/app-memory.js"></script>
+  <script src="/app-proposals.js"></script>
+  <script src="/app-diagnostics.js"></script>
+  <script src="/app-story-map.js"></script>
   <script src="/app-chat.js"></script>
   <script src="/app-library.js"></script>
   <script src="/app-workspace.js?v=compression-review-1"></script>

@@ -24,6 +24,7 @@ const { createServerConfigTools } = require("./lib/server-config");
 const { createApiRouter } = require("./lib/api-router");
 const { createKeyedSerialExecutor } = require("./lib/keyed-serial");
 const { createAuthTools } = require("./lib/auth");
+const { createStoryStateTools } = require("./lib/story-state");
 
 const ROOT = __dirname;
 const DATA_DIR = path.join(ROOT, "data");
@@ -75,6 +76,7 @@ const {
   getStoryKnowledgeEmbeddingFile,
   getStoryProposalFile,
   getStorySnapshotFile,
+  getStoryStateFile,
   listJsonFiles,
   saveLibraryItem,
   deleteLibraryItem,
@@ -96,6 +98,17 @@ const {
   safeId,
   slugify,
   getSyncStoryWorkspace: () => workspaceTools,
+});
+
+const {
+  getStoryStateView,
+  saveStoryState,
+} = createStoryStateTools({
+  readJson,
+  writeJson,
+  getStoryStateFile,
+  getStory,
+  safeId,
 });
 
 const authTools = createAuthTools({
@@ -369,6 +382,7 @@ const {
   getStoryProposalFile,
   getStorySnapshotFile,
   getStoryWorkspaceDir,
+  getStoryStateView,
   getDefaultContextStatus,
   buildContextBlocks,
   classifyPressure,
@@ -493,6 +507,8 @@ const {
   prepareReviseLastExchange,
   reviseLastExchange,
   buildStoryPreview,
+  getStoryStateView,
+  saveStoryState,
   reviewProposal,
   safeId,
   getStoryWorkspaceDir,

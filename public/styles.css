@@ -167,6 +167,14 @@ body {
   grid-template-columns: var(--sidebar-collapsed-w) 1fr 0px;
 }
 
+.app-shell.story-map-focus {
+  grid-template-columns: var(--sidebar-w) 1fr minmax(520px, 46vw);
+}
+
+.app-shell.sidebar-collapsed.story-map-focus {
+  grid-template-columns: var(--sidebar-collapsed-w) 1fr minmax(520px, 46vw);
+}
+
 /* ── Left Sidebar ──────────────────────────────── */
 .sidebar {
   display: flex;
@@ -887,6 +895,12 @@ body[data-theme="dark"] .chat-status.busy::before {
   box-shadow: -4px 0 24px rgba(0, 0, 0, 0.02);
 }
 
+.topbar-map-btn {
+  min-width: 42px;
+  padding-inline: 9px;
+  color: var(--accent);
+}
+
 .app-shell.right-collapsed .right-panel {
   width: 0;
   border-left: none;
@@ -895,7 +909,7 @@ body[data-theme="dark"] .chat-status.busy::before {
 /* Segmented-control style tabs */
 .right-panel-tabs {
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
+  grid-template-columns: repeat(5, 1fr);
   gap: 4px;
   padding: 6px;
   margin: 16px 16px 8px;
@@ -1561,17 +1575,50 @@ textarea {
   font-size: 12px;
 }
 
+.proposal-diff-row > strong {
+  display: block;
+  padding-bottom: 7px;
+  color: var(--ink);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  overflow-wrap: anywhere;
+}
+
 .proposal-diff-values {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 20px minmax(0, 1fr);
-  gap: 12px;
-  align-items: center;
-  margin-top: 8px;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 6px;
+  align-items: stretch;
+  margin-top: 2px;
 }
 
 .proposal-diff-arrow {
-  text-align: center;
+  min-height: 12px;
+  padding-left: 10px;
+  text-align: left;
   color: var(--muted);
+  font-size: 13px;
+  line-height: 1;
+}
+
+.proposal-diff-before,
+.proposal-diff-after {
+  min-width: 0;
+}
+
+.proposal-diff-before > span,
+.proposal-diff-after > span {
+  display: block;
+  margin-bottom: 4px;
+  color: var(--muted);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+}
+
+.proposal-diff-after > span {
+  color: var(--accent);
 }
 
 .proposal-diff-list code {
@@ -1585,7 +1632,7 @@ textarea {
   white-space: pre-wrap;
   word-break: break-word;
   overflow-wrap: anywhere;
-  max-height: 180px;
+  max-height: 220px;
   overflow-y: auto;
 }
 
@@ -1909,6 +1956,10 @@ textarea {
     transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1);
     z-index: 40;
     box-shadow: var(--shadow-lg);
+  }
+
+  .app-shell.story-map-focus .right-panel {
+    width: min(96vw, 720px);
   }
 
   .app-shell.right-open .right-panel {
@@ -2242,7 +2293,7 @@ textarea {
     bottom: 0;
     z-index: 60;
     display: grid;
-    grid-template-columns: repeat(4, 1fr);
+    grid-template-columns: repeat(5, 1fr);
     min-height: var(--mobile-nav-h);
     padding: 5px 8px env(safe-area-inset-bottom);
     background: var(--paper);

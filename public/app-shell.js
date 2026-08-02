@@ -145,7 +145,7 @@ window.createShellTools = function createShellTools({
     closeRightPanelOverlay();
     if (view === "stories") {
       setSidebarOpen(true);
-    } else if (view === "knowledge" || view === "controls") {
+    } else if (view === "knowledge" || view === "story-map" || view === "controls") {
       activateRightTab(view);
       els.appShell.classList.add("right-open");
     }
@@ -160,7 +160,13 @@ window.createShellTools = function createShellTools({
       const isOpen = els.appShell.classList.contains("right-open");
       setSidebarOpen(false);
       els.appShell.classList.toggle("right-open", !isOpen);
-      setMobileNavState(isOpen ? "chat" : state.activeRightTab === "knowledge" ? "knowledge" : "controls");
+      setMobileNavState(
+        isOpen
+          ? "chat"
+          : state.activeRightTab === "knowledge" || state.activeRightTab === "story-map"
+            ? state.activeRightTab
+            : "controls"
+      );
       return;
     }
     const isCollapsed = els.appShell.classList.contains("right-collapsed");
@@ -169,6 +175,8 @@ window.createShellTools = function createShellTools({
 
   function activateRightTab(tab) {
     state.activeRightTab = tab;
+    document.querySelector(".right-panel")?.classList.toggle("story-map-expanded", tab === "story-map");
+    document.querySelector(".app-shell")?.classList.toggle("story-map-focus", tab === "story-map");
     for (const button of document.querySelectorAll(".tab-btn")) {
       button.classList.toggle("active", button.dataset.tab === tab);
       button.setAttribute("aria-selected", button.dataset.tab === tab ? "true" : "false");

@@ -2098,7 +2098,7 @@ textarea {
 /* ── Mobile workspace ───────────────────────────── */
 @media (max-width: 900px) {
   :root {
-    --mobile-nav-h: 60px;
+    --mobile-nav-h: 50px;
   }
 
   html,
@@ -2181,17 +2181,20 @@ textarea {
   }
 
   .chat-topbar-title p {
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
+    display: none;
   }
 
   .chat-topbar-actions {
-    gap: 2px;
+    gap: 0;
   }
 
   .mobile-language-toggle {
-    display: inline-flex;
+    display: none;
+  }
+
+  /* Keep the mobile top bar focused on navigation and story actions. */
+  .chat-topbar-actions .topbar-map-btn {
+    display: none;
   }
 
   .chat-topbar-actions .story-save-status {
@@ -2200,8 +2203,8 @@ textarea {
 
   .chat-topbar-actions .icon-btn,
   .top-mobile-toggle {
-    width: 42px;
-    height: 42px;
+    width: 38px;
+    height: 38px;
   }
 
   .chat-log {
@@ -2339,7 +2342,7 @@ textarea {
     display: grid;
     grid-template-columns: repeat(5, 1fr);
     min-height: var(--mobile-nav-h);
-    padding: 5px 8px env(safe-area-inset-bottom);
+    padding: 3px 6px env(safe-area-inset-bottom);
     background: var(--paper);
     background: color-mix(in srgb, var(--paper) 94%, transparent);
     border-top: 1px solid var(--line);
@@ -2355,9 +2358,9 @@ textarea {
     justify-content: center;
     gap: 0;
     min-width: 0;
-    min-height: 46px;
+    min-height: 40px;
     border: 0;
-    border-radius: 14px;
+    border-radius: 12px;
     background: transparent;
     color: var(--muted);
     font: inherit;
@@ -2368,8 +2371,8 @@ textarea {
   }
 
   .mobile-nav-btn svg {
-    width: 21px;
-    height: 21px;
+    width: 18px;
+    height: 18px;
     fill: none;
     stroke: currentColor;
     stroke-linecap: round;

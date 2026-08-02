@@ -245,12 +245,42 @@
 }
 
 .relationship-canvas {
+  position: relative;
   width: 100%;
   aspect-ratio: 4 / 3;
   min-height: 260px;
   overflow: hidden;
   border: 1px solid var(--line);
   background: var(--bg-strong);
+}
+
+.relationship-canvas svg {
+  cursor: grab;
+  touch-action: none;
+}
+
+.relationship-canvas svg:active {
+  cursor: grabbing;
+}
+
+.relationship-controls {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  z-index: 2;
+  display: flex;
+  gap: 3px;
+}
+
+.relationship-controls button {
+  min-width: 26px;
+  height: 26px;
+  padding: 0 6px;
+  border: 1px solid var(--line-strong);
+  border-radius: 4px;
+  background: color-mix(in srgb, var(--paper) 88%, transparent);
+  color: var(--ink);
+  font-size: 12px;
 }
 
 .relationship-canvas svg {

@@ -1,6 +1,8 @@
 window.createStoryMapTools = function createStoryMapTools({ state, els, escapeHtml, api }) {
   let activeView = "overview";
   let editor = null;
+  let graphScale = 1;
+  let graphOffset = { x: 0, y: 0 };
 
   const collectionByKind = {
     outline: "outlineNodes",
@@ -174,9 +176,10 @@ window.createStoryMapTools = function createStoryMapTools({ state, els, escapeHt
       </g>`).join("");
     return `
       <div class="relationship-canvas">
-        <svg viewBox="0 0 ${layout.width} ${layout.height}" role="img" aria-label="Current canon character relationships">
+        <div class="relationship-controls"><button type="button" data-graph-zoom="out" aria-label="Zoom out">−</button><button type="button" data-graph-zoom="reset" aria-label="Reset graph view">Reset</button><button type="button" data-graph-zoom="in" aria-label="Zoom in">+</button></div>
+        <svg viewBox="0 0 ${layout.width} ${layout.height}" role="img" aria-label="Current canon character relationships" data-relationship-graph>
           <defs><marker id="story-map-arrow" markerWidth="8" markerHeight="8" refX="7" refY="3" orient="auto"><path d="M0,0 L0,6 L8,3 z"></path></marker></defs>
-          ${edges}${nodes}
+          <g data-relationship-stage transform="translate(${graphOffset.x} ${graphOffset.y}) scale(${graphScale})">${edges}${nodes}</g>
         </svg>
       </div>`;
   }
@@ -210,9 +213,37 @@ window.createStoryMapTools = function createStoryMapTools({ state, els, escapeHt
     const current = storyState();
     const renderers = { overview: renderOverview, outline: renderOutline, timeline: renderTimeline, relationships: renderRelationships };
     els.storyMapContent.innerHTML = renderers[activeView](current);
+    bindGraphInteractions();
     for (const button of document.querySelectorAll("[data-story-map-view]")) {
       button.classList.toggle("active", button.dataset.storyMapView === activeView);
     }
+  }
+
+  function bindGraphInteractions() {
+    if (typeof els.storyMapContent.querySelector !== "function") return;
+    const svg = els.storyMapContent.querySelector("[data-relationship-graph]");
+    const stage = els.storyMapContent.querySelector("[data-relationship-stage]");
+    if (!svg || !stage) return;
+    const apply = () => { stage.setAttribute("transform", `translate(${graphOffset.x} ${graphOffset.y}) scale(${graphScale})`); };
+    for (const button of els.storyMapContent.querySelectorAll("[data-graph-zoom]")) {
+      button.addEventListener("click", () => {
+        const action = button.dataset.graphZoom;
+        if (action === "reset") { graphScale = 1; graphOffset = { x: 0, y: 0 }; }
+        else graphScale = Math.max(0.55, Math.min(2.5, graphScale + (action === "in" ? 0.2 : -0.2)));
+        apply();
+      });
+    }
+    let dragging = false;
+    let last = null;
+    svg.addEventListener("pointerdown", (event) => { if (event.target.closest(".relationship-edge")) return; dragging = true; last = { x: event.clientX, y: event.clientY }; svg.setPointerCapture(event.pointerId); });
+    svg.addEventListener("pointermove", (event) => { if (!dragging || !last) return; const rect = svg.getBoundingClientRect(); graphOffset.x += (event.clientX - last.x) * layoutScale(rect.width, 640); graphOffset.y += (event.clientY - last.y) * layoutScale(rect.height, 320); last = { x: event.clientX, y: event.clientY }; apply(); });
+    svg.addEventListener("pointerup", () => { dragging = false; last = null; });
+    svg.addEventListener("pointercancel", () => { dragging = false; last = null; });
+    svg.addEventListener("wheel", (event) => { event.preventDefault(); graphScale = Math.max(0.55, Math.min(2.5, graphScale + (event.deltaY < 0 ? 0.1 : -0.1))); apply(); }, { passive: false });
+  }
+
+  function layoutScale(viewport, canvas) {
+    return canvas / Math.max(1, viewport);
   }
 
   function optionRows(items, selected, labelKey = "title") {

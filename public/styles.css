@@ -602,8 +602,8 @@ body[data-theme="dark"] .chat-topbar {
   min-width: 0;
   max-width: 780px;
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  gap: 8px;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 0;
   align-items: end;
   position: relative;
   overflow: hidden;
@@ -707,8 +707,17 @@ body[data-theme="dark"] .chat-form:focus-within {
 .chat-form-tools {
   display: flex;
   align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  min-width: 0;
+  min-height: 26px;
+}
+
+.chat-form-tools-group {
+  display: inline-flex;
+  align-items: center;
   gap: 2px;
-  min-height: 24px;
+  flex: 0 0 auto;
 }
 
 .chat-tool-btn {
@@ -716,8 +725,8 @@ body[data-theme="dark"] .chat-form:focus-within {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 28px;
-  height: 24px;
+  width: 27px;
+  height: 26px;
   padding: 0;
   border: 0;
   border-radius: 7px;
@@ -729,6 +738,22 @@ body[data-theme="dark"] .chat-form:focus-within {
 .chat-tool-btn:hover:not(:disabled) {
   background: var(--bg-strong);
   color: var(--ink);
+}
+
+.chat-form-tools .send-btn {
+  background: var(--ink);
+  color: var(--bg);
+  border: 0;
+  box-shadow: none;
+}
+
+body[data-theme="dark"] .chat-form-tools .send-btn {
+  background: #f3f4f6;
+  color: #0b0f19;
+}
+
+.chat-form-tools .stop-btn:not(:disabled) {
+  color: var(--risk);
 }
 
 .chat-tool-btn.is-loading svg {
@@ -769,15 +794,6 @@ body[data-theme="dark"] #chat-input::placeholder {
 
 #chat-input::-webkit-resizer {
   display: none;
-}
-
-.chat-form-btns {
-  display: flex;
-  flex-direction: column;
-  justify-content: flex-end;
-  align-items: center;
-  gap: 6px;
-  padding-left: 4px;
 }
 
 .chat-action-btn {
@@ -2300,21 +2316,21 @@ textarea {
   }
 
   .chat-form {
-    width: min(100%, 860px);
-    gap: 5px;
+    width: min(100%, 780px);
+    gap: 0;
     max-width: 100%;
     border-radius: 15px;
     padding: 5px 6px 5px 9px;
   }
 
-  .chat-form-btns {
-    gap: 5px;
-    padding-top: 0;
+  .chat-form-tools {
+    width: 100%;
+    flex-wrap: nowrap;
   }
 
-  .chat-action-btn {
-    width: 34px !important;
-    height: 34px !important;
+  .chat-tool-btn {
+    width: 28px;
+    height: 28px;
   }
 
   #chat-input {

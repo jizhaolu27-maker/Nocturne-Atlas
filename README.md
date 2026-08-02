@@ -99,6 +99,7 @@ While a reply is streaming, other signed-in browsers connected to the same runni
 - Runtime Memory compression creates a reviewed reconstruction; accepting it archives old records and replaces active `records.jsonl`, while chunks remain intact.
 - Request-relevant Map entries are selectively injected through `story:map_retrieved`; the graph projects only `canon` relationships.
 - Relationship arrows are directional: each `sourceId → targetId` label records only the source character's attitude toward the target. If both attitudes change, the model must propose two reversed arrows; new relationship entries default to directed semantics.
+- The SVG view visually merges two reversed directed records only when their attitude labels match exactly, rendering one label and outward arrows at both ends. The underlying records remain directional; different attitudes remain separate arrows.
 - Story Map edits are atomic, and model changes require proposal review.
 - Open the expanded Story Map from `Map` in the chat header on desktop; on mobile, use the bottom navigation or the right-panel Map entry. Desktop uses a wider workspace panel and mobile uses a full-width panel. Reviewed changes from another device are picked up by lightweight polling.
 

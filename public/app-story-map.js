@@ -158,16 +158,45 @@ window.createStoryMapTools = function createStoryMapTools({ state, els, escapeHt
     return [item.sourceId, item.targetId].map((value) => String(value || "")).sort().join("|");
   }
 
+  function visualRelationshipEdges(relationships) {
+    const used = new Set();
+    const edges = [];
+    for (let index = 0; index < relationships.length; index += 1) {
+      if (used.has(index)) continue;
+      const item = relationships[index];
+      const label = String(item.label || item.type || "").trim().toLowerCase();
+      const reverseIndex = item.direction === "directed"
+        ? relationships.findIndex((candidate, candidateIndex) =>
+          candidateIndex > index &&
+          !used.has(candidateIndex) &&
+          candidate.direction === "directed" &&
+          candidate.sourceId === item.targetId &&
+          candidate.targetId === item.sourceId &&
+          String(candidate.label || candidate.type || "").trim().toLowerCase() === label
+        )
+        : -1;
+      if (reverseIndex >= 0) {
+        used.add(reverseIndex);
+        edges.push({ ...item, visualDirection: "bidirectional" });
+      } else {
+        edges.push({ ...item, visualDirection: item.direction === "mutual" ? "bidirectional" : "directed" });
+      }
+      used.add(index);
+    }
+    return edges;
+  }
+
   function renderRelationshipGraph(relationships) {
     if (!relationships.length) return emptyState("No canon relationship events yet.");
     const layout = graphLayout(relationships);
+    const visualEdges = visualRelationshipEdges(relationships);
     const pairCounts = new Map();
-    for (const item of relationships) {
+    for (const item of visualEdges) {
       const key = relationshipPairKey(item);
       pairCounts.set(key, (pairCounts.get(key) || 0) + 1);
     }
     const pairIndexes = new Map();
-    const edges = relationships.map((item) => {
+    const edges = visualEdges.map((item) => {
       const source = layout.nodes.get(item.sourceId);
       const target = layout.nodes.get(item.targetId);
       const pairKey = relationshipPairKey(item);
@@ -187,21 +216,27 @@ window.createStoryMapTools = function createStoryMapTools({ state, els, escapeHt
       const unitX = dx / distance;
       const unitY = dy / distance;
       const nodeInset = Math.sqrt(Math.max(0, 25 ** 2 - edgeOffset ** 2));
-      const arrowClearance = item.direction === "directed" ? 10 : 0;
-      const sourceX = source.x + normalX * edgeOffset + unitX * nodeInset;
-      const sourceY = source.y + normalY * edgeOffset + unitY * nodeInset;
-      const targetX = target.x + normalX * edgeOffset - unitX * (nodeInset + arrowClearance);
-      const targetY = target.y + normalY * edgeOffset - unitY * (nodeInset + arrowClearance);
+      const hasStartArrow = item.visualDirection === "bidirectional";
+      const hasEndArrow = ["directed", "bidirectional"].includes(item.visualDirection);
+      const sourceClearance = hasStartArrow ? 10 : 0;
+      const targetClearance = hasEndArrow ? 10 : 0;
+      const sourceX = source.x + normalX * edgeOffset + unitX * (nodeInset + sourceClearance);
+      const sourceY = source.y + normalY * edgeOffset + unitY * (nodeInset + sourceClearance);
+      const targetX = target.x + normalX * edgeOffset - unitX * (nodeInset + targetClearance);
+      const targetY = target.y + normalY * edgeOffset - unitY * (nodeInset + targetClearance);
       const labelSide = pairCount > 1 ? Math.sign(edgeOffset || pairIndex - (pairCount - 1) / 2) : -1;
       const labelX = (sourceX + targetX) / 2 + normalX * labelSide * 8;
       const labelY = (sourceY + targetY) / 2 + normalY * labelSide * 8;
+      const arrowWing = edgeOffset >= 0 ? "positive" : "negative";
+      const startMarker = hasStartArrow ? `marker-start="url(#story-map-arrow-${arrowWing})"` : "";
+      const endMarker = hasEndArrow ? `marker-end="url(#story-map-arrow-${arrowWing})"` : "";
       let labelAngle = Math.atan2(dy, dx) * 180 / Math.PI;
       if (labelAngle > 90) labelAngle -= 180;
       if (labelAngle < -90) labelAngle += 180;
       const strokeWidth = 1.5 + Math.abs(Number(item.strength || 0)) * 3;
       return `
         <g class="relationship-edge" data-map-edit="relationship" data-map-id="${escapeHtml(item.id)}">
-          <line x1="${sourceX}" y1="${sourceY}" x2="${targetX}" y2="${targetY}" style="stroke-width:${strokeWidth}" ${item.direction === "directed" ? 'marker-end="url(#story-map-arrow)"' : ""}></line>
+          <line x1="${sourceX}" y1="${sourceY}" x2="${targetX}" y2="${targetY}" style="stroke-width:${strokeWidth}" ${startMarker} ${endMarker}></line>
           <text x="${labelX}" y="${labelY}" transform="rotate(${labelAngle} ${labelX} ${labelY})">${escapeHtml(item.label || item.type)}</text>
         </g>`;
     }).join("");
@@ -214,7 +249,10 @@ window.createStoryMapTools = function createStoryMapTools({ state, els, escapeHt
       <div class="relationship-canvas">
         <div class="relationship-controls"><button type="button" data-graph-zoom="out" aria-label="Zoom out">−</button><button type="button" data-graph-zoom="reset" aria-label="Reset graph view">Reset</button><button type="button" data-graph-zoom="in" aria-label="Zoom in">+</button></div>
         <svg viewBox="0 0 ${layout.width} ${layout.height}" role="img" aria-label="Current canon character relationships" data-relationship-graph>
-          <defs><marker id="story-map-arrow" markerUnits="userSpaceOnUse" markerWidth="14" markerHeight="12" refX="11" refY="6" orient="auto"><path d="M1,1 L11,6"></path></marker></defs>
+          <defs>
+            <marker id="story-map-arrow-positive" markerUnits="userSpaceOnUse" markerWidth="14" markerHeight="12" refX="11" refY="6" orient="auto-start-reverse"><path d="M1,11 L11,6"></path></marker>
+            <marker id="story-map-arrow-negative" markerUnits="userSpaceOnUse" markerWidth="14" markerHeight="12" refX="11" refY="6" orient="auto-start-reverse"><path d="M1,1 L11,6"></path></marker>
+          </defs>
           <g data-relationship-stage transform="translate(${graphOffset.x} ${graphOffset.y}) scale(${graphScale})">${edges}${nodes}</g>
         </svg>
       </div>`;

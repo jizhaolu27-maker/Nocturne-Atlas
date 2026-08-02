@@ -308,7 +308,8 @@
   stroke-width: 4px;
 }
 
-#story-map-arrow path {
+#story-map-arrow-positive path,
+#story-map-arrow-negative path {
   fill: none;
   stroke: var(--accent);
   stroke-width: 2.5px;

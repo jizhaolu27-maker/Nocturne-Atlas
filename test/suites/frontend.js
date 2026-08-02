@@ -84,7 +84,8 @@ module.exports = async function runFrontendTests(runTest) {
       assert.match(els.storyMapContent.innerHTML, /Find the archive/);
       storyMap.renderStoryMap("relationships");
       assert.match(els.storyMapContent.innerHTML, /<svg/);
-      assert.match(els.storyMapContent.innerHTML, /<marker id="story-map-arrow"[^>]+><path d="M1,1 L11,6"><\/path>/);
+      assert.match(els.storyMapContent.innerHTML, /<marker id="story-map-arrow-positive"[^>]+><path d="M1,11 L11,6"><\/path>/);
+      assert.match(els.storyMapContent.innerHTML, /<marker id="story-map-arrow-negative"[^>]+><path d="M1,1 L11,6"><\/path>/);
       assert.match(els.storyMapContent.innerHTML, /Trusted/);
       const singleArrow = els.storyMapContent.innerHTML.match(/<line x1="([^"]+)" y1="([^"]+)" x2="([^"]+)" y2="([^"]+)"[^>]+marker-end/);
       assert.ok(singleArrow);
@@ -94,6 +95,8 @@ module.exports = async function runFrontendTests(runTest) {
         id: "rel-2", sourceId: "mira", targetId: "lyra", type: "tension", label: "Old debt", status: "canon", direction: "directed", strength: 0.4,
       });
       storyMap.renderStoryMap("relationships");
+      assert.match(els.storyMapContent.innerHTML, /marker-end="url\(#story-map-arrow-positive\)"/);
+      assert.match(els.storyMapContent.innerHTML, /marker-end="url\(#story-map-arrow-negative\)"/);
       const labelCoordinates = [...els.storyMapContent.innerHTML.matchAll(/<text x="([^"]+)" y="([^"]+)" transform="rotate\(([-\d.]+) [^"]+\)">(?:Trusted|Old debt)<\/text>/g)]
         .map((match) => `${match[1]},${match[2]}`);
       assert.equal(new Set(labelCoordinates).size, 2);
@@ -103,6 +106,13 @@ module.exports = async function runFrontendTests(runTest) {
       const edgeLines = [...els.storyMapContent.innerHTML.matchAll(/<line x1="([^"]+)" y1="([^"]+)" x2="([^"]+)" y2="([^"]+)"/g)]
         .map((match) => match.slice(1).join(","));
       assert.equal(new Set(edgeLines).size, 2);
+      state.activeStoryData.storyState.currentRelationships[1].label = "Trusted";
+      storyMap.renderStoryMap("relationships");
+      const mergedEdges = [...els.storyMapContent.innerHTML.matchAll(/<line [^>]+>/g)];
+      assert.equal(mergedEdges.length, 1);
+      assert.match(mergedEdges[0][0], /marker-start="url\(#story-map-arrow-positive\)"/);
+      assert.match(mergedEdges[0][0], /marker-end="url\(#story-map-arrow-positive\)"/);
+      assert.equal((els.storyMapContent.innerHTML.match(/>Trusted<\/text>/g) || []).length, 1);
     } finally {
       global.window = previousWindow;
       global.document = previousDocument;

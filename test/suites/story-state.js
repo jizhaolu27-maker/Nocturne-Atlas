@@ -103,6 +103,17 @@ module.exports = async function runStoryStateTests(runTest) {
     assert.match(direction, /Cross the drowned station/);
     assert.match(direction, /not proof that planned events have already happened/);
     assert.equal(contextTools.buildStoryDirectionText({}), "");
+    const mapContext = contextTools.buildStoryMapRetrievalText(
+      {
+        timelineEvents: [{ id: "event-1", title: "The drowned station opens", status: "canon", summary: "Lyra finds the archive." }],
+        relationshipEvents: [{ id: "rel-1", sourceId: "lyra", targetId: "mira", type: "trust", label: "Uneasy allies", status: "canon" }],
+      },
+      { characters: [{ id: "lyra", name: "Lyra" }, { id: "mira", name: "Mira" }] },
+      "What happened when Lyra found the archive?"
+    );
+    assert.match(mapContext, /drowned station/);
+    assert.match(mapContext, /relevant to the current request/);
+    assert.equal(contextTools.buildStoryMapRetrievalText({}, {}, "A completely unrelated question"), "");
   });
 
   await runTest("story state lazily supports old stories and persists reviewed structure", () => {

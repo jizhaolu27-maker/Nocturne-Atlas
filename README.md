@@ -105,6 +105,7 @@ Story configuration and asset selections auto-save. Provider and Library Editor 
 ### Proposals
 
 - The model can suggest structured workspace updates instead of silently editing canon.
+- The model can also suggest `Story Map` updates: major events go to the timeline, current goals to plot/outline state, and durable relationship changes to relationship history; only lasting world rules belong in worldbooks.
 - Proposal review lets you accept, reject, or revisit changes story by story.
 - Accepted proposals only affect the active story's workspace copy.
 

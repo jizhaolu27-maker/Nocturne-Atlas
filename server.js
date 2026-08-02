@@ -283,6 +283,8 @@ const {
   getStoryProposalFile,
   getStoryWorkspaceDir,
   syncStoryWorkspace,
+  getStoryStateView,
+  saveStoryState,
 });
 
 function slugify(input) {

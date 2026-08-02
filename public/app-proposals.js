@@ -4,6 +4,7 @@ window.createProposalUiTools = function createProposalUiTools({ state, els, esca
       character: "Character Card",
       worldbook: "Worldbook",
       style: "Style",
+      story_state: "Story Map",
     };
     return labels[targetType] || targetType || "Unknown type";
   }
@@ -127,7 +128,7 @@ window.createProposalUiTools = function createProposalUiTools({ state, els, esca
             (item) => `
               <article class="proposal-item proposal-card workspace-detail" data-proposal-id="${item.id}">
                 <div class="workspace-detail-head">
-                  <strong>${escapeHtml(formatProposalAction(item.action || "update"))}${escapeHtml(formatProposalTargetType(item.targetType))} / ${escapeHtml(item.diff?.name || item.targetId)}</strong>
+                  <strong>${escapeHtml(formatProposalAction(item.action || "update"))}${escapeHtml(formatProposalTargetType(item.targetType))} / ${escapeHtml(item.diff?.name || item.diff?.kind || item.targetId)}</strong>
                 </div>
                 <div class="proposal-meta">
                   <div class="proposal-meta-line">Target ID: ${escapeHtml(item.targetId)}</div>

@@ -160,6 +160,10 @@ window.createShellTools = function createShellTools({
       const isOpen = els.appShell.classList.contains("right-open");
       setSidebarOpen(false);
       els.appShell.classList.toggle("right-open", !isOpen);
+      if (isOpen) {
+        document.querySelector(".right-panel")?.classList.remove("story-map-expanded");
+        els.appShell.classList.remove("story-map-focus");
+      }
       setMobileNavState(
         isOpen
           ? "chat"
@@ -171,6 +175,10 @@ window.createShellTools = function createShellTools({
     }
     const isCollapsed = els.appShell.classList.contains("right-collapsed");
     els.appShell.classList.toggle("right-collapsed", !isCollapsed);
+    if (!isCollapsed) {
+      document.querySelector(".right-panel")?.classList.remove("story-map-expanded");
+      els.appShell.classList.remove("story-map-focus");
+    }
   }
 
   function activateRightTab(tab) {

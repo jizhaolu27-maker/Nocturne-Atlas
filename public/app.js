@@ -899,6 +899,8 @@ els.storyMapTopBtn?.addEventListener("click", () => {
     ? shell?.classList.contains("right-open")
     : !shell?.classList.contains("right-collapsed"));
   if (mapIsOpen) {
+    document.querySelector(".right-panel")?.classList.remove("story-map-expanded");
+    shell?.classList.remove("story-map-focus");
     document.querySelector("#right-panel-btn")?.click();
     return;
   }

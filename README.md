@@ -10,7 +10,7 @@ It is designed for writers who want more than a single chat box. Each story gets
 
 - Keeps every story in its own isolated workspace
 - Separates immutable library assets from story-local working copies
-- Uses Memory RAG for continuity and selective Knowledge RAG for relevant workspace lore
+- Uses Memory, Knowledge, and Story Map retrieval for long-form continuity
 - Stores chats, memory, proposals, and diagnostics as local JSON or JSONL
 - Supports proposal-based canon updates instead of silent auto-merges
 - Streams replies in the browser with stop and revise-last support
@@ -88,19 +88,17 @@ While a reply is streaming, other signed-in browsers connected to the same runni
 
 - Memory records are stored in `data/stories/<storyId>/memory/records.jsonl`.
 - Supporting evidence and episodic chunks are stored in `data/stories/<storyId>/memory/chunks.jsonl`.
-- Retrieval can inject stable facts, recent facts, and scene evidence back into the prompt.
-- Old memory keywords are refreshed lazily at runtime so legacy stories benefit from newer retrieval logic.
+- Memory retrieval injects stable facts, recent facts, and scene evidence; legacy keywords refresh lazily.
 
 ### Story Map
 
-- Reviewed outline nodes, plot threads, timeline events, and relationship events are stored separately from retrieval memory.
-- The current active outline and active plot-thread goals are injected as `Reviewed story direction`; planned events are explicitly not treated as events that already happened.
+- Reviewed outline, plot, timeline, and relationship data is stored separately from memory.
+- The active outline and plot goals are pinned as `Reviewed story direction`; planned events are not treated as facts.
 - Character cards, worldbooks, and styles in `Always` mode are pinned and are not removed by normal context trimming; focused non-Always assets can still be trimmed under token pressure.
 - Knowledge RAG retrieves only Keyword-mode character cards and worldbooks; Always sources are excluded to prevent duplicate injection, while styles remain fixed writing constraints.
-- The Runtime Memory compression icon creates a reviewed memory reconstruction draft; accepting it replaces active `records.jsonl` only after archiving the old records, while scene chunks remain intact.
-- Request-relevant outline, plot, timeline, and relationship entries are selectively injected through `story:map_retrieved`; fixed direction and Map retrieval stay separate so the full map does not consume the prompt.
-- The relationship graph is projected only from `canon` relationship events, while the history view keeps planned, superseded, and discarded changes visible.
-- Story Map is edited by the user and saved atomically. The model does not silently rewrite it.
+- Runtime Memory compression creates a reviewed reconstruction; accepting it archives old records and replaces active `records.jsonl`, while chunks remain intact.
+- Request-relevant Map entries are selectively injected through `story:map_retrieved`; the graph projects only `canon` relationships.
+- Story Map edits are atomic, and model changes require proposal review.
 - Open the expanded Story Map from `Map` in the chat header on desktop; on mobile, use the bottom navigation or the right-panel Map entry. Desktop uses a wider workspace panel and mobile uses a full-width panel. Reviewed changes from another device are picked up by lightweight polling.
 
 Story configuration and asset selections auto-save. Provider and Library Editor retain their own manual Save buttons because they commit separate global provider or library records.
@@ -123,28 +121,15 @@ Common labels:
 - `Critical memory`, `Recent memory`, `Memory evidence`: memory layers injected into the current prompt
 - `Grounding Check`: post-response support analysis against retrieved memory and knowledge
 
-## Retrieval
+## Retrieval and RAG
 
-Nocturne Atlas uses two retrieval layers:
+Three retrieval layers are available by default:
 
-- **Memory RAG** for story continuity, canon facts, and recent scene evidence
-- **Knowledge RAG** for character cards, worldbooks, and style material
+- **Memory RAG**: stable facts, recent facts, and episodic scene evidence.
+- **Knowledge RAG**: on-demand Keyword-mode character cards and worldbooks; Always assets are pinned instead, and styles are always-on writing constraints.
+- **Story Map retrieval**: query-matched outline, plot, timeline, and relationship entries; the active direction remains pinned.
 
-Both retrieval pipelines are available by default. Memory retrieval protects continuity on every turn, while Knowledge retrieval is selective: it searches only non-Always, Keyword-mode character cards and worldbooks when the current request benefits from workspace lore. Lexical recall still exists as an internal fallback when semantic retrieval is unavailable or too weak.
-
-### Memory RAG
-
-- Stable memory facts protect continuity
-- Recent memory facts keep short-term developments alive
-- Episodic evidence helps with scene detail and chronology
-- Retrieval can combine facts and evidence in the same turn
-
-### Knowledge RAG
-
-- Workspace assets are chunked and indexed per story
-- Semantic retrieval runs first when local embeddings are enabled
-- Lexical chunk recall fills gaps when semantic recall is unavailable or weak
-- Story-local knowledge indexes are rebuilt automatically when the index version changes
+Knowledge and Map indexes are story-local. Semantic retrieval runs when local embeddings are enabled, with lexical recall as fallback; indexes rebuild when their version changes.
 
 ## Local Embeddings
 

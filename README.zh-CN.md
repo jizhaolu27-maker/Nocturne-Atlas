@@ -10,7 +10,7 @@
 
 - 每个故事拥有独立的角色卡、世界书和文风工作区
 - 源素材库与故事工作副本严格分离
-- 默认启用 Memory RAG 保持连续性，并按需使用 Knowledge RAG 检索相关工作区设定
+- 默认启用 Memory、Knowledge 和图谱检索，支持长篇故事连续性
 - 聊天、记忆、提案、诊断都以本地 JSON / JSONL 存储
 - 通过提案审阅更新设定，而不是静默改写 canon
 - 支持流式输出、停止生成和“回退后重生成”的上轮重写
@@ -88,19 +88,17 @@ npm test
 
 - 记忆记录存放在 `data/stories/<storyId>/memory/records.jsonl`
 - 支撑证据和 episodic chunk 存放在 `data/stories/<storyId>/memory/chunks.jsonl`
-- 检索时会把稳定事实、近期事实和场景证据重新注入 prompt
-- 旧故事里的 memory keywords 会在运行时懒刷新，所以历史数据也能吃到新的检索逻辑
+- 检索会注入稳定事实、近期事实和场景证据；旧 memory keywords 会在运行时懒刷新。
 
 ### 图谱
 
-- 已审阅的大纲节点、剧情线、时间线事件和人物关系事件独立于检索记忆保存。
-- 当前 active 大纲和活跃剧情线目标会以 `Reviewed story direction` 注入 prompt；planned 事件不会被当作已经发生。
+- 已审阅的大纲、剧情线、时间线和人物关系独立于记忆保存。
+- 当前大纲和剧情目标以 `Reviewed story direction` 固定注入；planned 事件不会被当作事实。
 - `Always` 模式的角色卡、世界书和文风都会作为 pinned 上下文保留，不会因普通上下文筛选被裁掉；未设为 Always 的聚焦资产仍可按 token 压力裁剪。
 - Knowledge RAG 只从 Keyword 模式的角色卡和世界书中检索；已 Always 的来源不会重复进入 Knowledge，文风统一作为固定写作约束注入。
-- Runtime Memory 标题旁的压缩图标会生成记忆重构草稿；用户接受后才覆盖活跃 `records.jsonl`，旧记录先归档，场景 chunks 保留。
-- 当前请求相关的大纲、剧情线、时间线和人物关系会通过 `story:map_retrieved` 按需检索注入；固定方向与按需 Map RAG 分开，避免全量 Map 占用上下文。
-- 人物关系图只投影 `canon` 关系事件，历史视图仍保留 planned、superseded 和 discarded 变化。
-- 图谱由用户编辑并原子保存，模型不会静默改写。
+- Runtime Memory 压缩会生成可审核的重构；接受后归档旧记录并覆盖 `records.jsonl`，场景 chunks 保留。
+- 当前请求相关的图谱条目通过 `story:map_retrieved` 按需注入；关系图只投影 `canon` 关系。
+- 图谱编辑原子保存，模型变更必须经过提案审阅。
 - 桌面端可从聊天区顶部的 `Map` 打开宽版图谱；移动端请使用底部导航或右侧面板中的 Map 入口。桌面端会展开更宽的右侧工作区，移动端使用全宽面板。图谱也会轮询已审阅状态，便于其他设备查看更新。
 
 故事配置和资产选择会自动保存；Provider 和 Library Editor 仍保留各自的手动 Save 按钮，因为它们涉及独立的全局素材或服务商配置。
@@ -129,26 +127,13 @@ Diagnostics 用来回答一个很重要的问题：这一轮模型到底看到�
 
 ## 检索与 RAG
 
-Nocturne Atlas 现在有两层检索：
+当前默认可用三层检索：
 
-- **Memory RAG**：负责故事连续性、canon 事实和近期剧情证据
-- **Knowledge RAG**：负责角色卡、世界书和文风资料
+- **Memory RAG**：稳定事实、近期事实和场景证据。
+- **Knowledge RAG**：按需检索 Keyword 模式的角色卡和世界书；Always 素材固定注入，文风始终作为写作约束。
+- **图谱检索**：按请求召回相关大纲、剧情线、时间线和人物关系；当前方向固定注入。
 
-两套检索管线默认可用。Memory RAG 每轮保护故事连续性；Knowledge RAG 只在当前请求需要工作区设定时，按需从非 Always、Keyword 模式的角色卡和世界书中召回。lexical recall 依然存在，但只作为内部兜底路径，在语义检索不可用或命中过弱时补位。
-
-### Memory RAG
-
-- 稳定 memory fact 负责保护连续性
-- recent memory fact 负责保留短期剧情推进
-- episodic evidence 负责支持场景细节与时间顺序
-- 同一轮里可以联合使用事实和证据，而不是只靠摘要记忆
-
-### Knowledge RAG
-
-- 工作区素材会按故事切块并建立索引
-- 开启本地 embedding 后，优先走语义检索
-- 语义检索不够强时，lexical chunk recall 会补位
-- 当 knowledge index version 变化时，旧的 story-local 知识索引会自动重建
+Knowledge 与图谱索引按故事保存。开启本地 embedding 时优先语义检索，lexical recall 负责兜底；索引版本变化会自动重建。
 
 ## 本地 Embedding
 
